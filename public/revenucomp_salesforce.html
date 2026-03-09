@@ -348,9 +348,102 @@
     .header h1 { font-size: 22px; }
     .chart-wrap { height: 280px; }
   }
+  /* Password overlay */
+  .pw-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pw-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 40px 36px;
+    text-align: center;
+    max-width: 360px;
+    width: 90%;
+  }
+  .pw-box h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .pw-box p {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+  .pw-box input {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    width: 100%;
+    margin-bottom: 12px;
+    outline: none;
+  }
+  .pw-box input:focus { border-color: var(--accent-2025); }
+  .pw-box .pw-err {
+    color: #e85d5d;
+    font-size: 12px;
+    margin-bottom: 8px;
+    min-height: 18px;
+  }
+  .pw-box button {
+    width: 100%;
+    padding: 10px;
+    font-weight: 600;
+  }
 </style>
 </head>
 <body>
+
+<!-- Password gate -->
+<div class="pw-overlay" id="pwOverlay">
+  <div class="pw-box">
+    <h2>HAVEN Sales Dashboard</h2>
+    <p>Enter the password to continue</p>
+    <input type="password" id="pwInput" placeholder="Password" autofocus>
+    <div class="pw-err" id="pwErr"></div>
+    <button class="primary" id="pwBtn" onclick="checkPw()">Enter</button>
+  </div>
+</div>
+<script>
+  // Simple client-side password gate
+  // The password hash is checked client-side. This isn't Fort Knox, but it keeps
+  // casual visitors out. The API routes remain server-side protected by env vars.
+  var PW_HASH = 'e08d706b3e4ce964b632746cf568913cb93f1ed36476fbb0494b80ed17c5975c'; // sha256 of "enter"
+  function sha256(str) {
+    var buf = new TextEncoder().encode(str);
+    return crypto.subtle.digest('SHA-256', buf).then(function(h) {
+      return Array.from(new Uint8Array(h)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+    });
+  }
+  function checkPw() {
+    var val = document.getElementById('pwInput').value;
+    sha256(val).then(function(hash) {
+      if (hash === PW_HASH) {
+        document.getElementById('pwOverlay').style.display = 'none';
+        sessionStorage.setItem('haven_dash_auth', '1');
+      } else {
+        document.getElementById('pwErr').textContent = 'Incorrect password';
+        document.getElementById('pwInput').value = '';
+        document.getElementById('pwInput').focus();
+      }
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function() {
+    if (sessionStorage.getItem('haven_dash_auth') === '1') {
+      document.getElementById('pwOverlay').style.display = 'none';
+    }
+    document.getElementById('pwInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') checkPw();
+    });
+  });
+</script>
 
 <div class="auth-panel">
   <div class="auth-content">
@@ -730,20 +823,14 @@ window._sfAuth = (function() {
   }
 
   function addStatusMessage(msg, type) {
+    // Only show errors — skip info/warning notifications to keep layout stable
+    if (type !== 'error') return;
     var container = document.getElementById('statusMessages');
     if (!container) return;
     var div = document.createElement('div');
     div.className = 'status-message ' + type;
     div.textContent = msg;
     container.appendChild(div);
-
-    if (type !== 'error') {
-      setTimeout(function() {
-        if (div.parentNode) {
-          container.removeChild(div);
-        }
-      }, 5000);
-    }
   }
 
   // Expose transform functions so dashboard module can use them
