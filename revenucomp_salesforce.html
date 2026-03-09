@@ -1,0 +1,2550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HAVEN Lifestyles - Weekly Sales Dashboard (Salesforce)</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0f14;
+    --surface: #13161d;
+    --surface2: #1a1e27;
+    --border: #252a35;
+    --text: #e8eaed;
+    --text-muted: #8b919e;
+    --accent-2024: #4a90d9;
+    --accent-2025: #e8a838;
+    --accent-2026: #5cd6a0;
+    --up: #5cd6a0;
+    --down: #e85d5d;
+    --neutral: #8b919e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .auth-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .auth-panel.collapsed {
+    padding: 12px 16px;
+  }
+  .auth-panel.collapsed .auth-content {
+    display: none;
+  }
+  .auth-toggle {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .auth-toggle:hover {
+    color: var(--text);
+  }
+  .auth-content {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .auth-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e85d5d;
+  }
+  .status-dot.connected {
+    background: #5cd6a0;
+  }
+  .auth-config {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .auth-config input {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    width: 200px;
+  }
+  .auth-config input::placeholder {
+    color: var(--text-muted);
+  }
+  .auth-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .header h1 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  .header h1 span {
+    color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    font-size: 15px;
+    margin-left: 12px;
+  }
+  .controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .controls label {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-right: 4px;
+  }
+  select, button {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  select:hover, button:hover { border-color: var(--text-muted); }
+  button.active {
+    background: var(--accent-2025);
+    color: var(--bg);
+    border-color: var(--accent-2025);
+    font-weight: 500;
+  }
+  button.primary {
+    background: var(--accent-2025);
+    color: var(--bg);
+    border-color: var(--accent-2025);
+    font-weight: 500;
+  }
+  button.primary:hover {
+    background: #f0b946;
+    border-color: #f0b946;
+  }
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent-2025);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .status-message {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-size: 13px;
+  }
+  .status-message.error {
+    background: rgba(232, 93, 93, 0.15);
+    color: #e85d5d;
+    border: 1px solid rgba(232, 93, 93, 0.3);
+  }
+  .status-message.info {
+    background: rgba(74, 144, 217, 0.15);
+    color: #4a90d9;
+    border: 1px solid rgba(74, 144, 217, 0.3);
+  }
+  .status-message.warning {
+    background: rgba(232, 168, 56, 0.15);
+    color: #e8a838;
+    border: 1px solid rgba(232, 168, 56, 0.3);
+  }
+  .no-data-overlay {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 40px;
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .no-data-overlay h3 {
+    font-size: 18px;
+    margin-bottom: 12px;
+    color: var(--text);
+  }
+  .no-data-overlay p {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .kpi .lbl {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .kpi .val {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+  }
+  .kpi .sub { font-size: 12px; margin-top: 4px; }
+  .kpi .sub.up { color: var(--up); }
+  .kpi .sub.down { color: var(--down); }
+  .kpi .sub.neutral { color: var(--neutral); }
+  .chart-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .chart-section h2 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .chart-section .subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+  .chart-wrap { position: relative; width: 100%; height: 380px; }
+  .legend-inline {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+  }
+  .legend-inline em { display: flex; align-items: center; gap: 5px; font-style: normal; }
+  .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .table-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    overflow-x: auto;
+  }
+  .table-section h2 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 16px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--border);
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  thead th:hover { color: var(--text); }
+  thead th .sa { margin-left: 4px; opacity: 0.4; }
+  thead th.sorted .sa { opacity: 1; }
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  tbody tr:hover { background: var(--surface2); }
+  tbody td { padding: 10px 14px; white-space: nowrap; text-align: left; }
+  td.num { text-align: left; font-variant-numeric: tabular-nums; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .badge.up { background: rgba(92, 214, 160, 0.15); color: var(--up); }
+  .badge.down { background: rgba(232, 93, 93, 0.15); color: var(--down); }
+  .badge.neutral { background: rgba(139, 145, 158, 0.12); color: var(--neutral); }
+  .last-updated {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+  .slate-filter-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .slate-filter-section h2 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .slate-filter-section .subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+  .slate-checkboxes {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .slate-cb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-muted);
+    user-select: none;
+    transition: color 0.15s;
+  }
+  .slate-cb:hover { color: var(--text); }
+  .slate-cb input[type="checkbox"] { display: none; }
+  .slate-cb .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 2px solid transparent;
+    transition: all 0.15s;
+    opacity: 0.35;
+  }
+  .slate-cb input:checked + .swatch {
+    opacity: 1;
+    box-shadow: 0 0 6px rgba(255,255,255,0.15);
+  }
+  .slate-cb input:checked ~ .slate-label { color: var(--text); }
+  .slate-cb-all .swatch { border-radius: 3px; }
+  .slate-chart-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  .slate-chart-scroll::-webkit-scrollbar { height: 6px; }
+  .slate-chart-scroll::-webkit-scrollbar-track { background: transparent; }
+  .slate-chart-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+  @media (max-width: 768px) {
+    body { padding: 12px; }
+    .header h1 { font-size: 22px; }
+    .chart-wrap { height: 280px; }
+    .auth-config input { width: 150px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="auth-panel" id="authPanel">
+  <button class="auth-toggle" onclick="window._sfAuth.togglePanel()">
+    <span id="authToggleIcon">▼</span>
+    <span>Salesforce Connection</span>
+  </button>
+  <div class="auth-content">
+    <div class="auth-status">
+      <span class="status-dot" id="authStatusDot"></span>
+      <span id="authStatusText">Disconnected</span>
+    </div>
+    <div id="authConnectedView" style="display:none; flex: 1; gap: 12px; align-items: center; flex-wrap: wrap;">
+      <span id="authOrgName" style="font-size:12px;color:var(--text-muted)"></span>
+      <button onclick="window._sfAuth.refreshData()" title="Refresh data from Salesforce">
+        <span class="spinner" id="refreshSpinner" style="display:none"></span>
+        <span id="refreshText">Refresh Data</span>
+      </button>
+      <button onclick="window._sfAuth.openSettings()">Settings</button>
+      <button onclick="window._sfAuth.disconnect()">Disconnect</button>
+      <div class="last-updated" id="lastUpdated"></div>
+    </div>
+    <div id="authDisconnectedView" style="display:none;">
+      <div class="auth-config">
+        <input type="hidden" id="sfInstanceUrl">
+        <input type="hidden" id="sfClientId">
+        <button class="primary" onclick="window._sfAuth.connect()">Sign in with Salesforce</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="statusMessages"></div>
+
+<div id="noDataMessage" class="no-data-overlay" style="display:none;">
+  <h3>Sign In to View Sales Data</h3>
+  <p>Click below to sign in with your Salesforce account and load the live sales dashboard.</p>
+  <button class="primary" onclick="window._sfAuth.connect()">Sign in with Salesforce</button>
+  <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Or load sample data to preview the dashboard:</p>
+    <button onclick="window._demo.load()" style="font-size:12px;">Load Demo Data</button>
+  </div>
+</div>
+
+<div class="header" id="mainHeader" style="display:none;">
+  <h1>HAVEN Lifestyles <span>Weekly Sales Comparison</span></h1>
+  <div class="controls">
+    <label>View:</label>
+    <button id="btnAmount" class="active" onclick="window._dash.setMetric('amount')">Revenue ($)</button>
+    <button id="btnCount" onclick="window._dash.setMetric('count')">Deal Count</button>
+    <label style="margin-left:12px">Range:</label>
+    <select id="rangeSelect" onchange="window._dash.setRange(this.value)">
+      <option value="all">Full Year</option>
+      <option value="q1">Q1 (W1-W13)</option>
+      <option value="q2">Q2 (W14-W26)</option>
+      <option value="q3">Q3 (W27-W39)</option>
+      <option value="q4">Q4 (W40-W52)</option>
+      <option value="ytd" selected>YTD (through current week)</option>
+      <option value="thisweek">This Week (week-to-date)</option>
+    </select>
+  </div>
+</div>
+
+<div class="kpi-row" id="kpiRow"></div>
+
+<div class="chart-section" id="chartSection" style="display:none;">
+  <h2 id="chartTitle">Weekly Revenue - Year-over-Year</h2>
+  <p class="subtitle" id="chartSubtitle">Comparing the same ISO week across years</p>
+  <div class="legend-inline" id="legendContainer"></div>
+  <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+</div>
+
+<div class="chart-section" id="deltaSection" style="display:none;">
+  <h2 id="deltaTitle">Year-over-Year Change (%)</h2>
+  <p class="subtitle" id="deltaSubtitle">Percentage change vs same week prior year</p>
+  <div class="chart-wrap" style="height:240px"><canvas id="deltaChart"></canvas></div>
+</div>
+
+<div class="slate-filter-section" id="slateSection" style="display:none;">
+  <h2 id="slateChartTitle">Slate Comparison - Year-over-Year</h2>
+  <p class="subtitle" id="slateChartSubtitle">Filter by market slate to compare edition-matched weeks across years</p>
+  <div class="slate-checkboxes" id="slateCheckboxes">
+    <label class="slate-cb slate-cb-all"><input type="checkbox" value="all" onchange="window._slates.toggleAll(this)"><span class="swatch" style="background:linear-gradient(135deg,#e8a838,#5cd6a0,#4a90d9,#b07ce8,#e85d5d)"></span><span class="slate-label">All</span></label>
+    <label class="slate-cb"><input type="checkbox" value="orange" checked onchange="window._slates.selectOne(this)"><span class="swatch" style="background:#e8a838"></span><span class="slate-label">Orange (ATX/SA)</span></label>
+    <label class="slate-cb"><input type="checkbox" value="green" onchange="window._slates.selectOne(this)"><span class="swatch" style="background:#5cd6a0"></span><span class="slate-label">Green (ATL)</span></label>
+    <label class="slate-cb"><input type="checkbox" value="blue" onchange="window._slates.selectOne(this)"><span class="swatch" style="background:#4a90d9"></span><span class="slate-label">Blue (AL/MS)</span></label>
+    <label class="slate-cb"><input type="checkbox" value="yellow" onchange="window._slates.selectOne(this)"><span class="swatch" style="background:#f0e060"></span><span class="slate-label">Yellow (CHI)</span></label>
+    <label class="slate-cb"><input type="checkbox" value="purple" onchange="window._slates.selectOne(this)"><span class="swatch" style="background:#b07ce8"></span><span class="slate-label">Purple (CA)</span></label>
+    <label class="slate-cb"><input type="checkbox" value="red" onchange="window._slates.selectOne(this)"><span class="swatch" style="background:#e85d5d"></span><span class="slate-label">Red (HI)</span></label>
+  </div>
+  <div class="legend-inline" id="slateLegend"></div>
+  <div class="slate-chart-scroll" id="slateChartScroll">
+    <div class="chart-wrap" id="slateChartWrap"><canvas id="slateChart"></canvas></div>
+  </div>
+</div>
+
+<div class="table-section" id="tableSection" style="display:none;">
+  <h2>Week-by-Week Comparison</h2>
+  <table><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+// Salesforce Auth Module
+window._sfAuth = (function() {
+  // Pre-configured Salesforce credentials — users just need to authorize
+  var DEFAULT_INSTANCE_URL = 'https://havenlifestyles.my.salesforce.com';
+  var DEFAULT_CLIENT_ID = '3MVG9ux34Ig8G5epDAz64XfomWYSeiLbeau2NKOyse9pjHsX5vousnAxq82D9DOYaaKPYEbm4WDyLsnR_h8ic';
+
+  var config = {
+    instanceUrl: DEFAULT_INSTANCE_URL,
+    clientId: DEFAULT_CLIENT_ID,
+    redirectUri: window.location.origin + window.location.pathname,
+    accessToken: null,
+    tokenExpiresAt: null
+  };
+
+  var state = {
+    isConnected: false,
+    isPanelCollapsed: false,
+    orgName: null,
+    lastUpdated: null
+  };
+
+  // Initialize — check for existing token or handle OAuth callback
+  function init() {
+    // Check for stored token from a previous session tab
+    var token = sessionStorage.getItem('sfAccessToken');
+    if (token) {
+      try {
+        var tokenData = JSON.parse(token);
+        config.accessToken = tokenData.access_token;
+        config.tokenExpiresAt = tokenData.expiresAt;
+        state.orgName = tokenData.orgName || null;
+        state.lastUpdated = tokenData.lastUpdated || null;
+        state.isConnected = true;
+      } catch (e) {}
+    }
+
+    // Pre-fill the input fields with defaults
+    var urlInput = document.getElementById('sfInstanceUrl');
+    var clientInput = document.getElementById('sfClientId');
+    if (urlInput) urlInput.value = config.instanceUrl;
+    if (clientInput) clientInput.value = config.clientId;
+
+    updateUI();
+
+    // Handle OAuth callback (returning from Salesforce login)
+    var handled = handleOAuthCallback();
+
+    // If already connected from a previous tab in this session, auto-refresh data
+    if (state.isConnected && !handled) {
+      fetchAndRenderData();
+    }
+  }
+
+  // Initiate OAuth flow (Implicit / User-Agent flow)
+  // Token is returned directly in the URL hash - no server-side token exchange needed
+  function connect() {
+    // Use pre-configured defaults, or read from inputs if user changed them
+    var urlInput = document.getElementById('sfInstanceUrl');
+    var clientInput = document.getElementById('sfClientId');
+    config.instanceUrl = (urlInput && urlInput.value.trim()) || DEFAULT_INSTANCE_URL;
+    config.clientId = (clientInput && clientInput.value.trim()) || DEFAULT_CLIENT_ID;
+
+    // Clean up URL
+    config.instanceUrl = config.instanceUrl.replace(/\/+$/, '');
+    try { var parsed = new URL(config.instanceUrl); config.instanceUrl = parsed.origin; } catch(e) {}
+    var lightningMatch = config.instanceUrl.match(/^https:\/\/([a-z0-9\-]+)\.lightning\.force\.com/i);
+    if (lightningMatch) {
+      config.instanceUrl = 'https://' + lightningMatch[1] + '.my.salesforce.com';
+    }
+
+    addStatusMessage('Redirecting to Salesforce for authentication...', 'info');
+
+    var oauthState = btoa(Math.random().toString()).substring(0, 20);
+    sessionStorage.setItem('oauthState', oauthState);
+
+    var params = {
+      response_type: 'token',
+      client_id: config.clientId,
+      redirect_uri: config.redirectUri,
+      state: oauthState
+    };
+
+    var authUrl = config.instanceUrl + '/services/oauth2/authorize?' +
+      Object.keys(params).map(function(k) {
+        return k + '=' + encodeURIComponent(params[k]);
+      }).join('&');
+
+    window.location.href = authUrl;
+  }
+
+  // Handle OAuth callback - token comes back in the URL hash fragment
+  // Returns true if a callback was handled
+  function handleOAuthCallback() {
+    var hash = window.location.hash;
+    if (!hash || hash.length < 2) return false;
+
+    // Parse the hash fragment (remove leading #)
+    var params = new URLSearchParams(hash.substring(1));
+    var accessToken = params.get('access_token');
+    var instanceUrl = params.get('instance_url');
+    var tokenState = params.get('state');
+    var error = params.get('error');
+
+    if (error) {
+      addStatusMessage('OAuth error: ' + (params.get('error_description') || error), 'error');
+      window.history.replaceState({}, document.title, config.redirectUri);
+      return false;
+    }
+
+    if (accessToken) {
+      // Validate state to prevent CSRF
+      var storedState = sessionStorage.getItem('oauthState');
+      if (tokenState && storedState && tokenState !== storedState) {
+        addStatusMessage('Invalid OAuth state - possible CSRF attack', 'error');
+        window.history.replaceState({}, document.title, config.redirectUri);
+        return false;
+      }
+
+      // Use the instance_url from the OAuth response if available
+      if (instanceUrl) {
+        config.instanceUrl = instanceUrl;
+        // Update stored config with the canonical instance URL
+        localStorage.setItem('sfConfig', JSON.stringify({
+          instanceUrl: config.instanceUrl,
+          clientId: config.clientId
+        }));
+      }
+
+      config.accessToken = accessToken;
+      sessionStorage.removeItem('oauthState');
+
+      // Extract org name from instance URL
+      var match = config.instanceUrl.match(/https:\/\/([a-z0-9\-]+)/i);
+      state.orgName = match ? match[1] : 'Salesforce Org';
+
+      var tokenData = {
+        access_token: config.accessToken,
+        orgName: state.orgName,
+        lastUpdated: new Date().toISOString()
+      };
+      sessionStorage.setItem('sfAccessToken', JSON.stringify(tokenData));
+
+      state.isConnected = true;
+      state.lastUpdated = new Date().toISOString();
+
+      // Clean the URL (remove the hash with the token)
+      window.history.replaceState({}, document.title, config.redirectUri);
+
+      updateUI();
+      addStatusMessage('Successfully connected to Salesforce!', 'info');
+      fetchAndRenderData();
+      return true;
+    }
+    return false;
+  }
+
+  // Salesforce Report IDs
+  var REPORT_ID = '00OVL000005rMif2AE';          // Weekly aggregated
+  var DAILY_REPORT_ID = '00OVL000005wutO2AQ';     // Daily granularity
+
+  // Fetch data from Salesforce using Analytics Report API
+  function fetchAndRenderData() {
+    if (!state.isConnected || !config.accessToken) {
+      addStatusMessage('Not connected to Salesforce', 'error');
+      return;
+    }
+
+    addStatusMessage('Running Salesforce report...', 'info');
+    showSpinner(true);
+
+    // Step 1: GET the report metadata (describe), then POST it back to execute the full report
+    var describeUrl = config.instanceUrl + '/services/data/v59.0/analytics/reports/' + REPORT_ID + '/describe';
+
+    fetch(describeUrl, {
+      headers: {
+        'Authorization': 'Bearer ' + config.accessToken,
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(function(resp) {
+      if (!resp.ok) return resp.text().then(function(t) { throw new Error('Describe error: ' + t); });
+      return resp.json();
+    })
+    .then(function(describeData) {
+      var metadata = describeData.reportMetadata;
+
+      // Cache-bust: nudge the upper bound filter slightly so Salesforce treats this as a fresh execution.
+      // IMPORTANT: Use end-of-tomorrow instead of "right now" to avoid cutting off today's data
+      // due to timezone differences between the Sales_Date__c field and UTC.
+      if (metadata.reportFilters) {
+        for (var fi = 0; fi < metadata.reportFilters.length; fi++) {
+          var filter = metadata.reportFilters[fi];
+          if (filter.column && filter.column.indexOf('Sales_Date__c') >= 0 && filter.operator === 'lessOrEqual') {
+            var tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 2);
+            tomorrow.setHours(23, 59, 59, 0);
+            filter.value = tomorrow.toISOString().replace(/\.\d{3}Z$/, 'Z');
+          }
+        }
+      }
+
+      var runUrl = config.instanceUrl + '/services/data/v59.0/analytics/reports/' + REPORT_ID + '?includeDetails=false';
+      return fetch(runUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + config.accessToken,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store'
+        },
+        body: JSON.stringify({ reportMetadata: metadata })
+      });
+    })
+    .then(function(resp) {
+      if (resp.status === 401) {
+        state.isConnected = false;
+        config.accessToken = null;
+        sessionStorage.removeItem('sfAccessToken');
+        updateUI();
+        showSpinner(false);
+        addStatusMessage('Session expired. Please reconnect to Salesforce.', 'error');
+        return null;
+      }
+      if (!resp.ok) {
+        return resp.text().then(function(t) { throw new Error('Report API error (' + resp.status + '): ' + t); });
+      }
+      return resp.json();
+    })
+    .then(function(reportData) {
+      if (!reportData) return;
+      showSpinner(false);
+
+      // DEBUG: Log the actual data structure
+      console.log('=== SALESFORCE REPORT DEBUG ===');
+      console.log('groupingsDown raw type:', typeof reportData.groupingsDown);
+      console.log('groupingsDown raw:', JSON.stringify(reportData.groupingsDown).substring(0, 500));
+      console.log('factMap keys (first 15):', Object.keys(reportData.factMap || {}).slice(0, 15));
+      var fmKeys = Object.keys(reportData.factMap || {});
+      if (fmKeys.length > 0) {
+        console.log('factMap first entry [' + fmKeys[0] + ']:', JSON.stringify(reportData.factMap[fmKeys[0]]).substring(0, 300));
+        if (fmKeys.length > 1) console.log('factMap second entry [' + fmKeys[1] + ']:', JSON.stringify(reportData.factMap[fmKeys[1]]).substring(0, 300));
+      }
+      console.log('reportMetadata.aggregates:', JSON.stringify(reportData.reportMetadata && reportData.reportMetadata.aggregates));
+      console.log('allData:', reportData.allData);
+      console.log('=== END DEBUG ===');
+
+      var transformed = transformReportData(reportData);
+
+      if (!transformed || transformed.length === 0) {
+        addStatusMessage('No data returned from the report. Check browser console (F12) for debug info.', 'warning');
+        return;
+      }
+
+      state.lastUpdated = new Date().toISOString();
+
+      var tokenData = JSON.parse(sessionStorage.getItem('sfAccessToken') || '{}');
+      tokenData.lastUpdated = state.lastUpdated;
+      sessionStorage.setItem('sfAccessToken', JSON.stringify(tokenData));
+
+      updateUI();
+      window._dash.loadData(transformed);
+      addStatusMessage('Data refreshed successfully (' + transformed.length + ' weeks from report)', 'info');
+
+      // Also fetch daily report for "This Week" comparisons
+      fetchDailyData();
+    })
+    .catch(function(err) {
+      showSpinner(false);
+      addStatusMessage('Report fetch failed: ' + err.message, 'error');
+    });
+  }
+
+  // Fetch daily-granularity report for day-of-week comparisons
+  function fetchDailyData() {
+    if (!state.isConnected || !config.accessToken) return;
+
+    var describeUrl = config.instanceUrl + '/services/data/v59.0/analytics/reports/' + DAILY_REPORT_ID + '/describe';
+
+    fetch(describeUrl, {
+      headers: {
+        'Authorization': 'Bearer ' + config.accessToken,
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(function(resp) {
+      if (!resp.ok) throw new Error('Daily report describe error');
+      return resp.json();
+    })
+    .then(function(describeData) {
+      var metadata = describeData.reportMetadata;
+
+      // Cache-bust date filter if present
+      // Use end-of-tomorrow to avoid cutting off today's data due to timezone offsets
+      if (metadata.reportFilters) {
+        for (var fi = 0; fi < metadata.reportFilters.length; fi++) {
+          var filter = metadata.reportFilters[fi];
+          if (filter.column && filter.column.indexOf('Sales_Date__c') >= 0 && filter.operator === 'lessOrEqual') {
+            var tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 2);
+            tomorrow.setHours(23, 59, 59, 0);
+            filter.value = tomorrow.toISOString().replace(/\.\d{3}Z$/, 'Z');
+          }
+        }
+      }
+
+      var runUrl = config.instanceUrl + '/services/data/v59.0/analytics/reports/' + DAILY_REPORT_ID + '?includeDetails=false';
+      return fetch(runUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + config.accessToken,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store'
+        },
+        body: JSON.stringify({ reportMetadata: metadata })
+      });
+    })
+    .then(function(resp) {
+      if (!resp.ok) throw new Error('Daily report run error');
+      return resp.json();
+    })
+    .then(function(reportData) {
+      if (!reportData) return;
+
+      var transformed = transformDailyReportData(reportData);
+      if (transformed && transformed.length > 0) {
+        window._dash.loadDailyData(transformed);
+        addStatusMessage('Daily data loaded (' + transformed.length + ' days)', 'info');
+      }
+    })
+    .catch(function(err) {
+      console.log('Daily report fetch (non-critical): ' + err.message);
+    });
+  }
+
+  // Transform daily report data — expects groupings by date (daily)
+  function transformDailyReportData(reportData) {
+    var data = [];
+    var resultData = reportData.reportResult || reportData;
+    var groupingsDown = resultData.groupingsDown || {};
+    var groupings = groupingsDown.groupings || [];
+    var factMap = resultData.factMap || {};
+    var metadata = reportData.reportMetadata || resultData.reportMetadata || {};
+    var aggInfo = metadata.aggregates || [];
+
+    var amountIdx = -1, countIdx = -1;
+    for (var i = 0; i < aggInfo.length; i++) {
+      if (aggInfo[i] === 's!AMOUNT' || aggInfo[i] === 's!Amount') amountIdx = i;
+      if (aggInfo[i] === 'RowCount') countIdx = i;
+    }
+
+    groupings.forEach(function(group) {
+      var groupKey = group.key;
+      var groupLabel = group.label || '';
+      var factKey = groupKey + '!T';
+      var facts = factMap[factKey];
+
+      if (facts && facts.aggregates) {
+        // Parse daily date from label — could be "M/D/YYYY" or "YYYY-MM-DD"
+        var dateStr = null;
+        var match = groupLabel.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (match) {
+          var mm = String(parseInt(match[1])).padStart(2, '0');
+          var dd = String(parseInt(match[2])).padStart(2, '0');
+          dateStr = match[3] + '-' + mm + '-' + dd;
+        } else {
+          var isoMatch = groupLabel.match(/(\d{4})-(\d{2})-(\d{2})/);
+          if (isoMatch) dateStr = isoMatch[0];
+        }
+
+        if (dateStr) {
+          var dt = new Date(dateStr + 'T00:00:00');
+          var amount = 0, count = 0;
+          if (amountIdx >= 0 && facts.aggregates[amountIdx]) amount = parseFloat(facts.aggregates[amountIdx].value) || 0;
+          if (countIdx >= 0 && facts.aggregates[countIdx]) count = parseInt(facts.aggregates[countIdx].value) || 0;
+
+          data.push({
+            date: dateStr,
+            year: dt.getFullYear(),
+            month: dt.getMonth() + 1,
+            day: dt.getDate(),
+            dayOfWeek: dt.getDay(), // 0=Sun, 1=Mon, ... 6=Sat
+            amount: amount,
+            count: count
+          });
+        }
+      }
+    });
+
+    // Sort by date
+    data.sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    return data;
+  }
+
+  // Transform Salesforce Analytics Report data to dashboard format
+  function transformReportData(reportData) {
+    var data = [];
+
+    // Async report instances nest the results under reportResult
+    var resultData = reportData.reportResult || reportData;
+
+    var groupingsDown = resultData.groupingsDown || {};
+    var groupings = groupingsDown.groupings || [];
+    var factMap = resultData.factMap || {};
+
+    // Metadata may be at the top level or inside reportResult
+    var metadata = reportData.reportMetadata || (resultData.reportMetadata) || {};
+
+    // Aggregate names from metadata tell us what's at each index
+    var aggInfo = metadata.aggregates || [];
+
+    // Find the indices for Sum of Amount and RowCount
+    var amountIdx = -1;
+    var countIdx = -1;
+    for (var i = 0; i < aggInfo.length; i++) {
+      if (aggInfo[i] === 's!AMOUNT' || aggInfo[i] === 's!Amount') {
+        amountIdx = i;
+      }
+      if (aggInfo[i] === 'RowCount') {
+        countIdx = i;
+      }
+    }
+
+    console.log('Aggregate mapping — Amount index:', amountIdx, ', RowCount index:', countIdx);
+
+    if (groupings.length > 0) {
+      groupings.forEach(function(group) {
+        var groupKey = group.key;
+        var groupLabel = group.label || '';
+
+        // Get the fact map entry for this group's subtotal
+        var factKey = groupKey + '!T';
+        var facts = factMap[factKey];
+
+        if (facts && facts.aggregates) {
+          var weekInfo = parseWeekFromGroupLabel(groupLabel);
+
+          if (weekInfo) {
+            var amount = 0;
+            var count = 0;
+
+            // Use the known indices from metadata
+            if (amountIdx >= 0 && facts.aggregates[amountIdx]) {
+              amount = parseFloat(facts.aggregates[amountIdx].value) || 0;
+            }
+            if (countIdx >= 0 && facts.aggregates[countIdx]) {
+              count = parseInt(facts.aggregates[countIdx].value) || 0;
+            }
+
+            data.push({
+              weekKey: weekInfo.year + '-W' + String(weekInfo.week).padStart(2, '0'),
+              year: weekInfo.year,
+              week: weekInfo.week,
+              amount: amount,
+              count: count,
+              monday: weekInfo.monday
+            });
+          }
+        }
+      });
+    } else {
+      addStatusMessage('Report has no weekly groupings. Ensure the report is grouped by a date field (weekly).', 'warning');
+    }
+
+    // Filter out future weeks — only show weeks where the Monday has already arrived
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    data = data.filter(function(d) {
+      var mondayDate = new Date(d.monday + 'T00:00:00');
+      return mondayDate <= today;
+    });
+
+    // Sort by year then week
+    data.sort(function(a, b) {
+      return a.year !== b.year ? a.year - b.year : a.week - b.week;
+    });
+
+    return data;
+  }
+
+  // Parse week info from Salesforce group label like "12/31/2023 - 1/6/2024" or "2/24/2025 - 3/2/2025"
+  function parseWeekFromGroupLabel(label) {
+    // Salesforce weekly grouping labels are "M/D/YYYY - M/D/YYYY" (Sunday start - Saturday end)
+    var match = label.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (!match) return null;
+
+    var month = parseInt(match[1]);
+    var day = parseInt(match[2]);
+    var year = parseInt(match[3]);
+
+    // This is the start date of the Salesforce week (Sunday)
+    var startDate = new Date(year, month - 1, day);
+
+    // Salesforce weeks start on Sunday — shift to Monday (+1 day) for our dashboard
+    var monday = new Date(startDate.getTime() + 86400000);
+    var mondayStr = monday.getFullYear() + '-' +
+      String(monday.getMonth() + 1).padStart(2, '0') + '-' +
+      String(monday.getDate()).padStart(2, '0');
+
+    // Use Thursday of the Salesforce week (Sunday + 4) for correct ISO week calculation
+    // This handles year boundaries correctly (e.g., Sun Dec 28 → Thu Jan 1 = ISO Week 1)
+    var thursday = new Date(startDate.getTime() + 4 * 86400000);
+    var isoWeek = getISOWeekNumber(thursday);
+    var isoYear = getISOWeekYear(thursday);
+
+    return {
+      year: isoYear,
+      week: isoWeek,
+      monday: mondayStr
+    };
+  }
+
+  // Get ISO week number from a date
+  function getISOWeekNumber(date) {
+    var d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    var dayNum = d.getUTCDay() || 7; // Make Sunday = 7
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum); // Set to nearest Thursday
+    var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  }
+
+  // Get ISO week year (may differ from calendar year at year boundaries)
+  function getISOWeekYear(date) {
+    var d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    var dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    return d.getUTCFullYear();
+  }
+
+  // Calculate Monday date for ISO week
+  function getISOWeekMonday(year, week) {
+    var simple = new Date(year, 0, 4);
+    var dayOfWeek = simple.getDay();
+    var diff = simple.getTime() - (dayOfWeek - 1) * 86400000;
+    var firstMonday = new Date(diff);
+    var mondayMs = firstMonday.getTime() + (week - 1) * 7 * 86400000;
+    var monday = new Date(mondayMs);
+    var yyyy = monday.getFullYear();
+    var mm = String(monday.getMonth() + 1).padStart(2, '0');
+    var dd = String(monday.getDate()).padStart(2, '0');
+    return yyyy + '-' + mm + '-' + dd;
+  }
+
+  // UI Update
+  function updateUI() {
+    var statusDot = document.getElementById('authStatusDot');
+    var statusText = document.getElementById('authStatusText');
+    var connectedView = document.getElementById('authConnectedView');
+    var disconnectedView = document.getElementById('authDisconnectedView');
+    var mainHeader = document.getElementById('mainHeader');
+    var noDataMessage = document.getElementById('noDataMessage');
+
+    if (state.isConnected) {
+      statusDot.className = 'status-dot connected';
+      statusText.textContent = 'Connected: ' + (state.orgName || 'Salesforce');
+      connectedView.style.display = 'flex';
+      disconnectedView.style.display = 'none';
+      mainHeader.style.display = 'flex';
+      noDataMessage.style.display = 'none';
+
+      if (state.lastUpdated) {
+        var lastTime = new Date(state.lastUpdated);
+        var now = new Date();
+        var diff = Math.round((now - lastTime) / 1000);
+        var timeStr;
+        if (diff < 60) timeStr = diff + 's ago';
+        else if (diff < 3600) timeStr = Math.round(diff / 60) + 'm ago';
+        else timeStr = Math.round(diff / 3600) + 'h ago';
+        document.getElementById('lastUpdated').textContent = 'Last updated: ' + timeStr;
+      }
+    } else {
+      statusDot.className = 'status-dot';
+      statusText.textContent = 'Disconnected';
+      connectedView.style.display = 'none';
+      disconnectedView.style.display = 'block';
+      mainHeader.style.display = 'none';
+      noDataMessage.style.display = 'block';
+      document.getElementById('kpiRow').innerHTML = '';
+      document.getElementById('chartSection').style.display = 'none';
+      document.getElementById('deltaSection').style.display = 'none';
+      document.getElementById('tableSection').style.display = 'none';
+    }
+  }
+
+  function openSettings() {
+    if (state.isConnected) {
+      document.getElementById('authPanel').classList.remove('collapsed');
+      state.isPanelCollapsed = false;
+      updateToggleIcon();
+    }
+  }
+
+  function togglePanel() {
+    state.isPanelCollapsed = !state.isPanelCollapsed;
+    document.getElementById('authPanel').classList.toggle('collapsed');
+    updateToggleIcon();
+  }
+
+  function updateToggleIcon() {
+    document.getElementById('authToggleIcon').textContent = state.isPanelCollapsed ? '▶' : '▼';
+  }
+
+  function disconnect() {
+    if (confirm('Are you sure you want to disconnect from Salesforce?')) {
+      config.accessToken = null;
+      config.tokenExpiresAt = null;
+      state.isConnected = false;
+      state.orgName = null;
+      state.lastUpdated = null;
+      sessionStorage.removeItem('sfAccessToken');
+      updateUI();
+      addStatusMessage('Disconnected from Salesforce', 'info');
+    }
+  }
+
+  function refreshData() {
+    if (state.isConnected) {
+      fetchAndRenderData();
+    } else {
+      addStatusMessage('Not connected to Salesforce', 'error');
+    }
+  }
+
+  function showSpinner(show) {
+    var spinner = document.getElementById('refreshSpinner');
+    var text = document.getElementById('refreshText');
+    if (show) {
+      spinner.style.display = 'inline-block';
+      text.style.display = 'none';
+    } else {
+      spinner.style.display = 'none';
+      text.style.display = 'inline';
+    }
+  }
+
+  function addStatusMessage(msg, type) {
+    var container = document.getElementById('statusMessages');
+    var div = document.createElement('div');
+    div.className = 'status-message ' + type;
+    div.textContent = msg;
+    container.appendChild(div);
+
+    if (type !== 'error') {
+      setTimeout(function() {
+        if (div.parentNode) {
+          container.removeChild(div);
+        }
+      }, 5000);
+    }
+  }
+
+  init();
+
+  return {
+    connect: connect,
+    disconnect: disconnect,
+    refreshData: refreshData,
+    openSettings: openSettings,
+    togglePanel: togglePanel,
+    isConnected: function() { return state.isConnected; },
+    getToken: function() { return config.accessToken; }
+  };
+})();
+
+// Dashboard Module (original logic with live data support)
+window._dash = (function() {
+  var rawData = [];
+  var byYear = {};
+  var years = [];
+  var latestYearGlobal = new Date().getFullYear();
+
+  // Daily data for "This Week" day-of-week comparisons
+  var dailyData = [];
+  var dailyByYearWeek = {}; // { year -> { week -> { dayOfWeek -> {amount, count, date} } } }
+
+  var metric = 'amount';
+  var range = 'ytd';
+  var sortCol = 'week';
+  var sortDir = 'asc';
+  var mainChart = null;
+  var deltaChart = null;
+
+  function loadData(data) {
+    rawData = data;
+    byYear = {};
+    var i, d;
+    for (i = 0; i < rawData.length; i++) {
+      d = rawData[i];
+      if (!byYear[d.year]) byYear[d.year] = {};
+      byYear[d.year][d.week] = d;
+    }
+    years = Object.keys(byYear).map(Number).sort(function(a,b){return a-b;});
+    if (years.length > 0) {
+      latestYearGlobal = years[years.length - 1];
+    }
+    renderAll();
+  }
+
+  function loadDailyData(data) {
+    dailyData = data;
+    dailyByYearWeek = {};
+    for (var i = 0; i < data.length; i++) {
+      var d = data[i];
+      // Determine which ISO week this date belongs to
+      var dt = new Date(d.date + 'T00:00:00');
+      var tempDate = new Date(dt.getTime());
+      tempDate.setHours(0, 0, 0, 0);
+      tempDate.setDate(tempDate.getDate() + 4 - (tempDate.getDay() || 7));
+      var yearStart = new Date(tempDate.getFullYear(), 0, 1);
+      var wk = Math.ceil(((tempDate - yearStart) / 86400000 + 1) / 7);
+      var yr = d.year;
+
+      if (!dailyByYearWeek[yr]) dailyByYearWeek[yr] = {};
+      if (!dailyByYearWeek[yr][wk]) dailyByYearWeek[yr][wk] = {};
+      // dayOfWeek: 0=Sun, 1=Mon, ... 6=Sat
+      dailyByYearWeek[yr][wk][d.dayOfWeek] = {
+        amount: d.amount,
+        count: d.count,
+        date: d.date
+      };
+    }
+    // Re-render if we're currently on "This Week" view
+    if (range === 'thisweek') renderAll();
+  }
+
+  // Get daily data for a specific year, week, filtered to days <= maxDayOfWeek
+  function getDailyTotal(yearNum, weekNum, maxDayOfWeek) {
+    var total = { amount: 0, count: 0 };
+    if (!dailyByYearWeek[yearNum] || !dailyByYearWeek[yearNum][weekNum]) return total;
+    var weekDays = dailyByYearWeek[yearNum][weekNum];
+    for (var dow = 1; dow <= maxDayOfWeek; dow++) { // 1=Mon through maxDayOfWeek
+      if (weekDays[dow]) {
+        total.amount += weekDays[dow].amount;
+        total.count += weekDays[dow].count;
+      }
+    }
+    return total;
+  }
+
+  function getCurrentWeek() {
+    var now = new Date();
+    var date = new Date(now.getTime());
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + 4 - (date.getDay() || 7));
+    var yearStart = new Date(date.getFullYear(), 0, 1);
+    var weekNum = Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
+    return weekNum;
+  }
+
+  function getWeekRange() {
+    var currentWeek = getCurrentWeek();
+    if (range === 'q1') return [1, 13];
+    if (range === 'q2') return [14, 26];
+    if (range === 'q3') return [27, 39];
+    if (range === 'q4') return [40, 52];
+    if (range === 'ytd') return [1, currentWeek];
+    if (range === 'thisweek') return [currentWeek, currentWeek];
+    return [1, 52];
+  }
+
+  // Get the day-of-week info for "This Week" context
+  function getWeekDayContext() {
+    var now = new Date();
+    var dayNum = now.getDay(); // 0=Sun, 1=Mon, ... 6=Sat
+    // Business week: Mon=1 through Fri=5, Sat/Sun = weekend
+    var dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    var dayName = dayNames[dayNum];
+    var bizDay = (dayNum >= 1 && dayNum <= 5) ? dayNum : (dayNum === 0 ? 0 : 5);
+    return { dayName: dayName, bizDay: bizDay, totalBizDays: 5 };
+  }
+
+  function fmt$(v) {
+    if (v == null) return '\u2014';
+    return '$' + Math.round(v).toLocaleString('en-US');
+  }
+  function fmtN(v) {
+    if (v == null) return '\u2014';
+    return v.toLocaleString('en-US');
+  }
+  function fmtPct(v) {
+    if (v == null) return '\u2014';
+    return (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+  }
+  function pctClass(v) {
+    if (v == null) return 'neutral';
+    return v > 0 ? 'up' : v < 0 ? 'down' : 'neutral';
+  }
+  function getVal(yearNum, weekNum) {
+    if (!byYear[yearNum] || !byYear[yearNum][weekNum]) return null;
+
+    // In "This Week" mode, return only the days-so-far total for prior years
+    if (range === 'thisweek' && yearNum !== latestYearGlobal) {
+      var hasDailyData = Object.keys(dailyByYearWeek).length > 0;
+      if (hasDailyData) {
+        var ctx = getWeekDayContext();
+        var dayTotal = getDailyTotal(yearNum, weekNum, ctx.bizDay);
+        return dayTotal[metric];
+      } else {
+        // Fallback: pro-rate
+        var ctx2 = getWeekDayContext();
+        return byYear[yearNum][weekNum][metric] * (ctx2.bizDay / ctx2.totalBizDays);
+      }
+    }
+
+    return byYear[yearNum][weekNum][metric];
+  }
+  function getData(yearNum, weekNum) {
+    if (byYear[yearNum] && byYear[yearNum][weekNum]) {
+      return byYear[yearNum][weekNum];
+    }
+    return null;
+  }
+
+  function mondayLabel(w) {
+    var testYears = [latestYearGlobal, latestYearGlobal - 1, latestYearGlobal - 2];
+    for (var j = 0; j < testYears.length; j++) {
+      var dd = getData(testYears[j], w);
+      if (dd) {
+        var dt = new Date(dd.monday + 'T00:00:00');
+        return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
+    }
+    return 'W' + w;
+  }
+
+  function mondayShort(w) {
+    var testYears = [latestYearGlobal, latestYearGlobal - 1, latestYearGlobal - 2];
+    for (var j = 0; j < testYears.length; j++) {
+      var dd = getData(testYears[j], w);
+      if (dd) {
+        var dt = new Date(dd.monday + 'T00:00:00');
+        return (dt.getMonth() + 1) + '/' + dt.getDate();
+      }
+    }
+    return 'W' + w;
+  }
+
+  function getColorForYear(y) {
+    if (y === 2024) return '#4a90d9';
+    if (y === 2025) return '#e8a838';
+    if (y === 2026) return '#5cd6a0';
+    return '#888888';
+  }
+
+  function renderKPIs() {
+    if (years.length === 0) {
+      document.getElementById('kpiRow').innerHTML = '';
+      return;
+    }
+
+    var bounds = getWeekRange();
+    var wStart = bounds[0], wEnd = bounds[1];
+    var container = document.getElementById('kpiRow');
+    var totals = {};
+    var y, w;
+    for (var yi = 0; yi < years.length; yi++) {
+      y = years[yi];
+      totals[y] = 0;
+      for (w = wStart; w <= wEnd; w++) {
+        var val = getVal(y, w);
+        if (val) totals[y] += val;
+      }
+    }
+    var latestYear = years[years.length - 1];
+    var prevYear = latestYear - 1;
+    var twoYearsAgo = latestYear - 2;
+    var yoyPct = totals[prevYear] ? ((totals[latestYear] - totals[prevYear]) / totals[prevYear] * 100) : null;
+    var weeksInRange = wEnd - wStart + 1;
+    var avgCurrent = totals[latestYear] / weeksInRange;
+    var avgPrev = totals[prevYear] ? totals[prevYear] / weeksInRange : 0;
+    var avgDelta = avgPrev ? ((avgCurrent - avgPrev) / avgPrev * 100) : null;
+    var label = metric === 'amount' ? 'Revenue' : 'Deals';
+    var fmtFn = metric === 'amount' ? fmt$ : fmtN;
+    var sel = document.getElementById('rangeSelect');
+    var rangeLabel = sel.options[sel.selectedIndex].text;
+    var best = 0, bestW = 0;
+    for (w = wStart; w <= wEnd; w++) {
+      var v = getVal(latestYear, w) || 0;
+      if (v > best) { best = v; bestW = w; }
+    }
+    var h = '';
+
+    if (range === 'thisweek') {
+      // Special "This Week" KPIs with pace context
+      var ctx = getWeekDayContext();
+      var currentWeekNum = getCurrentWeek();
+      var currentVal = totals[latestYear] || 0;
+      var hasDailyData = Object.keys(dailyByYearWeek).length > 0;
+
+      // If daily data is available, use exact day-of-week comparisons
+      var prevDayVal, twoYrDayVal, prevFullVal, twoYrFullVal;
+      var maxDow = ctx.bizDay; // 1=Mon through current day
+
+      if (hasDailyData) {
+        var prevDayTotal = getDailyTotal(prevYear, currentWeekNum, maxDow);
+        var twoYrDayTotal = (twoYearsAgo >= years[0]) ? getDailyTotal(twoYearsAgo, currentWeekNum, maxDow) : null;
+        prevDayVal = prevDayTotal[metric];
+        twoYrDayVal = twoYrDayTotal ? twoYrDayTotal[metric] : null;
+      } else {
+        // Fallback: pro-rate weekly totals
+        prevDayVal = (totals[prevYear] || 0) * (maxDow / ctx.totalBizDays);
+        twoYrDayVal = (twoYearsAgo >= years[0]) ? (totals[twoYearsAgo] || 0) * (maxDow / ctx.totalBizDays) : null;
+      }
+      // Full-week values from the raw weekly data (bypass getVal's day-filtering)
+      prevFullVal = (byYear[prevYear] && byYear[prevYear][currentWeekNum]) ? byYear[prevYear][currentWeekNum][metric] : 0;
+      twoYrFullVal = (twoYearsAgo >= years[0] && byYear[twoYearsAgo] && byYear[twoYearsAgo][currentWeekNum]) ? byYear[twoYearsAgo][currentWeekNum][metric] : null;
+
+      // Pace comparison: current WTD vs prior year same days
+      var dayVsPrevPct = prevDayVal ? ((currentVal - prevDayVal) / prevDayVal * 100) : null;
+
+      // Pace projection: extrapolate from days elapsed to full week
+      var projected = ctx.bizDay > 0 ? currentVal * (ctx.totalBizDays / ctx.bizDay) : currentVal;
+      var pacePct = prevFullVal ? ((projected - prevFullVal) / prevFullVal * 100) : null;
+
+      var dayLabel = hasDailyData ? '' : ' (est.)';
+      var throughLabel = ctx.bizDay === 1 ? ctx.dayName : 'Mon–' + ctx.dayName;
+
+      h += '<div class="kpi"><div class="lbl">W' + currentWeekNum + ' So Far — Through ' + throughLabel + ' (' + ctx.bizDay + '/' + ctx.totalBizDays + ' days)</div>';
+      h += '<div class="val">' + fmtFn(currentVal) + '</div>';
+      if (dayVsPrevPct != null) h += '<div class="sub ' + pctClass(dayVsPrevPct) + '">' + fmtPct(dayVsPrevPct) + ' vs ' + prevYear + ' same ' + ctx.bizDay + ' day(s)' + dayLabel + '</div>';
+      h += '</div>';
+
+      h += '<div class="kpi"><div class="lbl">' + prevYear + ' W' + currentWeekNum + ' — First ' + ctx.bizDay + ' Day(s)' + dayLabel + '</div>';
+      h += '<div class="val">' + fmtFn(prevDayVal) + '</div>';
+      h += '<div class="sub" style="color:#8b919e">Full week: ' + fmtFn(prevFullVal) + '</div>';
+      h += '</div>';
+
+      if (twoYrDayVal != null) {
+        h += '<div class="kpi"><div class="lbl">' + twoYearsAgo + ' W' + currentWeekNum + ' — First ' + ctx.bizDay + ' Day(s)' + dayLabel + '</div>';
+        h += '<div class="val">' + fmtFn(twoYrDayVal) + '</div>';
+        h += '<div class="sub" style="color:#8b919e">Full week: ' + fmtFn(twoYrFullVal) + '</div>';
+        h += '</div>';
+      }
+
+      h += '<div class="kpi"><div class="lbl">Projected Full Week (' + latestYear + ')</div>';
+      h += '<div class="val">' + fmtFn(projected) + '</div>';
+      if (pacePct != null) h += '<div class="sub ' + pctClass(pacePct) + '">' + fmtPct(pacePct) + ' pace vs ' + prevYear + '</div>';
+      h += '</div>';
+
+    } else {
+      // Standard KPIs for all other ranges
+      h += '<div class="kpi"><div class="lbl">' + latestYear + ' ' + label + ' (' + rangeLabel + ')</div>';
+      h += '<div class="val">' + fmtFn(totals[latestYear]) + '</div>';
+      if (yoyPct != null) h += '<div class="sub ' + pctClass(yoyPct) + '">' + fmtPct(yoyPct) + ' vs ' + prevYear + '</div>';
+      h += '</div>';
+      h += '<div class="kpi"><div class="lbl">' + prevYear + ' ' + label + ' (' + rangeLabel + ')</div>';
+      h += '<div class="val">' + fmtFn(totals[prevYear] || 0) + '</div></div>';
+      if (twoYearsAgo >= years[0]) {
+        h += '<div class="kpi"><div class="lbl">' + twoYearsAgo + ' ' + label + ' (' + rangeLabel + ')</div>';
+        h += '<div class="val">' + fmtFn(totals[twoYearsAgo] || 0) + '</div></div>';
+      }
+      h += '<div class="kpi"><div class="lbl">Avg Weekly ' + label + ' (' + latestYear + ')</div>';
+      h += '<div class="val">' + fmtFn(avgCurrent) + '</div>';
+      if (avgDelta != null) h += '<div class="sub ' + pctClass(avgDelta) + '">' + fmtPct(avgDelta) + ' vs ' + prevYear + ' avg</div>';
+      h += '</div>';
+      h += '<div class="kpi"><div class="lbl">Best Week (' + latestYear + ')</div>';
+      h += '<div class="val">' + fmtFn(best) + ' <span style="font-size:13px;color:#8b919e">(W' + bestW + ')</span></div></div>';
+    }
+
+    container.innerHTML = h;
+  }
+
+  function renderCharts() {
+    if (years.length === 0) {
+      document.getElementById('chartSection').style.display = 'none';
+      document.getElementById('deltaSection').style.display = 'none';
+      return;
+    }
+
+    document.getElementById('chartSection').style.display = 'block';
+
+    // ── "THIS WEEK" PACE CHART ──
+    if (range === 'thisweek') {
+      document.getElementById('deltaSection').style.display = 'none';
+
+      var currentWeekNum = getCurrentWeek();
+      var dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+      var dayNums = [1, 2, 3, 4, 5]; // dayOfWeek: 1=Mon...5=Fri
+      var hasDailyData = Object.keys(dailyByYearWeek).length > 0;
+      var ctx0 = getWeekDayContext();
+      var fmtFn = metric === 'amount' ? fmt$ : fmtN;
+
+      var datasets = [];
+      for (var yi = 0; yi < years.length; yi++) {
+        var y = years[yi];
+        var isLatest = (y === years[years.length - 1]);
+        var cumData = [];
+        var cumTotal = 0;
+
+        for (var di = 0; di < dayNums.length; di++) {
+          var dow = dayNums[di];
+
+          if (isLatest && dow > ctx0.bizDay) {
+            // Future days for the current year — no data yet
+            cumData.push(null);
+          } else if (hasDailyData && dailyByYearWeek[y] && dailyByYearWeek[y][currentWeekNum]) {
+            var dayEntry = dailyByYearWeek[y][currentWeekNum][dow];
+            if (dayEntry) {
+              cumTotal += dayEntry[metric];
+              cumData.push(cumTotal);
+            } else {
+              cumData.push(cumTotal > 0 ? cumTotal : null);
+            }
+          } else if (!isLatest) {
+            // Fallback: pro-rate weekly total evenly across 5 days
+            var weekTotal = getVal(y, currentWeekNum);
+            // Temporarily bypass thisweek filter — get raw weekly value
+            var rawVal = (byYear[y] && byYear[y][currentWeekNum]) ? byYear[y][currentWeekNum][metric] : 0;
+            cumTotal = rawVal * (dow / 5);
+            cumData.push(cumTotal);
+          } else {
+            // Latest year, within bizDay range but no daily data
+            var rawLatest = (byYear[y] && byYear[y][currentWeekNum]) ? byYear[y][currentWeekNum][metric] : 0;
+            if (dow <= ctx0.bizDay) {
+              // Use the full partial-week value on the last elapsed day
+              cumData.push(dow === ctx0.bizDay ? rawLatest : null);
+            } else {
+              cumData.push(null);
+            }
+          }
+        }
+
+        var ptSize = isLatest ? 5 : 3;
+        datasets.push({
+          label: String(y),
+          data: cumData,
+          borderColor: getColorForYear(y),
+          backgroundColor: getColorForYear(y) + (isLatest ? '22' : '00'),
+          borderWidth: isLatest ? 3 : 2,
+          borderDash: isLatest ? [] : [6, 3],
+          pointRadius: (function(sz) {
+            return function(context) {
+              return context.raw != null ? sz : 0;
+            };
+          })(ptSize),
+          pointBackgroundColor: getColorForYear(y),
+          pointHoverRadius: 7,
+          tension: 0.3,
+          fill: isLatest,
+          spanGaps: false
+        });
+      }
+
+      // Legend
+      var legendHtml = '';
+      for (var li = 0; li < years.length; li++) {
+        var y2 = years[li];
+        legendHtml += '<em><span class="dot" style="background:' + getColorForYear(y2) + '"></span> ' + y2 + '</em>';
+      }
+      document.getElementById('legendContainer').innerHTML = legendHtml;
+
+      var metricName = metric === 'amount' ? 'Revenue' : 'Deal Count';
+      document.getElementById('chartTitle').textContent = 'Week ' + currentWeekNum + ' Pace — Cumulative ' + metricName + ' by Day';
+      document.getElementById('chartSubtitle').textContent = 'Comparing the same days of the week across years';
+
+      if (mainChart) { mainChart.destroy(); mainChart = null; }
+      var ctxCanvas = document.getElementById('mainChart').getContext('2d');
+
+      // Value label plugin for pace chart
+      var paceLabels = {
+        id: 'paceLabels',
+        afterDatasetsDraw: function(chart) {
+          var ctx2 = chart.ctx;
+          ctx2.save();
+          ctx2.font = '10px system-ui, sans-serif';
+          ctx2.textAlign = 'left';
+          chart.data.datasets.forEach(function(ds, dsi) {
+            var meta = chart.getDatasetMeta(dsi);
+            // Find the last non-null point
+            var lastIdx = -1;
+            for (var pi = meta.data.length - 1; pi >= 0; pi--) {
+              if (ds.data[pi] != null) { lastIdx = pi; break; }
+            }
+            if (lastIdx < 0) return;
+            var pt = meta.data[lastIdx];
+            var v = ds.data[lastIdx];
+            var txt = metric === 'amount' ? fmt$(v) : fmtN(v);
+            ctx2.fillStyle = ds.borderColor;
+            ctx2.fillText(txt, pt.x + 8, pt.y + 3);
+          });
+          ctx2.restore();
+        }
+      };
+
+      mainChart = new Chart(ctxCanvas, {
+        type: 'line',
+        data: { labels: dayLabels, datasets: datasets },
+        plugins: [paceLabels],
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { right: 70 } },
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1a1e27',
+              titleColor: '#e8eaed',
+              bodyColor: '#e8eaed',
+              borderColor: '#252a35',
+              borderWidth: 1,
+              padding: 12,
+              filter: function(item) { return item.raw != null; },
+              callbacks: {
+                title: function(items) {
+                  if (!items.length) return '';
+                  return dayLabels[items[0].dataIndex] + ' — W' + currentWeekNum;
+                },
+                label: function(item) {
+                  var v = item.raw;
+                  if (v == null) return '';
+                  return '  ' + item.dataset.label + ': ' + fmtFn(v) + ' (cumulative)';
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#8b919e', font: { size: 13 } },
+              grid: { color: 'rgba(37,42,53,0.13)' }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                color: '#8b919e',
+                callback: function(v) {
+                  if (metric === 'amount') return '$' + Math.round(v / 1000) + 'k';
+                  return v;
+                }
+              },
+              grid: { color: 'rgba(37,42,53,0.25)' }
+            }
+          }
+        }
+      });
+
+    } else {
+    // ── STANDARD WEEKLY CHARTS ──
+    document.getElementById('deltaSection').style.display = 'block';
+
+    var bounds = getWeekRange();
+    var wStart = bounds[0], wEnd = bounds[1];
+    var weeks = [];
+    for (var w = wStart; w <= wEnd; w++) weeks.push(w);
+
+    var labels = [];
+    for (var li = 0; li < weeks.length; li++) labels.push(mondayLabel(weeks[li]));
+
+    var datasets = [];
+    for (var yi = 0; yi < years.length; yi++) {
+      var y = years[yi];
+      var data = [];
+      for (var wi = 0; wi < weeks.length; wi++) {
+        data.push(getVal(y, weeks[wi]));
+      }
+      datasets.push({
+        label: String(y),
+        data: data,
+        borderColor: getColorForYear(y),
+        backgroundColor: getColorForYear(y) + '22',
+        borderWidth: y === years[years.length - 1] ? 2.5 : 1.5,
+        pointRadius: y === years[years.length - 1] ? 3 : 2,
+        pointHoverRadius: 6,
+        tension: 0.3,
+        fill: y === years[years.length - 1],
+        spanGaps: true
+      });
+    }
+
+    // Update legend
+    var legendHtml = '';
+    for (var li = 0; li < years.length; li++) {
+      var y = years[li];
+      legendHtml += '<em><span class="dot" style="background:' + getColorForYear(y) + '"></span> ' + y + '</em>';
+    }
+    document.getElementById('legendContainer').innerHTML = legendHtml;
+
+    document.getElementById('chartTitle').textContent = 'Weekly ' + (metric === 'amount' ? 'Revenue' : 'Deal Count') + ' - Year-over-Year';
+
+    if (mainChart) { mainChart.destroy(); mainChart = null; }
+    var ctx = document.getElementById('mainChart').getContext('2d');
+    mainChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1a1e27',
+            titleColor: '#e8eaed',
+            bodyColor: '#e8eaed',
+            borderColor: '#252a35',
+            borderWidth: 1,
+            padding: 12,
+            callbacks: {
+              title: function(items) {
+                if (!items.length) return '';
+                var idx = items[0].dataIndex;
+                var wk = weeks[idx];
+                return 'Week of ' + mondayLabel(wk) + ' (W' + wk + ')';
+              },
+              label: function(item) {
+                var v = item.raw;
+                if (v == null) return '  ' + item.dataset.label + ': N/A';
+                return '  ' + item.dataset.label + ': ' + (metric === 'amount' ? fmt$(v) : fmtN(v));
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              color: '#8b919e',
+              maxRotation: 45,
+              callback: function(val, idx) {
+                if (weeks.length > 26) return idx % 4 === 0 ? mondayShort(weeks[idx]) : '';
+                if (weeks.length > 13) return idx % 2 === 0 ? mondayShort(weeks[idx]) : '';
+                return mondayShort(weeks[idx]);
+              }
+            },
+            grid: { color: 'rgba(37,42,53,0.13)' }
+          },
+          y: {
+            ticks: {
+              color: '#8b919e',
+              callback: function(v) {
+                if (metric === 'amount') return '$' + Math.round(v / 1000) + 'k';
+                return v;
+              }
+            },
+            grid: { color: 'rgba(37,42,53,0.25)' }
+          }
+        }
+      }
+    });
+    // ── DELTA CHART (standard mode only) ──
+    var latestYear = years[years.length - 1];
+    var prevYear = latestYear - 1;
+    var deltas = [];
+    var deltaBg = [];
+    var deltaBorder = [];
+    for (var di = 0; di < weeks.length; di++) {
+      var curr = getVal(latestYear, weeks[di]);
+      var prev = getVal(prevYear, weeks[di]);
+      if (curr && prev) {
+        var pct = ((curr - prev) / prev) * 100;
+        deltas.push(pct);
+        deltaBg.push(pct >= 0 ? 'rgba(92,214,160,0.4)' : 'rgba(232,93,93,0.4)');
+        deltaBorder.push(pct >= 0 ? '#5cd6a0' : '#e85d5d');
+      } else {
+        deltas.push(null);
+        deltaBg.push('#252a35');
+        deltaBorder.push('#252a35');
+      }
+    }
+
+    document.getElementById('deltaSubtitle').textContent = latestYear + ' vs ' + prevYear + ' - Percentage change by week';
+
+    if (deltaChart) { deltaChart.destroy(); deltaChart = null; }
+    var ctx2 = document.getElementById('deltaChart').getContext('2d');
+    deltaChart = new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: deltas,
+          backgroundColor: deltaBg,
+          borderColor: deltaBorder,
+          borderWidth: 1,
+          borderRadius: 3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1a1e27',
+            titleColor: '#e8eaed',
+            bodyColor: '#e8eaed',
+            borderColor: '#252a35',
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {
+              title: function(items) {
+                if (!items.length) return '';
+                var idx = items[0].dataIndex;
+                return 'Week of ' + mondayLabel(weeks[idx]);
+              },
+              label: function(item) {
+                return item.raw != null ? fmtPct(item.raw) : 'N/A';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              color: '#8b919e',
+              maxRotation: 45,
+              callback: function(val, idx) {
+                if (weeks.length > 26) return idx % 4 === 0 ? mondayShort(weeks[idx]) : '';
+                if (weeks.length > 13) return idx % 2 === 0 ? mondayShort(weeks[idx]) : '';
+                return mondayShort(weeks[idx]);
+              }
+            },
+            grid: { display: false }
+          },
+          y: {
+            ticks: {
+              color: '#8b919e',
+              callback: function(v) { return Math.round(v) + '%'; }
+            },
+            grid: { color: 'rgba(37,42,53,0.25)' }
+          }
+        }
+      }
+    });
+    } // end else (standard charts + delta)
+  }
+
+  function renderTable() {
+    if (years.length === 0) {
+      document.getElementById('tableSection').style.display = 'none';
+      return;
+    }
+
+    document.getElementById('tableSection').style.display = 'block';
+
+    var bounds = getWeekRange();
+    var wStart = bounds[0], wEnd = bounds[1];
+    var fmtFn = metric === 'amount' ? fmt$ : fmtN;
+    var latestYear = years[years.length - 1];
+    var prevYear = latestYear - 1;
+    var twoAgo = latestYear - 2;
+    var showTwoAgo = twoAgo >= years[0];
+
+    var cols = [
+      ['week', 'Week'],
+      ['dates', 'Week Of'],
+      ['yCurr', String(latestYear)],
+      ['yPrev', String(prevYear)],
+      ['yoy_curr_prev', latestYear + ' vs ' + prevYear]
+    ];
+    if (showTwoAgo) {
+      cols.push(['yTwo', String(twoAgo)]);
+      cols.push(['yoy_prev_two', prevYear + ' vs ' + twoAgo]);
+      cols.push(['yoy_curr_two', latestYear + ' vs ' + twoAgo]);
+    }
+
+    var headHtml = '<tr>';
+    for (var ci = 0; ci < cols.length; ci++) {
+      var key = cols[ci][0], lbl = cols[ci][1];
+      var arrow = sortCol === key ? (sortDir === 'asc' ? '\u25B2' : '\u25BC') : '\u2B0D';
+      var cls = sortCol === key ? ' class="sorted"' : '';
+      headHtml += '<th' + cls + ' data-col="' + key + '">' + lbl + ' <span class="sa">' + arrow + '</span></th>';
+    }
+    headHtml += '</tr>';
+    document.getElementById('tableHead').innerHTML = headHtml;
+
+    var ths = document.getElementById('tableHead').querySelectorAll('th');
+    for (var ti = 0; ti < ths.length; ti++) {
+      ths[ti].onclick = function() {
+        var col = this.getAttribute('data-col');
+        if (sortCol === col) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
+        else { sortCol = col; sortDir = 'asc'; }
+        renderTable();
+      };
+    }
+
+    var rows = [];
+    for (var w = wStart; w <= wEnd; w++) {
+      var curr = getVal(latestYear, w);
+      var prev = getVal(prevYear, w);
+      var two = showTwoAgo ? getVal(twoAgo, w) : null;
+      var yoy_curr_prev = (curr && prev) ? ((curr - prev) / prev * 100) : null;
+      var yoy_prev_two = (prev && two) ? ((prev - two) / two * 100) : null;
+      var yoy_curr_two = (curr && two) ? ((curr - two) / two * 100) : null;
+      rows.push({
+        week: w,
+        dates: mondayLabel(w),
+        yCurr: curr,
+        yPrev: prev,
+        yTwo: two,
+        yoy_curr_prev: yoy_curr_prev,
+        yoy_prev_two: yoy_prev_two,
+        yoy_curr_two: yoy_curr_two
+      });
+    }
+
+    rows.sort(function(a, b) {
+      var va = a[sortCol] != null ? a[sortCol] : -Infinity;
+      var vb = b[sortCol] != null ? b[sortCol] : -Infinity;
+      if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+      return sortDir === 'asc' ? va - vb : vb - va;
+    });
+
+    var bodyHtml = '';
+    for (var ri = 0; ri < rows.length; ri++) {
+      var r = rows[ri];
+      bodyHtml += '<tr>';
+      bodyHtml += '<td>W' + r.week + '</td>';
+      bodyHtml += '<td>' + r.dates + '</td>';
+      bodyHtml += '<td class="num">' + fmtFn(r.yCurr) + '</td>';
+      bodyHtml += '<td class="num">' + fmtFn(r.yPrev) + '</td>';
+      bodyHtml += '<td class="num"><span class="badge ' + pctClass(r.yoy_curr_prev) + '">' + fmtPct(r.yoy_curr_prev) + '</span></td>';
+      if (showTwoAgo) {
+        bodyHtml += '<td class="num">' + fmtFn(r.yTwo) + '</td>';
+        bodyHtml += '<td class="num"><span class="badge ' + pctClass(r.yoy_prev_two) + '">' + fmtPct(r.yoy_prev_two) + '</span></td>';
+        bodyHtml += '<td class="num"><span class="badge ' + pctClass(r.yoy_curr_two) + '">' + fmtPct(r.yoy_curr_two) + '</span></td>';
+      }
+      bodyHtml += '</tr>';
+    }
+    document.getElementById('tableBody').innerHTML = bodyHtml;
+  }
+
+  function renderAll() {
+    renderKPIs();
+    renderCharts();
+    renderTable();
+    if (window._slates) window._slates.update();
+  }
+
+  return {
+    loadData: loadData,
+    loadDailyData: loadDailyData,
+    getDailyTotal: getDailyTotal,
+    getRawData: function() { return rawData; },
+    getYears: function() { return years; },
+    getByYear: function() { return byYear; },
+    getMetric: function() { return metric; },
+    getRange: function() { return range; },
+    getWeekRange: getWeekRange,
+    getColorForYear: getColorForYear,
+    fmt$: fmt$,
+    fmtN: fmtN,
+    mondayLabel: mondayLabel,
+    mondayShort: mondayShort,
+    setMetric: function(m) {
+      metric = m;
+      document.getElementById('btnAmount').className = m === 'amount' ? 'active' : '';
+      document.getElementById('btnCount').className = m === 'count' ? 'active' : '';
+      renderAll();
+      if (window._slates) window._slates.update();
+    },
+    setRange: function(r) {
+      range = r;
+      renderAll();
+      if (window._slates) window._slates.update();
+    }
+  };
+})();
+
+// Slate Comparison Module
+// Compares by EDITION NUMBER within each slate, not by ISO week,
+// because 52 weeks / 6 slates means the rotation drifts ~4 positions per year.
+window._slates = (function() {
+  // Anchor: 6/21/2021 (Monday) = Orange slate (index 0)
+  // Rotation order: Orange, Green, Blue, Yellow, Purple, Red
+  var ANCHOR_MS = new Date(2021, 5, 21).getTime(); // June 21, 2021
+  var WEEK_MS = 7 * 86400000;
+  var SLATE_ORDER = ['orange', 'green', 'blue', 'yellow', 'purple', 'red'];
+  var SLATE_NAMES = {
+    orange: 'Orange (ATX/SA)',
+    green: 'Green (ATL)',
+    blue: 'Blue (AL/MS)',
+    yellow: 'Yellow (CHI)',
+    purple: 'Purple (CA)',
+    red: 'Red (HI)'
+  };
+  var SLATE_COLORS = {
+    orange: '#e8a838',
+    green: '#5cd6a0',
+    blue: '#4a90d9',
+    yellow: '#f0e060',
+    purple: '#b07ce8',
+    red: '#e85d5d'
+  };
+
+  var slateChart = null;
+
+  // Determine which slate a given Monday date belongs to
+  function getSlateForMonday(mondayStr) {
+    var parts = mondayStr.split('-');
+    var dt = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    var diffMs = dt.getTime() - ANCHOR_MS;
+    var weekOffset = Math.round(diffMs / WEEK_MS);
+    var idx = ((weekOffset % 6) + 6) % 6;
+    return SLATE_ORDER[idx];
+  }
+
+  // Get the edition number within a year for a given slate occurrence.
+  // E.g., the 1st Orange of 2025 = edition 1, 2nd Orange of 2025 = edition 2, etc.
+  function getEditionNumber(mondayStr, slate) {
+    var parts = mondayStr.split('-');
+    var dt = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    // Find the first Monday of this calendar year
+    var jan1 = new Date(dt.getFullYear(), 0, 1);
+    var jan1Day = jan1.getDay();
+    // First Monday of the year
+    var firstMonday;
+    if (jan1Day <= 1) {
+      firstMonday = new Date(jan1.getTime() + (1 - jan1Day) * 86400000);
+    } else {
+      firstMonday = new Date(jan1.getTime() + (8 - jan1Day) * 86400000);
+    }
+
+    // Count how many times this slate appears from firstMonday up to and including dt
+    var count = 0;
+    var cursor = new Date(firstMonday.getTime());
+    while (cursor <= dt) {
+      var cursorStr = cursor.getFullYear() + '-' +
+        String(cursor.getMonth() + 1).padStart(2, '0') + '-' +
+        String(cursor.getDate()).padStart(2, '0');
+      if (getSlateForMonday(cursorStr) === slate) {
+        count++;
+      }
+      cursor = new Date(cursor.getTime() + WEEK_MS);
+    }
+    return count;
+  }
+
+  // Single-select: clicking a slate unchecks others (unless "All" is active)
+  function selectOne(cb) {
+    var allCb = document.querySelector('#slateCheckboxes input[value="all"]');
+    if (allCb && allCb.checked) {
+      // If "All" was on, turn it off and just select this one
+      allCb.checked = false;
+    }
+    // Uncheck all other slate checkboxes
+    var boxes = document.querySelectorAll('#slateCheckboxes input[type="checkbox"]:not([value="all"])');
+    for (var i = 0; i < boxes.length; i++) {
+      if (boxes[i] !== cb) boxes[i].checked = false;
+    }
+    cb.checked = true; // ensure the clicked one stays checked
+    update();
+  }
+
+  // Toggle all slates on/off
+  function toggleAll(allCb) {
+    var boxes = document.querySelectorAll('#slateCheckboxes input[type="checkbox"]:not([value="all"])');
+    for (var i = 0; i < boxes.length; i++) {
+      boxes[i].checked = allCb.checked;
+    }
+    update();
+  }
+
+  // Get currently selected slates from checkboxes
+  function getSelectedSlates() {
+    var allCb = document.querySelector('#slateCheckboxes input[value="all"]');
+    if (allCb && allCb.checked) return SLATE_ORDER.slice();
+    var checkboxes = document.querySelectorAll('#slateCheckboxes input[type="checkbox"]:not([value="all"])');
+    var selected = [];
+    for (var i = 0; i < checkboxes.length; i++) {
+      if (checkboxes[i].checked) selected.push(checkboxes[i].value);
+    }
+    return selected;
+  }
+
+  function update() {
+    var dash = window._dash;
+    var years = dash.getYears();
+    var byYear = dash.getByYear();
+    var metric = dash.getMetric();
+
+    if (!years || years.length === 0) {
+      document.getElementById('slateSection').style.display = 'none';
+      return;
+    }
+
+    document.getElementById('slateSection').style.display = 'block';
+
+    var selected = getSelectedSlates();
+    if (selected.length === 0) {
+      document.getElementById('slateChartSubtitle').textContent = 'No slates selected';
+      if (slateChart) { slateChart.destroy(); slateChart = null; }
+      return;
+    }
+
+    // Helper: shade a hex color toward the dark bg
+    function shadeSlateColor(hex, factor) {
+      var r = parseInt(hex.slice(1, 3), 16);
+      var g = parseInt(hex.slice(3, 5), 16);
+      var b = parseInt(hex.slice(5, 7), 16);
+      var bgR = 26, bgG = 30, bgB = 39;
+      r = Math.round(bgR + (r - bgR) * factor);
+      g = Math.round(bgG + (g - bgG) * factor);
+      b = Math.round(bgB + (b - bgB) * factor);
+      return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
+
+    // Helper: day-of-year (1-366) from a monday string
+    function dayOfYear(mondayStr) {
+      var parts = mondayStr.split('-');
+      var dt = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      var jan1 = new Date(dt.getFullYear(), 0, 1);
+      return Math.floor((dt - jan1) / 86400000) + 1;
+    }
+
+    var latestYear = years[years.length - 1];
+    var allMode = selected.length === SLATE_ORDER.length; // "All" mode
+
+    // For each year, collect all weeks belonging to selected slates
+    var slateWeeksByYear = {};
+    for (var yi = 0; yi < years.length; yi++) {
+      var y = years[yi];
+      slateWeeksByYear[y] = [];
+      if (!byYear[y]) continue;
+      var weekNums = Object.keys(byYear[y]).map(Number).sort(function(a, b) { return a - b; });
+      for (var wi = 0; wi < weekNums.length; wi++) {
+        var wk = weekNums[wi];
+        var entry = byYear[y][wk];
+        if (!entry || !entry.monday) continue;
+        var slate = getSlateForMonday(entry.monday);
+        if (selected.indexOf(slate) >= 0) {
+          slateWeeksByYear[y].push({ week: wk, monday: entry.monday, slate: slate, value: entry[metric] });
+        }
+      }
+    }
+
+    // Generate ALL Mondays for the latest year as anchors (full year projection)
+    // Each anchor gets its slate assignment and any existing data
+    var anchorWeeks = [];
+    var latestDataLookup = {}; // monday -> {week, value}
+    var latestSlateWeeks = slateWeeksByYear[latestYear] || [];
+    for (var ld = 0; ld < latestSlateWeeks.length; ld++) {
+      latestDataLookup[latestSlateWeeks[ld].monday] = latestSlateWeeks[ld];
+    }
+    // Find first Monday of the latest year
+    var jan1Latest = new Date(latestYear, 0, 1);
+    var jan1Day = jan1Latest.getDay();
+    var firstMon = new Date(jan1Latest.getTime() + ((jan1Day <= 1 ? 1 - jan1Day : 8 - jan1Day) * 86400000));
+    // Generate all ~52 Mondays
+    var cursor = new Date(firstMon.getTime());
+    var weekNum = 1;
+    while (cursor.getFullYear() === latestYear || (cursor.getMonth() === 11 && cursor.getFullYear() === latestYear - 1)) {
+      if (cursor.getFullYear() > latestYear) break;
+      var monStr = cursor.getFullYear() + '-' +
+        String(cursor.getMonth() + 1).padStart(2, '0') + '-' +
+        String(cursor.getDate()).padStart(2, '0');
+      var sl = getSlateForMonday(monStr);
+      if (selected.indexOf(sl) >= 0) {
+        var existing = latestDataLookup[monStr];
+        anchorWeeks.push({
+          week: weekNum,
+          monday: monStr,
+          slate: sl,
+          value: existing ? existing.value : null
+        });
+      }
+      weekNum++;
+      cursor = new Date(cursor.getTime() + WEEK_MS);
+    }
+
+    // Match prior years by closest date per slate
+    var matchedByYear = {};
+    for (var yi2 = 0; yi2 < years.length; yi2++) {
+      var yr = years[yi2];
+      if (yr === latestYear) {
+        // Latest year: use actual data (null for future weeks)
+        matchedByYear[yr] = anchorWeeks.map(function(aw) {
+          return aw.value != null ? aw : null;
+        });
+        continue;
+      }
+      matchedByYear[yr] = [];
+      var priorWeeks = slateWeeksByYear[yr] || [];
+      var used = {};
+      for (var ai = 0; ai < anchorWeeks.length; ai++) {
+        var anchorDoy = dayOfYear(anchorWeeks[ai].monday);
+        var anchorSlate = anchorWeeks[ai].slate;
+        var bestIdx = -1, bestDist = Infinity;
+        for (var pi = 0; pi < priorWeeks.length; pi++) {
+          if (used[pi]) continue;
+          if (priorWeeks[pi].slate !== anchorSlate) continue;
+          var dist = Math.abs(dayOfYear(priorWeeks[pi].monday) - anchorDoy);
+          if (dist < bestDist) { bestDist = dist; bestIdx = pi; }
+        }
+        if (bestIdx >= 0) { used[bestIdx] = true; matchedByYear[yr].push(priorWeeks[bestIdx]); }
+        else { matchedByYear[yr].push(null); }
+      }
+    }
+
+    // ── ALL MODE: chronological order, each bar colored by its slate ──
+    if (allMode) {
+      // Anchor weeks are already in chronological order — just use them directly
+      var labels = [];
+      for (var al = 0; al < anchorWeeks.length; al++) {
+        var dtL = new Date(anchorWeeks[al].monday + 'T00:00:00');
+        labels.push(dtL.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+      }
+
+      // One dataset per year, with per-bar color from that bar's slate
+      var datasets = [];
+      for (var yi3 = 0; yi3 < years.length; yi3++) {
+        var yrD = years[yi3];
+        var data = [], bgColors = [], bdColors = [];
+        var shadeFactor = years.length === 1 ? 1.0 : 0.35 + 0.65 * (yi3 / (years.length - 1));
+        var matched = matchedByYear[yrD] || [];
+        for (var ai2 = 0; ai2 < anchorWeeks.length; ai2++) {
+          var slateColor = SLATE_COLORS[anchorWeeks[ai2].slate];
+          var barColor = shadeSlateColor(slateColor, shadeFactor);
+          var m = matched[ai2];
+          data.push(m ? m.value : null);
+          bgColors.push(barColor + (yrD === latestYear ? 'ee' : 'cc'));
+          bdColors.push(barColor);
+        }
+        datasets.push({
+          label: String(yrD), data: data,
+          backgroundColor: bgColors, borderColor: bdColors,
+          borderWidth: yrD === latestYear ? 2 : 1, borderRadius: 4, borderSkipped: false
+        });
+      }
+
+      // Legend: year shades + slate color key
+      var legendHtml = '';
+      for (var li = 0; li < years.length; li++) {
+        var yr2 = years[li];
+        var lf = years.length === 1 ? 1.0 : 0.35 + 0.65 * (li / (years.length - 1));
+        legendHtml += '<em><span class="dot" style="background:' + shadeSlateColor('#aabbcc', lf) + '"></span> ' + yr2 + '</em>';
+      }
+      legendHtml += '<span style="margin-left:12px;opacity:0.4">|</span>';
+      for (var si3 = 0; si3 < SLATE_ORDER.length; si3++) {
+        var sn = SLATE_ORDER[si3];
+        legendHtml += '<em><span class="dot" style="background:' + SLATE_COLORS[sn] + '"></span> ' + (SLATE_NAMES[sn].split(' (')[0]) + '</em>';
+      }
+      document.getElementById('slateLegend').innerHTML = legendHtml;
+
+      // Size container — match the bar width of single-slate view, scroll for overflow
+      var chartWrap = document.getElementById('slateChartWrap');
+      var scrollContainer = document.getElementById('slateChartScroll');
+      var containerWidth = scrollContainer.clientWidth || 800;
+      // A single slate has ~9 bars fitting the full container width,
+      // so each bar group gets roughly containerWidth / 9 px.
+      // Use that same spacing for all-mode to keep bars the same size.
+      var singleSlateCount = Math.ceil(52 / SLATE_ORDER.length); // ~9 editions per slate
+      var barGroupWidth = Math.round(containerWidth / singleSlateCount);
+      var chartWidth = Math.max(labels.length * barGroupWidth, containerWidth);
+      chartWrap.style.width = chartWidth + 'px';
+      chartWrap.style.minWidth = chartWidth + 'px';
+      chartWrap.style.height = '380px';
+
+      // Titles
+      var metricLabel = metric === 'amount' ? 'Revenue' : 'Deal Count';
+      document.getElementById('slateChartTitle').textContent = 'All Slates — ' + metricLabel;
+      document.getElementById('slateChartSubtitle').textContent = 'Each slate shown individually — closest-date match across years';
+
+      // Render
+      if (slateChart) { slateChart.destroy(); slateChart = null; }
+      if (labels.length === 0) return;
+
+      // Set canvas size explicitly for scrollable chart
+      var canvas = document.getElementById('slateChart');
+      canvas.style.width = chartWidth + 'px';
+      canvas.style.height = '380px';
+      var ctx = document.getElementById('slateChart').getContext('2d');
+      var fmtFn = metric === 'amount' ? dash.fmt$ : dash.fmtN;
+      var _matchedByYear = matchedByYear;
+      var _anchorWeeks = anchorWeeks;
+      var _latestYear = latestYear;
+
+      // Only show value labels on the latest year's bars to avoid overlap
+      var barLabelPlugin = {
+        id: 'slateBarLabels',
+        afterDatasetsDraw: function(chart) {
+          var ctx2 = chart.ctx;
+          ctx2.save();
+          ctx2.font = '9px system-ui, sans-serif';
+          ctx2.textAlign = 'center';
+          chart.data.datasets.forEach(function(ds, dsi) {
+            if (ds.label !== String(_latestYear)) return; // only latest year
+            var meta = chart.getDatasetMeta(dsi);
+            meta.data.forEach(function(bar, i) {
+              var v = ds.data[i];
+              if (v == null) return;
+              var txt = metric === 'amount'
+                ? '$' + (v >= 1000 ? Math.round(v / 1000) + 'k' : Math.round(v))
+                : String(Math.round(v));
+              var bc = Array.isArray(ds.borderColor) ? ds.borderColor[i] : ds.borderColor;
+              ctx2.fillStyle = bc || '#8b919e';
+              ctx2.fillText(txt, bar.x, bar.y - 4);
+            });
+          });
+          ctx2.restore();
+        }
+      };
+
+      slateChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: labels, datasets: datasets },
+        plugins: [barLabelPlugin],
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { top: 18 } },
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1a1e27', titleColor: '#e8eaed', bodyColor: '#e8eaed',
+              borderColor: '#252a35', borderWidth: 1, padding: 12,
+              filter: function(item) { return item.raw != null; },
+              callbacks: {
+                title: function(items) {
+                  if (!items.length) return '';
+                  var idx = items[0].dataIndex;
+                  var anchor = _anchorWeeks[idx];
+                  if (!anchor) return '';
+                  var slateName = SLATE_NAMES[anchor.slate] || anchor.slate;
+                  var dt = new Date(anchor.monday + 'T00:00:00');
+                  return slateName + ' — ' + dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                },
+                label: function(item) {
+                  var v = item.raw;
+                  var yr = item.dataset.label;
+                  var idx = item.dataIndex;
+                  var dateSuffix = '';
+                  var matched = _matchedByYear[yr];
+                  if (matched && matched[idx]) {
+                    var m2 = matched[idx];
+                    var d = new Date(m2.monday + 'T00:00:00');
+                    dateSuffix = ' (W' + m2.week + ', ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ')';
+                  }
+                  if (v == null) return '  ' + yr + dateSuffix + ': N/A';
+                  return '  ' + yr + dateSuffix + ': ' + fmtFn(v);
+                }
+              }
+            }
+          },
+          scales: {
+            x: { ticks: { color: '#8b919e', maxRotation: 45 }, grid: { display: false } },
+            y: {
+              ticks: { color: '#8b919e', callback: function(v) { if (metric === 'amount') return '$' + Math.round(v / 1000) + 'k'; return v; } },
+              grid: { color: 'rgba(37,42,53,0.25)' }
+            }
+          }
+        }
+      });
+      return; // done with all-mode
+    }
+
+    // ── SINGLE SLATE MODE ──
+    var labels = [];
+    for (var li2 = 0; li2 < anchorWeeks.length; li2++) {
+      var dt = new Date(anchorWeeks[li2].monday + 'T00:00:00');
+      labels.push(dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    }
+
+    var slateBaseColor = SLATE_COLORS[selected[0]];
+
+    var datasets = [];
+    for (var yi3 = 0; yi3 < years.length; yi3++) {
+      var yr = years[yi3];
+      var data = [];
+      var matched = matchedByYear[yr] || [];
+      for (var mi2 = 0; mi2 < anchorWeeks.length; mi2++) {
+        var m = matched[mi2];
+        data.push(m ? m.value : null);
+      }
+      var shadeFactor = years.length === 1 ? 1.0 : 0.35 + 0.65 * (yi3 / (years.length - 1));
+      var barColor = shadeSlateColor(slateBaseColor, shadeFactor);
+      datasets.push({
+        label: String(yr), data: data,
+        backgroundColor: barColor + (yr === latestYear ? 'ee' : 'cc'),
+        borderColor: barColor,
+        borderWidth: yr === latestYear ? 2 : 1, borderRadius: 4, borderSkipped: false
+      });
+    }
+
+    // Legend
+    var legendHtml = '';
+    for (var li = 0; li < years.length; li++) {
+      var yr2 = years[li];
+      var legendFactor = years.length === 1 ? 1.0 : 0.35 + 0.65 * (li / (years.length - 1));
+      var legendColor = shadeSlateColor(slateBaseColor, legendFactor);
+      legendHtml += '<em><span class="dot" style="background:' + legendColor + '"></span> ' + yr2 + '</em>';
+    }
+    document.getElementById('slateLegend').innerHTML = legendHtml;
+
+    // Reset chart width for single slate
+    var chartWrap = document.getElementById('slateChartWrap');
+    chartWrap.style.width = '';
+    chartWrap.style.minWidth = '';
+
+    // Titles
+    var metricLabel = metric === 'amount' ? 'Revenue' : 'Deal Count';
+    var slateNames = selected.map(function(s) { return SLATE_NAMES[s] || s; });
+    document.getElementById('slateChartTitle').textContent = 'Slate Comparison — ' + metricLabel;
+    document.getElementById('slateChartSubtitle').textContent =
+      'Filtered to: ' + slateNames.join(', ') + ' — closest-date match across years';
+
+    // Render chart
+    if (slateChart) { slateChart.destroy(); slateChart = null; }
+    if (anchorWeeks.length === 0) return;
+
+    var ctx = document.getElementById('slateChart').getContext('2d');
+    var fmtFn = metric === 'amount' ? dash.fmt$ : dash.fmtN;
+    var _matchedByYear = matchedByYear;
+    var _anchorWeeks = anchorWeeks;
+    var _years = years;
+    var _selected = selected;
+
+    var barLabelPlugin = {
+      id: 'slateBarLabels',
+      afterDatasetsDraw: function(chart) {
+        var ctx2 = chart.ctx;
+        ctx2.save();
+        ctx2.font = '9px system-ui, sans-serif';
+        ctx2.textAlign = 'center';
+        chart.data.datasets.forEach(function(ds, dsi) {
+          var meta = chart.getDatasetMeta(dsi);
+          meta.data.forEach(function(bar, i) {
+            var v = ds.data[i];
+            if (v == null) return;
+            var txt = metric === 'amount'
+              ? '$' + (v >= 1000 ? Math.round(v / 1000) + 'k' : Math.round(v))
+              : String(Math.round(v));
+            ctx2.fillStyle = ds.borderColor;
+            ctx2.fillText(txt, bar.x, bar.y - 4);
+          });
+        });
+        ctx2.restore();
+      }
+    };
+
+    slateChart = new Chart(ctx, {
+      type: 'bar',
+      data: { labels: labels, datasets: datasets },
+      plugins: [barLabelPlugin],
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { top: 16 } },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1a1e27', titleColor: '#e8eaed', bodyColor: '#e8eaed',
+            borderColor: '#252a35', borderWidth: 1, padding: 12,
+            callbacks: {
+              title: function(items) {
+                if (!items.length) return '';
+                var idx = items[0].dataIndex;
+                var anchor = _anchorWeeks[idx];
+                if (!anchor) return '';
+                var slateName = SLATE_NAMES[anchor.slate] || anchor.slate;
+                var dt = new Date(anchor.monday + 'T00:00:00');
+                return slateName + ' — ' + dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              },
+              label: function(item) {
+                var v = item.raw;
+                var yr = item.dataset.label;
+                var idx = item.dataIndex;
+                var dateSuffix = '';
+                var matched = _matchedByYear[yr];
+                if (matched && matched[idx]) {
+                  var m = matched[idx];
+                  var d = new Date(m.monday + 'T00:00:00');
+                  dateSuffix = ' (W' + m.week + ', ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ')';
+                }
+                if (v == null) return '  ' + yr + dateSuffix + ': N/A';
+                return '  ' + yr + dateSuffix + ': ' + fmtFn(v);
+              }
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { color: '#8b919e', maxRotation: 45 }, grid: { display: false } },
+          y: {
+            ticks: { color: '#8b919e', callback: function(v) { if (metric === 'amount') return '$' + Math.round(v / 1000) + 'k'; return v; } },
+            grid: { color: 'rgba(37,42,53,0.25)' }
+          }
+        }
+      }
+    });
+  }
+
+  return {
+    update: update,
+    selectOne: selectOne,
+    toggleAll: toggleAll,
+    getSlateForMonday: getSlateForMonday
+  };
+})();
+
+// Demo Data Module — generates realistic sample data for local testing
+window._demo = (function() {
+  function getISOWeekMonday(year, week) {
+    var simple = new Date(year, 0, 4);
+    var dayOfWeek = simple.getDay();
+    var diff = simple.getTime() - (dayOfWeek - 1) * 86400000;
+    var firstMonday = new Date(diff);
+    var mondayMs = firstMonday.getTime() + (week - 1) * 7 * 86400000;
+    var monday = new Date(mondayMs);
+    return monday.getFullYear() + '-' +
+      String(monday.getMonth() + 1).padStart(2, '0') + '-' +
+      String(monday.getDate()).padStart(2, '0');
+  }
+
+  function load() {
+    var data = [];
+    var baseAmounts = { 2024: 18000, 2025: 21000, 2026: 23000 };
+    var baseCounts = { 2024: 14, 2025: 17, 2026: 19 };
+    var currentWeek = (function() {
+      var now = new Date();
+      var d = new Date(now.getTime());
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+      var ys = new Date(d.getFullYear(), 0, 1);
+      return Math.ceil(((d - ys) / 86400000 + 1) / 7);
+    })();
+
+    [2024, 2025, 2026].forEach(function(year) {
+      var maxWeek = year === 2026 ? currentWeek : 52;
+      for (var w = 1; w <= maxWeek; w++) {
+        // Seasonal curve: higher in Q2/Q3, lower in Q1/Q4
+        var seasonal = 1 + 0.2 * Math.sin((w - 13) * Math.PI / 26);
+        // Add some randomness
+        var noise = 0.85 + Math.random() * 0.3;
+        var amount = Math.round(baseAmounts[year] * seasonal * noise);
+        var count = Math.round(baseCounts[year] * seasonal * (0.85 + Math.random() * 0.3));
+
+        data.push({
+          weekKey: year + '-W' + String(w).padStart(2, '0'),
+          year: year,
+          week: w,
+          amount: amount,
+          count: count,
+          monday: getISOWeekMonday(year, w)
+        });
+      }
+    });
+
+    // Show the dashboard UI
+    document.getElementById('noDataMessage').style.display = 'none';
+    document.getElementById('mainHeader').style.display = 'flex';
+
+    window._dash.loadData(data);
+  }
+
+  return { load: load };
+})();
+</script>
+</body>
+</html>

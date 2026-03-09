@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HAVEN Lifestyles - Weekly Sales Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0f14;
+    --surface: #13161d;
+    --surface2: #1a1e27;
+    --border: #252a35;
+    --text: #e8eaed;
+    --text-muted: #8b919e;
+    --accent-2024: #4a90d9;
+    --accent-2025: #e8a838;
+    --accent-2026: #5cd6a0;
+    --up: #5cd6a0;
+    --down: #e85d5d;
+    --neutral: #8b919e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .header h1 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  .header h1 span {
+    color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    font-size: 15px;
+    margin-left: 12px;
+  }
+  .controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .controls label {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-right: 4px;
+  }
+  select, button {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  select:hover, button:hover { border-color: var(--text-muted); }
+  button.active {
+    background: var(--accent-2025);
+    color: var(--bg);
+    border-color: var(--accent-2025);
+    font-weight: 500;
+  }
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .kpi .lbl {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .kpi .val {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+  }
+  .kpi .sub { font-size: 12px; margin-top: 4px; }
+  .kpi .sub.up { color: var(--up); }
+  .kpi .sub.down { color: var(--down); }
+  .kpi .sub.neutral { color: var(--neutral); }
+  .chart-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .chart-section h2 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .chart-section .subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+  .chart-wrap { position: relative; width: 100%; height: 380px; }
+  .legend-inline {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+  }
+  .legend-inline em { display: flex; align-items: center; gap: 5px; font-style: normal; }
+  .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .table-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    overflow-x: auto;
+  }
+  .table-section h2 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 16px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--border);
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  thead th:hover { color: var(--text); }
+  thead th .sa { margin-left: 4px; opacity: 0.4; }
+  thead th.sorted .sa { opacity: 1; }
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  tbody tr:hover { background: var(--surface2); }
+  tbody td { padding: 10px 14px; white-space: nowrap; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .badge.up { background: rgba(92, 214, 160, 0.15); color: var(--up); }
+  .badge.down { background: rgba(232, 93, 93, 0.15); color: var(--down); }
+  .badge.neutral { background: rgba(139, 145, 158, 0.12); color: var(--neutral); }
+  @media (max-width: 768px) {
+    body { padding: 12px; }
+    .header h1 { font-size: 22px; }
+    .chart-wrap { height: 280px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>HAVEN Lifestyles <span>Weekly Sales Comparison</span></h1>
+  <div class="controls">
+    <label>View:</label>
+    <button id="btnAmount" class="active" onclick="window._dash.setMetric('amount')">Revenue ($)</button>
+    <button id="btnCount" onclick="window._dash.setMetric('count')">Deal Count</button>
+    <label style="margin-left:12px">Range:</label>
+    <select id="rangeSelect" onchange="window._dash.setRange(this.value)">
+      <option value="all">Full Year</option>
+      <option value="q1">Q1 (W1-W13)</option>
+      <option value="q2">Q2 (W14-W26)</option>
+      <option value="q3">Q3 (W27-W39)</option>
+      <option value="q4">Q4 (W40-W52)</option>
+      <option value="ytd" selected>YTD (through current week)</option>
+    </select>
+  </div>
+</div>
+
+<div class="kpi-row" id="kpiRow"></div>
+
+<div class="chart-section">
+  <h2 id="chartTitle">Weekly Revenue - Year-over-Year</h2>
+  <p class="subtitle" id="chartSubtitle">Comparing the same ISO week across 2024, 2025, and 2026</p>
+  <div class="legend-inline">
+    <em><span class="dot" style="background:#4a90d9"></span> 2024</em>
+    <em><span class="dot" style="background:#e8a838"></span> 2025</em>
+    <em><span class="dot" style="background:#5cd6a0"></span> 2026</em>
+  </div>
+  <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+</div>
+
+<div class="chart-section">
+  <h2 id="deltaTitle">Year-over-Year Change (%)</h2>
+  <p class="subtitle" id="deltaSubtitle">Percentage change vs same week prior year</p>
+  <div class="chart-wrap" style="height:240px"><canvas id="deltaChart"></canvas></div>
+</div>
+
+<div class="table-section">
+  <h2>Week-by-Week Comparison</h2>
+  <table><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+window._dash = (function() {
+  var rawData = [{"weekKey": "2024-W01", "year": 2024, "week": 1, "amount": 111371.3, "count": 354, "monday": "2024-01-01"}, {"weekKey": "2024-W02", "year": 2024, "week": 2, "amount": 152042.31, "count": 473, "monday": "2024-01-08"}, {"weekKey": "2024-W03", "year": 2024, "week": 3, "amount": 109419.78, "count": 362, "monday": "2024-01-15"}, {"weekKey": "2024-W04", "year": 2024, "week": 4, "amount": 154469.28, "count": 488, "monday": "2024-01-22"}, {"weekKey": "2024-W05", "year": 2024, "week": 5, "amount": 135008.4, "count": 438, "monday": "2024-01-29"}, {"weekKey": "2024-W06", "year": 2024, "week": 6, "amount": 131907.38, "count": 425, "monday": "2024-02-05"}, {"weekKey": "2024-W07", "year": 2024, "week": 7, "amount": 116804.28, "count": 394, "monday": "2024-02-12"}, {"weekKey": "2024-W08", "year": 2024, "week": 8, "amount": 118316.34, "count": 417, "monday": "2024-02-19"}, {"weekKey": "2024-W09", "year": 2024, "week": 9, "amount": 118940.25, "count": 418, "monday": "2024-02-26"}, {"weekKey": "2024-W10", "year": 2024, "week": 10, "amount": 109195.0, "count": 370, "monday": "2024-03-04"}, {"weekKey": "2024-W11", "year": 2024, "week": 11, "amount": 136250.3, "count": 449, "monday": "2024-03-11"}, {"weekKey": "2024-W12", "year": 2024, "week": 12, "amount": 120538.4, "count": 406, "monday": "2024-03-18"}, {"weekKey": "2024-W13", "year": 2024, "week": 13, "amount": 123492.75, "count": 396, "monday": "2024-03-25"}, {"weekKey": "2024-W14", "year": 2024, "week": 14, "amount": 146133.02, "count": 487, "monday": "2024-04-01"}, {"weekKey": "2024-W15", "year": 2024, "week": 15, "amount": 130697.8, "count": 419, "monday": "2024-04-08"}, {"weekKey": "2024-W16", "year": 2024, "week": 16, "amount": 141419.3, "count": 465, "monday": "2024-04-15"}, {"weekKey": "2024-W17", "year": 2024, "week": 17, "amount": 157080.98, "count": 499, "monday": "2024-04-22"}, {"weekKey": "2024-W18", "year": 2024, "week": 18, "amount": 162110.85, "count": 513, "monday": "2024-04-29"}, {"weekKey": "2024-W19", "year": 2024, "week": 19, "amount": 156023.25, "count": 497, "monday": "2024-05-06"}, {"weekKey": "2024-W20", "year": 2024, "week": 20, "amount": 157763.4, "count": 501, "monday": "2024-05-13"}, {"weekKey": "2024-W21", "year": 2024, "week": 21, "amount": 137408.45, "count": 443, "monday": "2024-05-20"}, {"weekKey": "2024-W22", "year": 2024, "week": 22, "amount": 129381.78, "count": 425, "monday": "2024-05-27"}, {"weekKey": "2024-W23", "year": 2024, "week": 23, "amount": 164901.53, "count": 533, "monday": "2024-06-03"}, {"weekKey": "2024-W24", "year": 2024, "week": 24, "amount": 142528.93, "count": 479, "monday": "2024-06-10"}, {"weekKey": "2024-W25", "year": 2024, "week": 25, "amount": 118902.15, "count": 412, "monday": "2024-06-17"}, {"weekKey": "2024-W26", "year": 2024, "week": 26, "amount": 140890.92, "count": 473, "monday": "2024-06-24"}, {"weekKey": "2024-W27", "year": 2024, "week": 27, "amount": 116939.0, "count": 399, "monday": "2024-07-01"}, {"weekKey": "2024-W28", "year": 2024, "week": 28, "amount": 144161.5, "count": 478, "monday": "2024-07-08"}, {"weekKey": "2024-W29", "year": 2024, "week": 29, "amount": 113618.02, "count": 382, "monday": "2024-07-15"}, {"weekKey": "2024-W30", "year": 2024, "week": 30, "amount": 116256.61, "count": 398, "monday": "2024-07-22"}, {"weekKey": "2024-W31", "year": 2024, "week": 31, "amount": 118012.17, "count": 415, "monday": "2024-07-29"}, {"weekKey": "2024-W32", "year": 2024, "week": 32, "amount": 108063.15, "count": 373, "monday": "2024-08-05"}, {"weekKey": "2024-W33", "year": 2024, "week": 33, "amount": 105958.65, "count": 357, "monday": "2024-08-12"}, {"weekKey": "2024-W34", "year": 2024, "week": 34, "amount": 124748.0, "count": 421, "monday": "2024-08-19"}, {"weekKey": "2024-W35", "year": 2024, "week": 35, "amount": 145787.49, "count": 468, "monday": "2024-08-26"}, {"weekKey": "2024-W36", "year": 2024, "week": 36, "amount": 124429.82, "count": 404, "monday": "2024-09-02"}, {"weekKey": "2024-W37", "year": 2024, "week": 37, "amount": 150922.95, "count": 519, "monday": "2024-09-09"}, {"weekKey": "2024-W38", "year": 2024, "week": 38, "amount": 168465.81, "count": 574, "monday": "2024-09-16"}, {"weekKey": "2024-W39", "year": 2024, "week": 39, "amount": 201246.6, "count": 696, "monday": "2024-09-23"}, {"weekKey": "2024-W40", "year": 2024, "week": 40, "amount": 177438.3, "count": 582, "monday": "2024-09-30"}, {"weekKey": "2024-W41", "year": 2024, "week": 41, "amount": 143304.1, "count": 480, "monday": "2024-10-07"}, {"weekKey": "2024-W42", "year": 2024, "week": 42, "amount": 172099.43, "count": 556, "monday": "2024-10-14"}, {"weekKey": "2024-W43", "year": 2024, "week": 43, "amount": 179255.5, "count": 601, "monday": "2024-10-21"}, {"weekKey": "2024-W44", "year": 2024, "week": 44, "amount": 180056.58, "count": 599, "monday": "2024-10-28"}, {"weekKey": "2024-W45", "year": 2024, "week": 45, "amount": 152559.48, "count": 495, "monday": "2024-11-04"}, {"weekKey": "2024-W46", "year": 2024, "week": 46, "amount": 143765.1, "count": 491, "monday": "2024-11-11"}, {"weekKey": "2024-W47", "year": 2024, "week": 47, "amount": 151046.84, "count": 500, "monday": "2024-11-18"}, {"weekKey": "2024-W48", "year": 2024, "week": 48, "amount": 61250.06, "count": 209, "monday": "2024-11-25"}, {"weekKey": "2024-W49", "year": 2024, "week": 49, "amount": 162693.42, "count": 540, "monday": "2024-12-02"}, {"weekKey": "2024-W50", "year": 2024, "week": 50, "amount": 126044.5, "count": 445, "monday": "2024-12-09"}, {"weekKey": "2024-W51", "year": 2024, "week": 51, "amount": 138805.11, "count": 452, "monday": "2024-12-16"}, {"weekKey": "2024-W52", "year": 2024, "week": 52, "amount": 37983.8, "count": 130, "monday": "2024-12-23"}, {"weekKey": "2025-W01", "year": 2025, "week": 1, "amount": 54328.3, "count": 182, "monday": "2024-12-30"}, {"weekKey": "2025-W02", "year": 2025, "week": 2, "amount": 149864.15, "count": 491, "monday": "2025-01-06"}, {"weekKey": "2025-W03", "year": 2025, "week": 3, "amount": 131824.11, "count": 431, "monday": "2025-01-13"}, {"weekKey": "2025-W04", "year": 2025, "week": 4, "amount": 100956.46, "count": 347, "monday": "2025-01-20"}, {"weekKey": "2025-W05", "year": 2025, "week": 5, "amount": 130451.94, "count": 443, "monday": "2025-01-27"}, {"weekKey": "2025-W06", "year": 2025, "week": 6, "amount": 118463.45, "count": 386, "monday": "2025-02-03"}, {"weekKey": "2025-W07", "year": 2025, "week": 7, "amount": 127187.13, "count": 419, "monday": "2025-02-10"}, {"weekKey": "2025-W08", "year": 2025, "week": 8, "amount": 124116.67, "count": 401, "monday": "2025-02-17"}, {"weekKey": "2025-W09", "year": 2025, "week": 9, "amount": 144747.75, "count": 473, "monday": "2025-02-24"}, {"weekKey": "2025-W10", "year": 2025, "week": 10, "amount": 151513.73, "count": 501, "monday": "2025-03-03"}, {"weekKey": "2025-W11", "year": 2025, "week": 11, "amount": 149623.73, "count": 498, "monday": "2025-03-10"}, {"weekKey": "2025-W12", "year": 2025, "week": 12, "amount": 131812.65, "count": 421, "monday": "2025-03-17"}, {"weekKey": "2025-W13", "year": 2025, "week": 13, "amount": 156729.08, "count": 475, "monday": "2025-03-24"}, {"weekKey": "2025-W14", "year": 2025, "week": 14, "amount": 141078.53, "count": 448, "monday": "2025-03-31"}, {"weekKey": "2025-W15", "year": 2025, "week": 15, "amount": 151277.7, "count": 473, "monday": "2025-04-07"}, {"weekKey": "2025-W16", "year": 2025, "week": 16, "amount": 135619.27, "count": 423, "monday": "2025-04-14"}, {"weekKey": "2025-W17", "year": 2025, "week": 17, "amount": 136331.55, "count": 431, "monday": "2025-04-21"}, {"weekKey": "2025-W18", "year": 2025, "week": 18, "amount": 154682.98, "count": 484, "monday": "2025-04-28"}, {"weekKey": "2025-W19", "year": 2025, "week": 19, "amount": 142140.05, "count": 430, "monday": "2025-05-05"}, {"weekKey": "2025-W20", "year": 2025, "week": 20, "amount": 152857.93, "count": 441, "monday": "2025-05-12"}, {"weekKey": "2025-W21", "year": 2025, "week": 21, "amount": 128222.1, "count": 393, "monday": "2025-05-19"}, {"weekKey": "2025-W22", "year": 2025, "week": 22, "amount": 137198.38, "count": 424, "monday": "2025-05-26"}, {"weekKey": "2025-W23", "year": 2025, "week": 23, "amount": 160990.48, "count": 479, "monday": "2025-06-02"}, {"weekKey": "2025-W24", "year": 2025, "week": 24, "amount": 164562.58, "count": 523, "monday": "2025-06-09"}, {"weekKey": "2025-W25", "year": 2025, "week": 25, "amount": 144951.73, "count": 446, "monday": "2025-06-16"}, {"weekKey": "2025-W26", "year": 2025, "week": 26, "amount": 146686.35, "count": 460, "monday": "2025-06-23"}, {"weekKey": "2025-W27", "year": 2025, "week": 27, "amount": 112701.93, "count": 351, "monday": "2025-06-30"}, {"weekKey": "2025-W28", "year": 2025, "week": 28, "amount": 162313.85, "count": 507, "monday": "2025-07-07"}, {"weekKey": "2025-W29", "year": 2025, "week": 29, "amount": 142551.1, "count": 471, "monday": "2025-07-14"}, {"weekKey": "2025-W30", "year": 2025, "week": 30, "amount": 148979.4, "count": 459, "monday": "2025-07-21"}, {"weekKey": "2025-W31", "year": 2025, "week": 31, "amount": 169779.95, "count": 510, "monday": "2025-07-28"}, {"weekKey": "2025-W32", "year": 2025, "week": 32, "amount": 134692.33, "count": 398, "monday": "2025-08-04"}, {"weekKey": "2025-W33", "year": 2025, "week": 33, "amount": 168267.03, "count": 522, "monday": "2025-08-11"}, {"weekKey": "2025-W34", "year": 2025, "week": 34, "amount": 131893.03, "count": 417, "monday": "2025-08-18"}, {"weekKey": "2025-W35", "year": 2025, "week": 35, "amount": 133647.53, "count": 419, "monday": "2025-08-25"}, {"weekKey": "2025-W36", "year": 2025, "week": 36, "amount": 119814.5, "count": 371, "monday": "2025-09-01"}, {"weekKey": "2025-W37", "year": 2025, "week": 37, "amount": 148976.68, "count": 483, "monday": "2025-09-08"}, {"weekKey": "2025-W38", "year": 2025, "week": 38, "amount": 141820.5, "count": 416, "monday": "2025-09-15"}, {"weekKey": "2025-W39", "year": 2025, "week": 39, "amount": 130393.23, "count": 413, "monday": "2025-09-22"}, {"weekKey": "2025-W40", "year": 2025, "week": 40, "amount": 152971.4, "count": 473, "monday": "2025-09-29"}, {"weekKey": "2025-W41", "year": 2025, "week": 41, "amount": 161644.69, "count": 496, "monday": "2025-10-06"}, {"weekKey": "2025-W42", "year": 2025, "week": 42, "amount": 136175.38, "count": 415, "monday": "2025-10-13"}, {"weekKey": "2025-W43", "year": 2025, "week": 43, "amount": 134430.12, "count": 412, "monday": "2025-10-20"}, {"weekKey": "2025-W44", "year": 2025, "week": 44, "amount": 145964.35, "count": 418, "monday": "2025-10-27"}, {"weekKey": "2025-W45", "year": 2025, "week": 45, "amount": 149956.26, "count": 422, "monday": "2025-11-03"}, {"weekKey": "2025-W46", "year": 2025, "week": 46, "amount": 132659.78, "count": 366, "monday": "2025-11-10"}, {"weekKey": "2025-W47", "year": 2025, "week": 47, "amount": 120388.18, "count": 329, "monday": "2025-11-17"}, {"weekKey": "2025-W48", "year": 2025, "week": 48, "amount": 56797.7, "count": 161, "monday": "2025-11-24"}, {"weekKey": "2025-W49", "year": 2025, "week": 49, "amount": 122704.98, "count": 352, "monday": "2025-12-01"}, {"weekKey": "2025-W50", "year": 2025, "week": 50, "amount": 108396.93, "count": 317, "monday": "2025-12-08"}, {"weekKey": "2025-W51", "year": 2025, "week": 51, "amount": 98552.68, "count": 303, "monday": "2025-12-15"}, {"weekKey": "2025-W52", "year": 2025, "week": 52, "amount": 48530.7, "count": 149, "monday": "2025-12-22"}, {"weekKey": "2026-W01", "year": 2026, "week": 1, "amount": 57456.17, "count": 172, "monday": "2025-12-29"}, {"weekKey": "2026-W02", "year": 2026, "week": 2, "amount": 122326.3, "count": 350, "monday": "2026-01-05"}, {"weekKey": "2026-W03", "year": 2026, "week": 3, "amount": 114211.8, "count": 342, "monday": "2026-01-12"}, {"weekKey": "2026-W04", "year": 2026, "week": 4, "amount": 121352.0, "count": 350, "monday": "2026-01-19"}, {"weekKey": "2026-W05", "year": 2026, "week": 5, "amount": 123806.88, "count": 353, "monday": "2026-01-26"}, {"weekKey": "2026-W06", "year": 2026, "week": 6, "amount": 128734.1, "count": 400, "monday": "2026-02-02"}, {"weekKey": "2026-W07", "year": 2026, "week": 7, "amount": 133362.2, "count": 375, "monday": "2026-02-09"}, {"weekKey": "2026-W08", "year": 2026, "week": 8, "amount": 141470.3, "count": 449, "monday": "2026-02-16"}, {"weekKey": "2026-W09", "year": 2026, "week": 9, "amount": 160314.93, "count": 492, "monday": "2026-02-23"}];
+
+  var byYear = {};
+  var i, d;
+  for (i = 0; i < rawData.length; i++) {
+    d = rawData[i];
+    if (!byYear[d.year]) byYear[d.year] = {};
+    byYear[d.year][d.week] = d;
+  }
+  var years = Object.keys(byYear).map(Number).sort(function(a,b){return a-b;});
+  var latestYearGlobal = years[years.length - 1]; // 2026
+
+  var metric = 'amount';
+  var range = 'ytd';
+  var sortCol = 'week';
+  var sortDir = 'asc';
+  var mainChart = null;
+  var deltaChart = null;
+
+  function getWeekRange() {
+    var currentWeek = 9;
+    if (range === 'q1') return [1, 13];
+    if (range === 'q2') return [14, 26];
+    if (range === 'q3') return [27, 39];
+    if (range === 'q4') return [40, 52];
+    if (range === 'ytd') return [1, currentWeek];
+    return [1, 52];
+  }
+
+  function fmt$(v) {
+    if (v == null) return '\u2014';
+    return '$' + Math.round(v).toLocaleString('en-US');
+  }
+  function fmtN(v) {
+    if (v == null) return '\u2014';
+    return v.toLocaleString('en-US');
+  }
+  function fmtPct(v) {
+    if (v == null) return '\u2014';
+    return (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+  }
+  function pctClass(v) {
+    if (v == null) return 'neutral';
+    return v > 0 ? 'up' : v < 0 ? 'down' : 'neutral';
+  }
+  function getVal(yearNum, weekNum) {
+    if (byYear[yearNum] && byYear[yearNum][weekNum]) {
+      return byYear[yearNum][weekNum][metric];
+    }
+    return null;
+  }
+  function getData(yearNum, weekNum) {
+    if (byYear[yearNum] && byYear[yearNum][weekNum]) {
+      return byYear[yearNum][weekNum];
+    }
+    return null;
+  }
+
+  // Get the Monday label for a given week - prefer 2026 date, fallback to others
+  function mondayLabel(w) {
+    // Prefer latest year, fall back
+    var testYears = [latestYearGlobal, latestYearGlobal - 1, latestYearGlobal - 2];
+    for (var j = 0; j < testYears.length; j++) {
+      var dd = getData(testYears[j], w);
+      if (dd) {
+        var dt = new Date(dd.monday + 'T00:00:00');
+        return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
+    }
+    return 'W' + w;
+  }
+
+  // Short label for chart axis (just M/D)
+  function mondayShort(w) {
+    var testYears = [latestYearGlobal, latestYearGlobal - 1, latestYearGlobal - 2];
+    for (var j = 0; j < testYears.length; j++) {
+      var dd = getData(testYears[j], w);
+      if (dd) {
+        var dt = new Date(dd.monday + 'T00:00:00');
+        return (dt.getMonth() + 1) + '/' + dt.getDate();
+      }
+    }
+    return 'W' + w;
+  }
+
+  function renderKPIs() {
+    var bounds = getWeekRange();
+    var wStart = bounds[0], wEnd = bounds[1];
+    var container = document.getElementById('kpiRow');
+    var totals = {};
+    var y, w;
+    for (var yi = 0; yi < years.length; yi++) {
+      y = years[yi];
+      totals[y] = 0;
+      for (w = wStart; w <= wEnd; w++) {
+        var val = getVal(y, w);
+        if (val) totals[y] += val;
+      }
+    }
+    var latestYear = years[years.length - 1];
+    var prevYear = latestYear - 1;
+    var twoYearsAgo = latestYear - 2;
+    var yoyPct = totals[prevYear] ? ((totals[latestYear] - totals[prevYear]) / totals[prevYear] * 100) : null;
+    var weeksInRange = wEnd - wStart + 1;
+    var avgCurrent = totals[latestYear] / weeksInRange;
+    var avgPrev = totals[prevYear] ? totals[prevYear] / weeksInRange : 0;
+    var avgDelta = avgPrev ? ((avgCurrent - avgPrev) / avgPrev * 100) : null;
+    var label = metric === 'amount' ? 'Revenue' : 'Deals';
+    var fmtFn = metric === 'amount' ? fmt$ : fmtN;
+    var sel = document.getElementById('rangeSelect');
+    var rangeLabel = sel.options[sel.selectedIndex].text;
+    var best = 0, bestW = 0;
+    for (w = wStart; w <= wEnd; w++) {
+      var v = getVal(latestYear, w) || 0;
+      if (v > best) { best = v; bestW = w; }
+    }
+    var h = '';
+    h += '<div class="kpi"><div class="lbl">' + latestYear + ' ' + label + ' (' + rangeLabel + ')</div>';
+    h += '<div class="val">' + fmtFn(totals[latestYear]) + '</div>';
+    if (yoyPct != null) h += '<div class="sub ' + pctClass(yoyPct) + '">' + fmtPct(yoyPct) + ' vs ' + prevYear + '</div>';
+    h += '</div>';
+    h += '<div class="kpi"><div class="lbl">' + prevYear + ' ' + label + ' (' + rangeLabel + ')</div>';
+    h += '<div class="val">' + fmtFn(totals[prevYear] || 0) + '</div></div>';
+    if (twoYearsAgo >= years[0]) {
+      h += '<div class="kpi"><div class="lbl">' + twoYearsAgo + ' ' + label + ' (' + rangeLabel + ')</div>';
+      h += '<div class="val">' + fmtFn(totals[twoYearsAgo] || 0) + '</div></div>';
+    }
+    h += '<div class="kpi"><div class="lbl">Avg Weekly ' + label + ' (' + latestYear + ')</div>';
+    h += '<div class="val">' + fmtFn(avgCurrent) + '</div>';
+    if (avgDelta != null) h += '<div class="sub ' + pctClass(avgDelta) + '">' + fmtPct(avgDelta) + ' vs ' + prevYear + ' avg</div>';
+    h += '</div>';
+    h += '<div class="kpi"><div class="lbl">Best Week (' + latestYear + ')</div>';
+    h += '<div class="val">' + fmtFn(best) + ' <span style="font-size:13px;color:#8b919e">(W' + bestW + ')</span></div></div>';
+    container.innerHTML = h;
+  }
+
+  function renderCharts() {
+    var bounds = getWeekRange();
+    var wStart = bounds[0], wEnd = bounds[1];
+    var weeks = [];
+    for (var w = wStart; w <= wEnd; w++) weeks.push(w);
+
+    // Use Monday dates as labels
+    var labels = [];
+    for (var li = 0; li < weeks.length; li++) labels.push(mondayLabel(weeks[li]));
+
+    var rawColors = {};
+    rawColors[2024] = '#4a90d9';
+    rawColors[2025] = '#e8a838';
+    rawColors[2026] = '#5cd6a0';
+
+    var datasets = [];
+    for (var yi = 0; yi < years.length; yi++) {
+      var y = years[yi];
+      var data = [];
+      for (var wi = 0; wi < weeks.length; wi++) {
+        data.push(getVal(y, weeks[wi]));
+      }
+      datasets.push({
+        label: String(y),
+        data: data,
+        borderColor: rawColors[y] || '#888888',
+        backgroundColor: (rawColors[y] || '#888888') + '22',
+        borderWidth: y === years[years.length - 1] ? 2.5 : 1.5,
+        pointRadius: y === years[years.length - 1] ? 3 : 2,
+        pointHoverRadius: 6,
+        tension: 0.3,
+        fill: y === years[years.length - 1],
+        spanGaps: true
+      });
+    }
+
+    document.getElementById('chartTitle').textContent = 'Weekly ' + (metric === 'amount' ? 'Revenue' : 'Deal Count') + ' - Year-over-Year';
+
+    if (mainChart) { mainChart.destroy(); mainChart = null; }
+    var ctx = document.getElementById('mainChart').getContext('2d');
+    mainChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1a1e27',
+            titleColor: '#e8eaed',
+            bodyColor: '#e8eaed',
+            borderColor: '#252a35',
+            borderWidth: 1,
+            padding: 12,
+            callbacks: {
+              title: function(items) {
+                if (!items.length) return '';
+                var idx = items[0].dataIndex;
+                var wk = weeks[idx];
+                return 'Week of ' + mondayLabel(wk) + ' (W' + wk + ')';
+              },
+              label: function(item) {
+                var v = item.raw;
+                if (v == null) return '  ' + item.dataset.label + ': N/A';
+                return '  ' + item.dataset.label + ': ' + (metric === 'amount' ? fmt$(v) : fmtN(v));
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              color: '#8b919e',
+              maxRotation: 45,
+              callback: function(val, idx) {
+                if (weeks.length > 26) return idx % 4 === 0 ? mondayShort(weeks[idx]) : '';
+                if (weeks.length > 13) return idx % 2 === 0 ? mondayShort(weeks[idx]) : '';
+                return mondayShort(weeks[idx]);
+              }
+            },
+            grid: { color: 'rgba(37,42,53,0.13)' }
+          },
+          y: {
+            ticks: {
+              color: '#8b919e',
+              callback: function(v) {
+                if (metric === 'amount') return '$' + Math.round(v / 1000) + 'k';
+                return v;
+              }
+            },
+            grid: { color: 'rgba(37,42,53,0.25)' }
+          }
+        }
+      }
+    });
+
+    // Delta chart
+    var latestYear = years[years.length - 1];
+    var prevYear = latestYear - 1;
+    var deltas = [];
+    var deltaBg = [];
+    var deltaBorder = [];
+    for (var di = 0; di < weeks.length; di++) {
+      var curr = getVal(latestYear, weeks[di]);
+      var prev = getVal(prevYear, weeks[di]);
+      if (curr && prev) {
+        var pct = ((curr - prev) / prev) * 100;
+        deltas.push(pct);
+        deltaBg.push(pct >= 0 ? 'rgba(92,214,160,0.4)' : 'rgba(232,93,93,0.4)');
+        deltaBorder.push(pct >= 0 ? '#5cd6a0' : '#e85d5d');
+      } else {
+        deltas.push(null);
+        deltaBg.push('#252a35');
+        deltaBorder.push('#252a35');
+      }
+    }
+
+    document.getElementById('deltaSubtitle').textContent = latestYear + ' vs ' + prevYear + ' - Percentage change by week';
+
+    if (deltaChart) { deltaChart.destroy(); deltaChart = null; }
+    var ctx2 = document.getElementById('deltaChart').getContext('2d');
+    deltaChart = new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: deltas,
+          backgroundColor: deltaBg,
+          borderColor: deltaBorder,
+          borderWidth: 1,
+          borderRadius: 3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1a1e27',
+            titleColor: '#e8eaed',
+            bodyColor: '#e8eaed',
+            borderColor: '#252a35',
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {
+              title: function(items) {
+                if (!items.length) return '';
+                var idx = items[0].dataIndex;
+                return 'Week of ' + mondayLabel(weeks[idx]);
+              },
+              label: function(item) {
+                return item.raw != null ? fmtPct(item.raw) : 'N/A';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              color: '#8b919e',
+              maxRotation: 45,
+              callback: function(val, idx) {
+                if (weeks.length > 26) return idx % 4 === 0 ? mondayShort(weeks[idx]) : '';
+                if (weeks.length > 13) return idx % 2 === 0 ? mondayShort(weeks[idx]) : '';
+                return mondayShort(weeks[idx]);
+              }
+            },
+            grid: { display: false }
+          },
+          y: {
+            ticks: {
+              color: '#8b919e',
+              callback: function(v) { return Math.round(v) + '%'; }
+            },
+            grid: { color: 'rgba(37,42,53,0.25)' }
+          }
+        }
+      }
+    });
+  }
+
+  function renderTable() {
+    var bounds = getWeekRange();
+    var wStart = bounds[0], wEnd = bounds[1];
+    var fmtFn = metric === 'amount' ? fmt$ : fmtN;
+    var latestYear = years[years.length - 1];
+    var prevYear = latestYear - 1;
+    var twoAgo = latestYear - 2;
+    var showTwoAgo = twoAgo >= years[0];
+
+    // Columns: Week | Week Of | 2026 | 2025 | 2026v2025 | 2024 | 2025v2024 | 2026v2024
+    var cols = [
+      ['week', 'Week'],
+      ['dates', 'Week Of'],
+      ['yCurr', String(latestYear)],
+      ['yPrev', String(prevYear)],
+      ['yoy_curr_prev', latestYear + ' vs ' + prevYear]
+    ];
+    if (showTwoAgo) {
+      cols.push(['yTwo', String(twoAgo)]);
+      cols.push(['yoy_prev_two', prevYear + ' vs ' + twoAgo]);
+      cols.push(['yoy_curr_two', latestYear + ' vs ' + twoAgo]);
+    }
+
+    var headHtml = '<tr>';
+    for (var ci = 0; ci < cols.length; ci++) {
+      var key = cols[ci][0], lbl = cols[ci][1];
+      var arrow = sortCol === key ? (sortDir === 'asc' ? '\u25B2' : '\u25BC') : '\u2B0D';
+      var cls = sortCol === key ? ' class="sorted"' : '';
+      headHtml += '<th' + cls + ' data-col="' + key + '">' + lbl + ' <span class="sa">' + arrow + '</span></th>';
+    }
+    headHtml += '</tr>';
+    document.getElementById('tableHead').innerHTML = headHtml;
+
+    var ths = document.getElementById('tableHead').querySelectorAll('th');
+    for (var ti = 0; ti < ths.length; ti++) {
+      ths[ti].onclick = function() {
+        var col = this.getAttribute('data-col');
+        if (sortCol === col) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
+        else { sortCol = col; sortDir = 'asc'; }
+        renderTable();
+      };
+    }
+
+    var rows = [];
+    for (var w = wStart; w <= wEnd; w++) {
+      var curr = getVal(latestYear, w);
+      var prev = getVal(prevYear, w);
+      var two = showTwoAgo ? getVal(twoAgo, w) : null;
+      var yoy_curr_prev = (curr && prev) ? ((curr - prev) / prev * 100) : null;
+      var yoy_prev_two = (prev && two) ? ((prev - two) / two * 100) : null;
+      var yoy_curr_two = (curr && two) ? ((curr - two) / two * 100) : null;
+      rows.push({
+        week: w,
+        dates: mondayLabel(w),
+        yCurr: curr,
+        yPrev: prev,
+        yTwo: two,
+        yoy_curr_prev: yoy_curr_prev,
+        yoy_prev_two: yoy_prev_two,
+        yoy_curr_two: yoy_curr_two
+      });
+    }
+
+    rows.sort(function(a, b) {
+      var va = a[sortCol] != null ? a[sortCol] : -Infinity;
+      var vb = b[sortCol] != null ? b[sortCol] : -Infinity;
+      if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+      return sortDir === 'asc' ? va - vb : vb - va;
+    });
+
+    var bodyHtml = '';
+    for (var ri = 0; ri < rows.length; ri++) {
+      var r = rows[ri];
+      bodyHtml += '<tr>';
+      bodyHtml += '<td>W' + r.week + '</td>';
+      bodyHtml += '<td>' + r.dates + '</td>';
+      bodyHtml += '<td class="num">' + fmtFn(r.yCurr) + '</td>';
+      bodyHtml += '<td class="num">' + fmtFn(r.yPrev) + '</td>';
+      bodyHtml += '<td class="num"><span class="badge ' + pctClass(r.yoy_curr_prev) + '">' + fmtPct(r.yoy_curr_prev) + '</span></td>';
+      if (showTwoAgo) {
+        bodyHtml += '<td class="num">' + fmtFn(r.yTwo) + '</td>';
+        bodyHtml += '<td class="num"><span class="badge ' + pctClass(r.yoy_prev_two) + '">' + fmtPct(r.yoy_prev_two) + '</span></td>';
+        bodyHtml += '<td class="num"><span class="badge ' + pctClass(r.yoy_curr_two) + '">' + fmtPct(r.yoy_curr_two) + '</span></td>';
+      }
+      bodyHtml += '</tr>';
+    }
+    document.getElementById('tableBody').innerHTML = bodyHtml;
+  }
+
+  function renderAll() {
+    renderKPIs();
+    renderCharts();
+    renderTable();
+  }
+
+  renderAll();
+
+  return {
+    setMetric: function(m) {
+      metric = m;
+      document.getElementById('btnAmount').className = m === 'amount' ? 'active' : '';
+      document.getElementById('btnCount').className = m === 'count' ? 'active' : '';
+      renderAll();
+    },
+    setRange: function(r) {
+      range = r;
+      renderAll();
+    }
+  };
+})();
+</script>
+</body>
+</html>
