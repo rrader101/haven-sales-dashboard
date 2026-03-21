@@ -3,3 +3,6 @@ node_modules/
 .env.local
 .env*.local
 .vercel
+
+# macOS / editor duplicate copies
+public/revenucomp_salesforce 2.html
