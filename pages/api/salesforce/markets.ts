@@ -31,9 +31,7 @@ async function getAccessToken(): Promise<string> {
 
   const resp = await fetch(`${loginUrl}/services/oauth2/token`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body
   });
 
@@ -54,21 +52,13 @@ type MarketYearData = {
 };
 
 /**
- * Markets API — uses SOQL aggregate queries instead of the Report API.
- * The Report API kept failing due to chart/grouping conflicts when we
- * tried to override groupingsDown. SOQL gives us full control:
- *   SELECT Market_formula__c, SUM(Amount), COUNT(Id)
- *   FROM Opportunity
- *   WHERE <filters matching the report>
- *   GROUP BY Market_formula__c
+ * Markets API — runs the Salesforce report in MONTHLY chunks to stay under
+ * the 2K grouping row limit (43 markets × 31 days ≈ 1,300 combos/month).
  *
- * Field names sourced from the report's describe metadata:
- *   - Market: Opportunity.Market_formula__c
- *   - Date:   Opportunity.Sales_Date__c
- *   - Step:   Opportunity.Contract_Step__c (equals '' or '1')
- *   - Amount: Amount (standard, > 0)
- *   - Agreement: Opportunity.Agreement_Type_From_Agreement__c (not blank)
- *   - Vertical: Opportunity.Vertical__c (specific list)
+ * Key insight: we do NOT modify groupingsDown at all, avoiding the chart
+ * reference error. We only override standardDateFilter to narrow the window.
+ * Then we parse the 2-level nested groupings (Date → Market) and aggregate
+ * by market across all months.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -81,108 +71,197 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const {
       SALESFORCE_INSTANCE_URL,
+      SALESFORCE_REPORT_ID_MARKETS: REPORT_ID,
       SALESFORCE_API_VERSION
     } = process.env;
 
-    if (!SALESFORCE_INSTANCE_URL) {
-      return res.status(500).json({ error: 'Salesforce instance URL not configured' });
+    if (!SALESFORCE_INSTANCE_URL || !REPORT_ID) {
+      return res.status(500).json({ error: 'Salesforce instance URL or markets report ID not configured' });
     }
 
     const apiVersion = SALESFORCE_API_VERSION || 'v62.0';
     const accessToken = await getAccessToken();
 
+    // Determine date ranges
     const now = new Date();
     const latestYear = now.getFullYear();
     const priorYear = latestYear - 1;
+    const currentMonth = now.getMonth(); // 0-indexed
 
-    // Verticals from the report filter
-    const verticals = [
-      'Appraiser', "Buyer's Agent", 'Editorial', 'Home Builder',
-      'Home Inspector', 'Interior Designer', 'Landscaper', 'Lender',
-      'Not Listed', 'Organizing', 'Other', 'Power Services',
-      'Real Estate Photographer', 'Real Estate and Lifestyles',
-      'Recently Sold + Pending', 'Solar', 'Staging', 'Title',
-      'Vacation Rental Consulting', 'Water Treatment', 'Yachts'
-    ];
-    const verticalList = verticals.map(v => `'${v.replace(/'/g, "\\'")}'`).join(',');
+    // Describe report to get the date column for standardDateFilter
+    const describeUrl = `${SALESFORCE_INSTANCE_URL}/services/data/${apiVersion}/analytics/reports/${REPORT_ID}/describe`;
+    const describeResp = await fetch(describeUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
 
-    // Build SOQL for a given year range
-    function buildQuery(startDate: string, endDate: string): string {
-      return `SELECT Market_formula__c mkt, SUM(Amount) amt, COUNT(Id) cnt `
-        + `FROM Opportunity `
-        + `WHERE Sales_Date__c >= ${startDate} `
-        + `AND Sales_Date__c <= ${endDate} `
-        + `AND Amount > 0 `
-        + `AND (Contract_Step__c = null OR Contract_Step__c = '' OR Contract_Step__c = '1') `
-        + `AND Agreement_Type_From_Agreement__c != null `
-        + `AND Agreement_Type_From_Agreement__c != '' `
-        + `AND (Vertical__c = null OR Vertical__c IN (${verticalList})) `
-        + `AND Market_formula__c != null `
-        + `AND Market_formula__c != '' `
-        + `GROUP BY Market_formula__c `
-        + `ORDER BY SUM(Amount) DESC`;
+    if (!describeResp.ok) {
+      const text = await describeResp.text();
+      return res.status(502).json({ error: 'Error describing report', details: text });
     }
 
-    async function runQuery(year: number): Promise<{ data: MarketYearData[]; debug: any }> {
-      const startDate = `${year}-01-01`;
-      let endDate: string;
-      if (year === latestYear) {
-        const d = new Date();
-        d.setDate(d.getDate() + 1);
-        endDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      } else {
-        endDate = `${year}-12-31`;
+    const describeData = await describeResp.json();
+    const dateColumn = describeData.reportMetadata?.standardDateFilter?.column || 'CLOSE_DATE';
+    debugLog.dateColumn = dateColumn;
+    debugLog.reportFormat = describeData.reportMetadata?.reportFormat;
+    debugLog.groupingsDown = describeData.reportMetadata?.groupingsDown;
+
+    // Build month ranges for a given year (up to currentMonth+1 for latestYear)
+    function getMonthRanges(year: number): Array<{ start: string; end: string; label: string }> {
+      const maxMonth = year === latestYear ? currentMonth : 11;
+      const ranges = [];
+      for (let m = 0; m <= maxMonth; m++) {
+        const start = `${year}-${String(m + 1).padStart(2, '0')}-01`;
+        // End of month: use first day of next month minus 1
+        const endDate = new Date(year, m + 1, 0); // last day of month m
+        let end: string;
+        if (year === latestYear && m === currentMonth) {
+          // For current month, use tomorrow as end date
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          end = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+        } else {
+          end = `${year}-${String(m + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+        }
+        ranges.push({ start, end, label: `${year}-${String(m + 1).padStart(2, '0')}` });
       }
+      return ranges;
+    }
 
-      const soql = buildQuery(startDate, endDate);
-      const yearDebug: any = { year, soql };
+    // Run report for a single month window — NO metadata overrides except standardDateFilter
+    async function runMonth(startDate: string, endDate: string): Promise<{
+      markets: Map<string, { amount: number; count: number }>;
+      error?: any;
+    }> {
+      const meta = {
+        standardDateFilter: {
+          column: dateColumn,
+          durationValue: 'CUSTOM',
+          startDate,
+          endDate
+        }
+      };
 
-      const queryUrl = `${SALESFORCE_INSTANCE_URL}/services/data/${apiVersion}/query?q=${encodeURIComponent(soql)}`;
-      const resp = await fetch(queryUrl, {
+      const runUrl = `${SALESFORCE_INSTANCE_URL}/services/data/${apiVersion}/analytics/reports/${REPORT_ID}?includeDetails=false`;
+      const resp = await fetch(runUrl, {
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store'
+        },
+        body: JSON.stringify({ reportMetadata: meta })
       });
 
       if (!resp.ok) {
         const errText = await resp.text();
-        console.error(`SOQL error for ${year}: ${resp.status} ${errText}`);
-        yearDebug.error = { status: resp.status, body: errText.substring(0, 1000) };
-        return { data: [], debug: yearDebug };
+        return { markets: new Map(), error: { status: resp.status, body: errText.substring(0, 500) } };
       }
 
-      const result = await resp.json();
-      yearDebug.totalSize = result.totalSize;
-      yearDebug.done = result.done;
-      yearDebug.sampleRecords = (result.records || []).slice(0, 3);
+      const reportData = await resp.json();
+
+      // Find aggregate indices
+      const aggInfo = reportData.reportExtendedMetadata?.aggregateColumnInfo || {};
+      const aggKeys = Object.keys(aggInfo);
+      let amountIdx = -1;
+      let countIdx = -1;
+      for (let i = 0; i < aggKeys.length; i++) {
+        const info = aggInfo[aggKeys[i]];
+        const label = (info?.label || '').toLowerCase();
+        const key = aggKeys[i].toLowerCase();
+        if (label.includes('amount') || key.includes('amount')) amountIdx = i;
+        if (label === 'record count' || key === 'rowcount') countIdx = i;
+      }
+
+      const markets = new Map<string, { amount: number; count: number }>();
+
+      // Parse 2-level groupings: Date (level 0) → Market (level 1)
+      const dateGroups = reportData.groupingsDown?.groupings || [];
+      const factMap = reportData.factMap || {};
+
+      for (const dateGroup of dateGroups) {
+        const marketGroups = dateGroup.groupings || [];
+        for (const mktGroup of marketGroups) {
+          const market = String(mktGroup.label || mktGroup.value || '').trim();
+          if (!market || market === '-') continue;
+
+          const factKey = `${dateGroup.key}_${mktGroup.key}!T`;
+          const fact = factMap[factKey];
+
+          let amount = 0;
+          let count = 0;
+          if (fact && fact.aggregates) {
+            if (amountIdx >= 0 && fact.aggregates[amountIdx]) {
+              amount = parseFloat(fact.aggregates[amountIdx].value || '0');
+            }
+            if (countIdx >= 0 && fact.aggregates[countIdx]) {
+              count = parseInt(fact.aggregates[countIdx].value || '0', 10);
+            }
+          }
+
+          const existing = markets.get(market) || { amount: 0, count: 0 };
+          existing.amount += amount;
+          existing.count += count;
+          markets.set(market, existing);
+        }
+      }
+
+      return { markets };
+    }
+
+    // Run all months for a year, with parallelism (batch 3 at a time to not overwhelm)
+    async function runYear(year: number): Promise<{ data: MarketYearData[]; debug: any }> {
+      const months = getMonthRanges(year);
+      const yearDebug: any = { year, monthCount: months.length, monthErrors: [] };
+
+      const aggregated = new Map<string, { amount: number; count: number }>();
+
+      // Run in batches of 3 concurrent requests
+      const batchSize = 3;
+      for (let i = 0; i < months.length; i += batchSize) {
+        const batch = months.slice(i, i + batchSize);
+        const results = await Promise.all(
+          batch.map(m => runMonth(m.start, m.end))
+        );
+
+        for (let j = 0; j < results.length; j++) {
+          const result = results[j];
+          if (result.error) {
+            yearDebug.monthErrors.push({ month: batch[j].label, error: result.error });
+          }
+          for (const [market, data] of result.markets) {
+            const existing = aggregated.get(market) || { amount: 0, count: 0 };
+            existing.amount += data.amount;
+            existing.count += data.count;
+            aggregated.set(market, existing);
+          }
+        }
+      }
 
       const data: MarketYearData[] = [];
-      for (const rec of (result.records || [])) {
-        const market = String(rec.mkt || rec.Market_formula__c || 'Unknown').trim();
-        if (!market) continue;
-
-        const amount = parseFloat(rec.amt || rec.expr0 || '0');
-        const count = parseInt(rec.cnt || rec.expr1 || '0', 10);
-
-        if (amount > 0 || count > 0) {
+      for (const [market, agg] of aggregated) {
+        if (agg.amount > 0 || agg.count > 0) {
           data.push({
             market,
             year,
-            amount: Math.round(amount * 100) / 100,
-            count
+            amount: Math.round(agg.amount * 100) / 100,
+            count: agg.count
           });
         }
       }
 
-      yearDebug.parsedCount = data.length;
+      yearDebug.marketsFound = data.length;
+      yearDebug.totalAmount = data.reduce((s, d) => s + d.amount, 0);
+      yearDebug.totalCount = data.reduce((s, d) => s + d.count, 0);
       return { data, debug: yearDebug };
     }
 
     // Run both years in parallel
     const [latestResult, priorResult] = await Promise.all([
-      runQuery(latestYear),
-      runQuery(priorYear)
+      runYear(latestYear),
+      runYear(priorYear)
     ]);
 
     debugLog.latestYearDebug = latestResult.debug;
