@@ -124,9 +124,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       debugLog.keptGrouping = null;
     }
 
+    // CRITICAL: Disable the report chart — when we remove the Sales_Date grouping,
+    // the chart still references it and Salesforce throws:
+    // "This report has no chart group named Opportunity.Sales_Date__c."
+    // Setting hasChart=false and clearing chart prevents this error.
+    baseMetadata.hasChart = false;
+    if (baseMetadata.chart) {
+      delete baseMetadata.chart;
+    }
+
     // Determine the date column for standardDateFilter
-    // Try to use whatever the report already has, fall back to CREATED_DATE
-    const dateColumn = baseMetadata.standardDateFilter?.column || 'CREATED_DATE';
+    // The report's standardDateFilter uses CLOSE_DATE, but the actual date field
+    // used in groupings and filters is Opportunity.Sales_Date__c.
+    // Use the standardDateFilter column (CLOSE_DATE) since that's what Salesforce expects
+    // for the standardDateFilter mechanism.
+    const dateColumn = baseMetadata.standardDateFilter?.column || 'CLOSE_DATE';
     debugLog.dateColumn = dateColumn;
 
     // Determine years
