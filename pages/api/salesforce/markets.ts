@@ -113,28 +113,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     debugLog.groupingsDown = baseMetadata?.groupingsDown;
     debugLog.reportFilters = baseMetadata?.reportFilters;
 
-    // Build month ranges
+    // Build month ranges — BOTH years use the same YTD window for fair comparison.
+    // e.g. if today is Mar 22 2026, both 2025 and 2026 get Jan 1 → Mar 23 only.
     function getMonthRanges(year: number): Array<{ startISO: string; endISO: string; label: string }> {
-      const maxMonth = year === latestYear ? currentMonth : 11;
+      // Always use the current month index as the max (YTD comparison)
+      const maxMonth = currentMonth;
       const ranges = [];
       for (let m = 0; m <= maxMonth; m++) {
-        // Start: first day of month at midnight UTC-5 (matching report's timezone offset)
         const startISO = `${year}-${String(m + 1).padStart(2, '0')}-01T05:00:00Z`;
 
-        // End: last day of month (or tomorrow for current month)
         let endDay: number;
-        if (year === latestYear && m === currentMonth) {
+        let endMonth = m + 1;
+        if (m === currentMonth) {
+          // For the current month (in both years), cap at today's date + 1 day buffer
           const tomorrow = new Date();
           tomorrow.setDate(tomorrow.getDate() + 2);
           endDay = tomorrow.getDate();
+          endMonth = now.getMonth() + 1;
         } else {
-          endDay = new Date(year, m + 1, 0).getDate(); // last day of month
+          // For completed months, use last day of month
+          endDay = new Date(year, m + 1, 0).getDate();
         }
-        const endMonth = (year === latestYear && m === currentMonth)
-          ? now.getMonth() + 1 // could roll over
-          : m + 1;
-        const endYear = year;
-        const endISO = `${endYear}-${String(endMonth).padStart(2, '0')}-${String(endDay).padStart(2, '0')}T04:00:00Z`;
+        const endISO = `${year}-${String(endMonth).padStart(2, '0')}-${String(endDay).padStart(2, '0')}T04:00:00Z`;
 
         ranges.push({ startISO, endISO, label: `${year}-${String(m + 1).padStart(2, '0')}` });
       }
@@ -348,15 +348,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const allData = [...priorResult.data, ...latestResult.data];
     const markets = [...new Set(allData.map(r => r.market))].sort();
 
-    return res.status(200).json({
+    const response: any = {
       markets,
       marketData: allData,
       latestYear,
       priorYear,
       latestCount: latestResult.data.length,
-      priorCount: priorResult.data.length,
-      _debug: debugLog
-    });
+      priorCount: priorResult.data.length
+    };
+
+    // Include debug info only when ?debug=true
+    if (req.query.debug === 'true') {
+      response._debug = debugLog;
+    }
+
+    return res.status(200).json(response);
   } catch (err: any) {
     console.error('Markets API error:', err);
     return res.status(500).json({
