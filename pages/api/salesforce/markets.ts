@@ -46,43 +46,20 @@ async function getAccessToken(): Promise<string> {
   return json.access_token;
 }
 
-// Calculate ISO week number and year from a Date
-function getISOWeek(dt: Date): { year: number; week: number } {
-  const d = new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return { year: d.getUTCFullYear(), week: weekNo };
-}
-
-// Calculate the Monday of a given ISO week
-function mondayOfWeek(year: number, week: number): string {
-  const jan4 = new Date(Date.UTC(year, 0, 4));
-  const dayOfWeek = jan4.getUTCDay() || 7;
-  const monday = new Date(jan4.getTime() + ((week - 1) * 7 - (dayOfWeek - 1)) * 86400000);
-  const mm = String(monday.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(monday.getUTCDate()).padStart(2, '0');
-  return `${monday.getUTCFullYear()}-${mm}-${dd}`;
-}
-
-type MarketWeekData = {
+type MarketYearData = {
   market: string;
   year: number;
-  week: number;
-  monday: string;
   amount: number;
   count: number;
 };
 
 /**
- * This endpoint uses a Salesforce report that groups by:
- *   Level 0: Created Date + Time (date)
- *   Level 1: Market (text)
+ * This endpoint runs the Salesforce markets report TWICE — once per year —
+ * each time with Market as the ONLY row grouping. This avoids the 2K grouping
+ * limit that occurs with Date × Market cross-grouping (~15K+ combos).
  *
- * It reads the nested groupings (no detail rows needed) to get
- * aggregate Amount and Record Count per market per day, then
- * rolls those up into ISO weeks.
+ * Each year-run returns ~43 market rows (well under the 2K cap).
+ * The frontend can then do YoY comparisons directly.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -104,7 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const apiVersion = SALESFORCE_API_VERSION || 'v59.0';
     const accessToken = await getAccessToken();
 
-    // 1) Describe to get metadata
+    // 1) Describe to get base metadata
     const describeUrl = `${SALESFORCE_INSTANCE_URL}/services/data/${apiVersion}/analytics/reports/${REPORT_ID}/describe`;
     const describeResp = await fetch(describeUrl, {
       headers: {
@@ -119,110 +96,114 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const describeData = await describeResp.json();
-    const metadata = describeData.reportMetadata;
+    const baseMetadata = describeData.reportMetadata;
 
-    // Adjust upper-bound date filter
-    if (Array.isArray(metadata.reportFilters)) {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 2);
-      tomorrow.setHours(23, 59, 59, 0);
-      const upperBound = tomorrow.toISOString().replace(/\.\d{3}Z$/, 'Z');
-
-      metadata.reportFilters = metadata.reportFilters.map((f: any) => {
-        if (
-          f &&
-          typeof f === 'object' &&
-          f.operator === 'lessOrEqual' &&
-          typeof f.column === 'string' &&
-          (f.column.includes('Sales_Date__c') || f.column.includes('CloseDate'))
-        ) {
-          return { ...f, value: upperBound };
+    // Remove "Created Date + Time" from row groupings — keep only Market
+    // This reduces grouping combos from ~15K to ~43
+    if (Array.isArray(baseMetadata.groupingsDown)) {
+      baseMetadata.groupingsDown = baseMetadata.groupingsDown.filter(
+        (g: any) => {
+          const col = g.name || g.column || '';
+          // Keep Market, remove date groupings
+          return !col.includes('CREATED_DATE') && !col.includes('CreatedDate') && !col.includes('Created_Date');
         }
-        return f;
-      });
-    }
-
-    // 2) Run report WITHOUT detail rows — we only need grouping aggregates
-    const runUrl = `${SALESFORCE_INSTANCE_URL}/services/data/${apiVersion}/analytics/reports/${REPORT_ID}?includeDetails=false`;
-    const runResp = await fetch(runUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache, no-store'
-      },
-      body: JSON.stringify({ reportMetadata: metadata })
-    });
-
-    if (runResp.status === 401) {
-      return res.status(401).json({ error: 'Salesforce session invalid or expired' });
-    }
-    if (!runResp.ok) {
-      const text = await runResp.text();
-      return res.status(502).json({ error: 'Error running markets report', details: text });
-    }
-
-    const reportData = await runResp.json();
-
-    // 3) Parse nested groupings: Date → Market → aggregates
-    // The report has two row grouping levels:
-    //   groupingsDown.groupings[i] = date groups (level 0)
-    //   groupingsDown.groupings[i].groupings[j] = market groups (level 1)
-    //
-    // factMap keys for level-1 groups: "{dateKey}_{marketKey}!T"
-    // Each factMap entry has .aggregates[] with [sumAmount, recordCount, ...]
-
-    const groupingsDown = reportData.groupingsDown?.groupings || [];
-    const factMap = reportData.factMap || {};
-
-    // Figure out which aggregate indices are Amount (sum) and Record Count
-    const aggInfo = reportData.reportExtendedMetadata?.aggregateColumnInfo || {};
-    const aggKeys = Object.keys(aggInfo);
-
-    let amountAggIdx = -1;
-    let countAggIdx = -1;
-
-    for (let i = 0; i < aggKeys.length; i++) {
-      const info = aggInfo[aggKeys[i]];
-      if (info?.label === 'Sum of Amount' || info?.label === 'Sum of  Amount' || aggKeys[i] === 's!Amount') {
-        amountAggIdx = i;
-      }
-      if (info?.label === 'Record Count' || aggKeys[i] === 'RowCount') {
-        countAggIdx = i;
-      }
-    }
-
-    // Aggregate: key = "market|year|week" -> { amount, count }
-    const agg: Record<string, { amount: number; count: number }> = {};
-    // Also track per-day data for more granular use
-    const dailyData: Array<{ market: string; date: string; amount: number; count: number }> = [];
-
-    for (let di = 0; di < groupingsDown.length; di++) {
-      const dateGroup = groupingsDown[di];
-      const dateLabel = dateGroup.label || ''; // e.g. "3/21/2026"
-
-      // Parse date
-      const dateParts = dateLabel.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if (!dateParts) continue;
-
-      const dt = new Date(
-        parseInt(dateParts[3]),
-        parseInt(dateParts[1]) - 1,
-        parseInt(dateParts[2])
       );
-      const { year, week } = getISOWeek(dt);
-      const dateStr = `${dateParts[3]}-${dateParts[1].padStart(2, '0')}-${dateParts[2].padStart(2, '0')}`;
+    }
 
-      // Level 1: Market sub-groups
-      const marketGroups = dateGroup.groupings || [];
+    // Determine years to query
+    const now = new Date();
+    const latestYear = now.getFullYear();
+    const priorYear = latestYear - 1;
 
-      for (let mi = 0; mi < marketGroups.length; mi++) {
-        const marketGroup = marketGroups[mi];
-        const market = String(marketGroup.label || 'Unknown').trim();
+    // Find the date filter column name from report filters
+    let dateFilterColumn = 'CREATED_DATE';
+    if (Array.isArray(baseMetadata.reportFilters)) {
+      for (const f of baseMetadata.reportFilters) {
+        if (f && typeof f.column === 'string' &&
+            (f.column.includes('CREATED_DATE') || f.column.includes('CreatedDate') || f.column.includes('Sales_Date') || f.column.includes('CloseDate'))) {
+          dateFilterColumn = f.column;
+          break;
+        }
+      }
+    }
+
+    // Helper: run report for a specific year range
+    async function runForYear(year: number): Promise<MarketYearData[]> {
+      const meta = JSON.parse(JSON.stringify(baseMetadata));
+
+      // Set date filters to constrain to this year
+      // Through current date for latest year, full year for prior
+      const startDate = `${year}-01-01T00:00:00Z`;
+      let endDate: string;
+      if (year === latestYear) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 2);
+        endDate = tomorrow.toISOString().replace(/\.\d{3}Z$/, 'Z');
+      } else {
+        endDate = `${year}-12-31T23:59:59Z`;
+      }
+
+      // Replace existing date filters with our year-bounded ones
+      meta.reportFilters = [
+        {
+          column: dateFilterColumn,
+          operator: 'greaterOrEqual',
+          value: startDate
+        },
+        {
+          column: dateFilterColumn,
+          operator: 'lessOrEqual',
+          value: endDate
+        }
+      ];
+
+      const runUrl = `${SALESFORCE_INSTANCE_URL}/services/data/${apiVersion}/analytics/reports/${REPORT_ID}?includeDetails=false`;
+      const runResp = await fetch(runUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store'
+        },
+        body: JSON.stringify({ reportMetadata: meta })
+      });
+
+      if (!runResp.ok) {
+        const text = await runResp.text();
+        console.error(`Markets report error for year ${year}: ${text}`);
+        return [];
+      }
+
+      const reportData = await runResp.json();
+
+      // Parse single-level groupings: Market → aggregates
+      const groupings = reportData.groupingsDown?.groupings || [];
+      const factMap = reportData.factMap || {};
+
+      // Figure out aggregate indices
+      const aggInfo = reportData.reportExtendedMetadata?.aggregateColumnInfo || {};
+      const aggKeys = Object.keys(aggInfo);
+
+      let amountAggIdx = -1;
+      let countAggIdx = -1;
+
+      for (let i = 0; i < aggKeys.length; i++) {
+        const info = aggInfo[aggKeys[i]];
+        if (info?.label === 'Sum of Amount' || info?.label === 'Sum of  Amount' || aggKeys[i] === 's!Amount') {
+          amountAggIdx = i;
+        }
+        if (info?.label === 'Record Count' || aggKeys[i] === 'RowCount') {
+          countAggIdx = i;
+        }
+      }
+
+      const results: MarketYearData[] = [];
+
+      for (const group of groupings) {
+        const market = String(group.label || 'Unknown').trim();
         if (!market) continue;
 
-        // Get aggregates from factMap
-        const factKey = `${dateGroup.key}_${marketGroup.key}!T`;
+        const factKey = `${group.key}!T`;
         const fact = factMap[factKey];
 
         let amount = 0;
@@ -234,69 +215,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
           if (countAggIdx >= 0 && fact.aggregates[countAggIdx]) {
             count = parseInt(fact.aggregates[countAggIdx].value || '0', 10);
-          } else {
-            // Fallback: try to find record count
-            for (const a of fact.aggregates) {
-              if (a && a.label === 'Record Count') {
-                count = parseInt(a.value || '0', 10);
-                break;
-              }
-            }
           }
         }
 
-        // Daily granularity
-        dailyData.push({ market, date: dateStr, amount, count });
-
-        // Weekly aggregation
-        const aggKey = `${market}|${year}|${week}`;
-        if (!agg[aggKey]) {
-          agg[aggKey] = { amount: 0, count: 0 };
-        }
-        agg[aggKey].amount += amount;
-        agg[aggKey].count += count;
+        results.push({
+          market,
+          year,
+          amount: Math.round(amount * 100) / 100,
+          count
+        });
       }
+
+      return results;
     }
 
-    // Convert weekly aggregation to array
-    const weeklyResults: MarketWeekData[] = [];
-    for (const key in agg) {
-      const [market, yearStr, weekStr] = key.split('|');
-      const year = parseInt(yearStr);
-      const week = parseInt(weekStr);
-      weeklyResults.push({
-        market,
-        year,
-        week,
-        monday: mondayOfWeek(year, week),
-        amount: Math.round(agg[key].amount * 100) / 100,
-        count: agg[key].count
-      });
-    }
+    // 2) Run for both years in parallel
+    const [latestData, priorData] = await Promise.all([
+      runForYear(latestYear),
+      runForYear(priorYear)
+    ]);
 
-    // Sort by year, week, market
-    weeklyResults.sort((a, b) => {
-      if (a.year !== b.year) return a.year - b.year;
-      if (a.week !== b.week) return a.week - b.week;
-      return a.market.localeCompare(b.market);
-    });
-
-    // Sort daily data
-    dailyData.sort((a, b) => {
-      if (a.date !== b.date) return a.date.localeCompare(b.date);
-      return a.market.localeCompare(b.market);
-    });
-
-    // Unique markets
-    const markets = [...new Set(weeklyResults.map(r => r.market))].sort();
+    // 3) Combine results
+    const allData = [...priorData, ...latestData];
+    const markets = [...new Set(allData.map(r => r.market))].sort();
 
     return res.status(200).json({
       markets,
-      weeklyData: weeklyResults,
-      dailyData,
-      totalWeeklyRows: weeklyResults.length,
-      totalDailyRows: dailyData.length,
-      reportHasMoreData: reportData.allData === false
+      marketData: allData,
+      latestYear,
+      priorYear,
+      latestCount: latestData.length,
+      priorCount: priorData.length
     });
   } catch (err: any) {
     console.error('Markets Salesforce API error:', err);

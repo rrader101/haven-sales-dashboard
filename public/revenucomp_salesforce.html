@@ -690,8 +690,8 @@
   <p class="subtitle" id="mktBreakdownSubtitle">Individual market YoY performance within each slate</p>
   <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
     <label style="font-size:13px;color:var(--text-muted);">View:</label>
-    <button id="mbViewSlate" class="active" onclick="window._mktBreakdown.setView('slate')">By Slate</button>
-    <button id="mbViewAll" onclick="window._mktBreakdown.setView('all')">All Markets</button>
+    <button id="mbViewSlate" class="active" onclick="window._mktBreakdown.setView('all')">All Markets</button>
+    <button id="mbViewAll" onclick="window._mktBreakdown.setView('top15')">Top 15</button>
   </div>
   <div id="mktBreakdownContent"></div>
 </div>
@@ -795,7 +795,7 @@ window._sfAuth = (function() {
         return resp.json();
       })
       .then(function(marketData) {
-        if (marketData && marketData.weeklyData && marketData.weeklyData.length > 0) {
+        if (marketData && marketData.marketData && marketData.marketData.length > 0) {
           window._marketData = marketData;
           addStatusMessage('Market data loaded (' + marketData.markets.length + ' markets).', 'info');
           if (window._mktBreakdown) window._mktBreakdown.update();
@@ -2622,247 +2622,95 @@ window._scorecard = (function() {
   };
 })();
 
-// ── Market Breakdown Module (Individual Markets within Slates) ──
+// ── Market Breakdown Module (YTD market-level YoY) ──
 window._mktBreakdown = (function() {
-  var currentView = 'slate';
+  var currentView = 'all';
 
   function fmt$(v) { return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
   function fmtN(v) { return v.toLocaleString('en-US'); }
   function fmtPct(v) { return (v >= 0 ? '+' : '') + v.toFixed(1) + '%'; }
   function deltaClass(v) { return v > 0.5 ? 'up' : (v < -0.5 ? 'down' : 'flat'); }
 
+  // The API now returns flat { market, year, amount, count } rows —
+  // one per market per year. We build a lookup and compute deltas.
   function computeData() {
     var md = window._marketData;
-    var slates = window._slates;
-    if (!md || !md.weeklyData || !slates) return null;
+    if (!md || !md.marketData || md.marketData.length === 0) return null;
 
-    var weeklyData = md.weeklyData;
+    var latestYear = md.latestYear;
+    var priorYear = md.priorYear;
+    if (!latestYear || !priorYear) return null;
 
-    // Determine years present
-    var yearSet = {};
-    for (var i = 0; i < weeklyData.length; i++) {
-      yearSet[weeklyData[i].year] = true;
-    }
-    var years = Object.keys(yearSet).map(Number).sort();
-    if (years.length < 2) return null;
-
-    var latestYear = years[years.length - 1];
-    var priorYear = years[years.length - 2];
-
-    // Current ISO week for limiting comparison
-    var now = new Date();
-    var d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-    var dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    var currentWeek = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-
-    // Build a lookup: market -> year -> slate -> { amount, count, weeks }
-    // We map each week's monday to a slate
-    var marketYearSlate = {};
-
-    for (var i = 0; i < weeklyData.length; i++) {
-      var row = weeklyData[i];
-      if (row.year !== latestYear && row.year !== priorYear) continue;
-      // For latest year, only include through current week
-      if (row.year === latestYear && row.week > currentWeek) continue;
-
-      var slate = slates.getSlateForMonday(row.monday);
-      var mkt = row.market;
-      if (!mkt) continue;
-
-      if (!marketYearSlate[mkt]) marketYearSlate[mkt] = {};
-      if (!marketYearSlate[mkt][row.year]) marketYearSlate[mkt][row.year] = {};
-      if (!marketYearSlate[mkt][row.year][slate]) {
-        marketYearSlate[mkt][row.year][slate] = { amount: 0, count: 0, weeks: 0 };
+    // Build lookup: market → { latest: {amount, count}, prior: {amount, count} }
+    var lookup = {};
+    for (var i = 0; i < md.marketData.length; i++) {
+      var row = md.marketData[i];
+      if (!lookup[row.market]) {
+        lookup[row.market] = {
+          latest: { amount: 0, count: 0 },
+          prior: { amount: 0, count: 0 }
+        };
       }
-      marketYearSlate[mkt][row.year][slate].amount += row.amount;
-      marketYearSlate[mkt][row.year][slate].count += row.count;
-      marketYearSlate[mkt][row.year][slate].weeks++;
-    }
-
-    // Also determine how many editions of each slate exist in latestYear through currentWeek
-    // to limit prior year to the same number
-    var slateEditionsLatest = {};
-    for (var wk = 1; wk <= currentWeek; wk++) {
-      // Compute monday for this week of latestYear
-      var jan4 = new Date(Date.UTC(latestYear, 0, 4));
-      var dow = jan4.getUTCDay() || 7;
-      var mon = new Date(jan4.getTime() + ((wk - 1) * 7 - (dow - 1)) * 86400000);
-      var monStr = mon.getUTCFullYear() + '-' +
-        String(mon.getUTCMonth() + 1).padStart(2, '0') + '-' +
-        String(mon.getUTCDate()).padStart(2, '0');
-      var sl = slates.getSlateForMonday(monStr);
-      slateEditionsLatest[sl] = (slateEditionsLatest[sl] || 0) + 1;
-    }
-
-    // Build results grouped by slate, each with a list of markets
-    var SLATE_ORDER = slates.getSlateOrder();
-    var SLATE_NAMES = slates.getSlateNames();
-    var SLATE_COLORS = slates.getSlateColors();
-
-    var allMarkets = Object.keys(marketYearSlate).sort();
-
-    var slateGroups = [];
-    for (var si = 0; si < SLATE_ORDER.length; si++) {
-      var slate = SLATE_ORDER[si];
-      var markets = [];
-
-      for (var mi = 0; mi < allMarkets.length; mi++) {
-        var mkt = allMarkets[mi];
-        var latestData = (marketYearSlate[mkt][latestYear] || {})[slate] || { amount: 0, count: 0, weeks: 0 };
-        var priorData = (marketYearSlate[mkt][priorYear] || {})[slate] || { amount: 0, count: 0, weeks: 0 };
-
-        // Skip markets with no data for this slate in either year
-        if (latestData.amount === 0 && latestData.count === 0 && priorData.amount === 0 && priorData.count === 0) continue;
-
-        var latestAvg = latestData.count > 0 ? latestData.amount / latestData.count : 0;
-        var priorAvg = priorData.count > 0 ? priorData.amount / priorData.count : 0;
-
-        var revDelta = priorData.amount > 0 ? ((latestData.amount - priorData.amount) / priorData.amount) * 100 : (latestData.amount > 0 ? 100 : 0);
-        var cntDelta = priorData.count > 0 ? ((latestData.count - priorData.count) / priorData.count) * 100 : (latestData.count > 0 ? 100 : 0);
-        var avgDelta = priorAvg > 0 ? ((latestAvg - priorAvg) / priorAvg) * 100 : 0;
-
-        markets.push({
-          name: mkt,
-          latest: { amount: latestData.amount, count: latestData.count, avg: latestAvg },
-          prior: { amount: priorData.amount, count: priorData.count, avg: priorAvg },
-          delta: { amount: revDelta, count: cntDelta, avg: avgDelta }
-        });
-      }
-
-      // Sort markets by latest revenue descending
-      markets.sort(function(a, b) { return b.latest.amount - a.latest.amount; });
-
-      // Compute slate totals
-      var slateTotalLatest = { amount: 0, count: 0 };
-      var slateTotalPrior = { amount: 0, count: 0 };
-      for (var j = 0; j < markets.length; j++) {
-        slateTotalLatest.amount += markets[j].latest.amount;
-        slateTotalLatest.count += markets[j].latest.count;
-        slateTotalPrior.amount += markets[j].prior.amount;
-        slateTotalPrior.count += markets[j].prior.count;
-      }
-
-      if (markets.length > 0) {
-        slateGroups.push({
-          slate: slate,
-          name: SLATE_NAMES[slate],
-          color: SLATE_COLORS[slate],
-          editions: slateEditionsLatest[slate] || 0,
-          markets: markets,
-          totals: {
-            latest: slateTotalLatest,
-            prior: slateTotalPrior,
-            latestAvg: slateTotalLatest.count > 0 ? slateTotalLatest.amount / slateTotalLatest.count : 0,
-            priorAvg: slateTotalPrior.count > 0 ? slateTotalPrior.amount / slateTotalPrior.count : 0,
-            revDelta: slateTotalPrior.amount > 0 ? ((slateTotalLatest.amount - slateTotalPrior.amount) / slateTotalPrior.amount) * 100 : 0,
-            cntDelta: slateTotalPrior.count > 0 ? ((slateTotalLatest.count - slateTotalPrior.count) / slateTotalPrior.count) * 100 : 0
-          }
-        });
+      if (row.year === latestYear) {
+        lookup[row.market].latest.amount += row.amount;
+        lookup[row.market].latest.count += row.count;
+      } else if (row.year === priorYear) {
+        lookup[row.market].prior.amount += row.amount;
+        lookup[row.market].prior.count += row.count;
       }
     }
 
-    return {
-      slateGroups: slateGroups,
-      allMarkets: allMarkets,
-      latestYear: latestYear,
-      priorYear: priorYear
-    };
-  }
-
-  function renderSlateView(data) {
-    var container = document.getElementById('mktBreakdownContent');
-    if (!data || !data.slateGroups || data.slateGroups.length === 0) {
-      container.innerHTML = '<p style="color:var(--text-muted)">No market data available yet.</p>';
-      return;
-    }
-
-    var html = '';
-    for (var si = 0; si < data.slateGroups.length; si++) {
-      var sg = data.slateGroups[si];
-      var revD = sg.totals.revDelta;
-      var revDStr = fmtPct(revD);
-      var revDCls = deltaClass(revD);
-
-      html += '<div class="mb-slate-group">';
-      html += '<div class="mb-slate-header">';
-      html += '<div class="mb-slate-dot" style="background:' + sg.color + '"></div>';
-      html += '<div class="mb-slate-label">' + sg.name + '</div>';
-      html += '<div class="mb-slate-summary">' + sg.editions + ' editions YTD &middot; ';
-      html += '<span class="' + revDCls + '">' + revDStr + ' revenue</span></div>';
-      html += '</div>';
-
-      html += buildMarketTable(sg.markets, sg.color, data.latestYear, data.priorYear);
-      html += '</div>';
-    }
-
-    container.innerHTML = html;
-  }
-
-  function renderAllView(data) {
-    var container = document.getElementById('mktBreakdownContent');
-    if (!data) {
-      container.innerHTML = '<p style="color:var(--text-muted)">No market data available yet.</p>';
-      return;
-    }
-
-    // Flatten all markets across all slates, aggregate totals
-    var mktTotals = {};
-    for (var si = 0; si < data.slateGroups.length; si++) {
-      var sg = data.slateGroups[si];
-      for (var mi = 0; mi < sg.markets.length; mi++) {
-        var m = sg.markets[mi];
-        if (!mktTotals[m.name]) {
-          mktTotals[m.name] = { latest: { amount: 0, count: 0 }, prior: { amount: 0, count: 0 } };
-        }
-        mktTotals[m.name].latest.amount += m.latest.amount;
-        mktTotals[m.name].latest.count += m.latest.count;
-        mktTotals[m.name].prior.amount += m.prior.amount;
-        mktTotals[m.name].prior.count += m.prior.count;
-      }
-    }
-
-    var rows = [];
-    var names = Object.keys(mktTotals).sort(function(a, b) {
-      return mktTotals[b].latest.amount - mktTotals[a].latest.amount;
+    // Build rows sorted by latest revenue
+    var names = Object.keys(lookup).sort(function(a, b) {
+      return lookup[b].latest.amount - lookup[a].latest.amount;
     });
 
-    for (var i = 0; i < names.length; i++) {
-      var n = names[i];
-      var t = mktTotals[n];
-      var latestAvg = t.latest.count > 0 ? t.latest.amount / t.latest.count : 0;
-      var priorAvg = t.prior.count > 0 ? t.prior.amount / t.prior.count : 0;
+    var rows = [];
+    for (var j = 0; j < names.length; j++) {
+      var n = names[j];
+      var d = lookup[n];
+      var latestAvg = d.latest.count > 0 ? d.latest.amount / d.latest.count : 0;
+      var priorAvg = d.prior.count > 0 ? d.prior.amount / d.prior.count : 0;
       rows.push({
         name: n,
-        latest: { amount: t.latest.amount, count: t.latest.count, avg: latestAvg },
-        prior: { amount: t.prior.amount, count: t.prior.count, avg: priorAvg },
+        latest: { amount: d.latest.amount, count: d.latest.count, avg: latestAvg },
+        prior: { amount: d.prior.amount, count: d.prior.count, avg: priorAvg },
         delta: {
-          amount: t.prior.amount > 0 ? ((t.latest.amount - t.prior.amount) / t.prior.amount) * 100 : (t.latest.amount > 0 ? 100 : 0),
-          count: t.prior.count > 0 ? ((t.latest.count - t.prior.count) / t.prior.count) * 100 : (t.latest.count > 0 ? 100 : 0),
+          amount: d.prior.amount > 0 ? ((d.latest.amount - d.prior.amount) / d.prior.amount) * 100 : (d.latest.amount > 0 ? 100 : 0),
+          count: d.prior.count > 0 ? ((d.latest.count - d.prior.count) / d.prior.count) * 100 : (d.latest.count > 0 ? 100 : 0),
           avg: priorAvg > 0 ? ((latestAvg - priorAvg) / priorAvg) * 100 : 0
         }
       });
     }
 
-    var html = '<div class="mb-slate-group">';
-    html += '<div class="mb-slate-header">';
-    html += '<div class="mb-slate-label">All Markets — YTD Totals</div>';
-    html += '</div>';
-    html += buildMarketTable(rows, '#8b919e', data.latestYear, data.priorYear);
-    html += '</div>';
+    return { rows: rows, latestYear: latestYear, priorYear: priorYear };
+  }
 
+  function renderAllView(data) {
+    var container = document.getElementById('mktBreakdownContent');
+    if (!data || data.rows.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-muted)">No market data available yet.</p>';
+      return;
+    }
+
+    var html = buildMarketTable(data.rows, '#8b919e', data.latestYear, data.priorYear, 'All Markets');
     container.innerHTML = html;
   }
 
-  function buildMarketTable(markets, color, latestYr, priorYr) {
-    // Find max revenue for bar scaling
-    var maxRev = 0;
-    for (var i = 0; i < markets.length; i++) {
-      if (markets[i].latest.amount > maxRev) maxRev = markets[i].latest.amount;
-      if (markets[i].prior.amount > maxRev) maxRev = markets[i].prior.amount;
+  function renderTopView(data) {
+    var container = document.getElementById('mktBreakdownContent');
+    if (!data || data.rows.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-muted)">No market data available yet.</p>';
+      return;
     }
 
+    // Show top 15 markets by latest revenue
+    var top = data.rows.slice(0, 15);
+    var html = buildMarketTable(top, '#e8a838', data.latestYear, data.priorYear, 'Top 15 Markets');
+    container.innerHTML = html;
+  }
+
+  function buildMarketTable(markets, color, latestYr, priorYr, title) {
     var html = '<table class="mb-table">';
     html += '<thead><tr>';
     html += '<th>Market</th>';
@@ -2901,7 +2749,7 @@ window._mktBreakdown = (function() {
       html += '</tr>';
     }
 
-    // Subtotal row
+    // Total row
     var totLatestAvg = totLatest.count > 0 ? totLatest.amount / totLatest.count : 0;
     var totPriorAvg = totPrior.count > 0 ? totPrior.amount / totPrior.count : 0;
     var totRevD = totPrior.amount > 0 ? ((totLatest.amount - totPrior.amount) / totPrior.amount) * 100 : 0;
@@ -2909,7 +2757,7 @@ window._mktBreakdown = (function() {
     var totAvgD = totPriorAvg > 0 ? ((totLatestAvg - totPriorAvg) / totPriorAvg) * 100 : 0;
 
     html += '<tr class="mb-subtotal">';
-    html += '<td>Slate Total</td>';
+    html += '<td>Total</td>';
     html += '<td>' + fmt$(totLatest.amount) + '</td>';
     html += '<td style="color:var(--text-muted)">' + fmt$(totPrior.amount) + '</td>';
     html += '<td class="' + deltaClass(totRevD) + '" style="font-weight:600">' + fmtPct(totRevD) + '</td>';
@@ -2937,19 +2785,19 @@ window._mktBreakdown = (function() {
     document.getElementById('mktBreakdownTitle').textContent =
       'Market Breakdown — ' + data.latestYear + ' vs ' + data.priorYear;
     document.getElementById('mktBreakdownSubtitle').textContent =
-      'Individual market performance within each slate (YTD through current week)';
+      'Individual market YoY performance (YTD through today)';
 
-    if (currentView === 'slate') {
-      renderSlateView(data);
-    } else {
+    if (currentView === 'all') {
       renderAllView(data);
+    } else {
+      renderTopView(data);
     }
   }
 
   function setView(v) {
     currentView = v;
-    document.getElementById('mbViewSlate').className = v === 'slate' ? 'active' : '';
-    document.getElementById('mbViewAll').className = v === 'all' ? 'active' : '';
+    document.getElementById('mbViewSlate').className = v === 'all' ? 'active' : '';
+    document.getElementById('mbViewAll').className = v === 'top15' ? 'active' : '';
     update();
   }
 
