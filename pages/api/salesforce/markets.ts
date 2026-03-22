@@ -191,17 +191,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const reportData = await resp.json();
 
-      // Find aggregate indices
+      // Find aggregate indices — use exact key matching to avoid picking up
+      // the wrong "amount" aggregate (e.g. mx!AMOUNT instead of s!AMOUNT)
       const aggInfo = reportData.reportExtendedMetadata?.aggregateColumnInfo || {};
       const aggKeys = Object.keys(aggInfo);
       let amountIdx = -1;
       let countIdx = -1;
       for (let i = 0; i < aggKeys.length; i++) {
-        const info = aggInfo[aggKeys[i]];
-        const label = (info?.label || '').toLowerCase();
-        const key = aggKeys[i].toLowerCase();
-        if (label.includes('amount') || key.includes('amount')) amountIdx = i;
-        if (label === 'record count' || key === 'rowcount') countIdx = i;
+        const key = aggKeys[i];
+        // Exact match: "s!AMOUNT" = Sum of Amount
+        if (key === 's!AMOUNT') amountIdx = i;
+        // Exact match: "RowCount" = Record Count
+        if (key === 'RowCount') countIdx = i;
+      }
+      // Fallback: if exact keys not found, try label-based (prefer "Sum of")
+      if (amountIdx === -1 || countIdx === -1) {
+        for (let i = 0; i < aggKeys.length; i++) {
+          const info = aggInfo[aggKeys[i]];
+          const label = (info?.label || '').toLowerCase();
+          if (amountIdx === -1 && label.startsWith('sum of amount')) amountIdx = i;
+          if (countIdx === -1 && label === 'record count') countIdx = i;
+        }
       }
 
       const markets = new Map<string, { amount: number; count: number }>();
@@ -300,6 +310,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       yearDebug.marketsFound = data.length;
       yearDebug.totalAmount = Math.round(data.reduce((s, d) => s + d.amount, 0) * 100) / 100;
       yearDebug.totalCount = data.reduce((s, d) => s + d.count, 0);
+      yearDebug.sampleMarkets = data.slice(0, 5).map(d => ({ market: d.market, amount: d.amount, count: d.count }));
+      yearDebug.aggregatedMapSize = aggregated.size;
       return { data, debug: yearDebug };
     }
 
