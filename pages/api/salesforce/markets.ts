@@ -67,6 +67,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const debug = req.query.debug === 'true';
+
   try {
     const {
       SALESFORCE_INSTANCE_URL,
@@ -98,17 +100,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const describeData = await describeResp.json();
     const baseMetadata = describeData.reportMetadata;
 
-    // Keep ONLY the Market grouping — remove all others (e.g. Created Date + Time).
-    // This reduces grouping combos from ~15K (date×market) to ~43 (market only).
-    // We match on "arket" to catch Market__c, Opportunity.Market__c, etc.
-    if (Array.isArray(baseMetadata.groupingsDown)) {
-      const marketGrouping = baseMetadata.groupingsDown.find(
-        (g: any) => {
-          const col = (g.name || g.column || '').toLowerCase();
-          return col.includes('market');
-        }
-      );
-      baseMetadata.groupingsDown = marketGrouping ? [marketGrouping] : baseMetadata.groupingsDown;
+    // If debug mode, return raw metadata so we can see groupings and filters
+    if (debug) {
+      return res.status(200).json({
+        _debug: true,
+        groupingsDown: baseMetadata.groupingsDown,
+        reportFilters: baseMetadata.reportFilters,
+        standardDateFilter: baseMetadata.standardDateFilter,
+        reportFormat: baseMetadata.reportFormat,
+        aggregates: baseMetadata.aggregates
+      });
+    }
+
+    const originalGroupingsDown = JSON.parse(JSON.stringify(baseMetadata.groupingsDown || []));
+    const originalFilters = JSON.parse(JSON.stringify(baseMetadata.reportFilters || []));
+
+    // Log groupingsDown for debugging, then keep ONLY the Market grouping.
+    // The report has 2 row groupings: Created Date + Time (index 0) and Market (index 1).
+    // We remove the date grouping to avoid the 2K grouping limit (date × market = ~15K combos).
+    // Market is always the LAST grouping we added, so take the last element.
+    if (Array.isArray(baseMetadata.groupingsDown) && baseMetadata.groupingsDown.length > 1) {
+      // Log all grouping names for debugging
+      console.log('groupingsDown:', JSON.stringify(baseMetadata.groupingsDown.map((g: any) => g.name)));
+      // Keep only the last grouping (Market) — the first one is Created Date + Time
+      baseMetadata.groupingsDown = [baseMetadata.groupingsDown[baseMetadata.groupingsDown.length - 1]];
     }
 
     // Determine years to query
@@ -116,14 +131,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const latestYear = now.getFullYear();
     const priorYear = latestYear - 1;
 
-    // Find the date filter column name from report filters
-    let dateFilterColumn = 'CREATED_DATE';
+    // Find date filter columns from existing report filters
+    // We'll modify their values to scope to a single year, while keeping all other filters intact
+    const dateFilterIndices: number[] = [];
     if (Array.isArray(baseMetadata.reportFilters)) {
-      for (const f of baseMetadata.reportFilters) {
-        if (f && typeof f.column === 'string' &&
-            (f.column.includes('CREATED_DATE') || f.column.includes('CreatedDate') || f.column.includes('Sales_Date') || f.column.includes('CloseDate'))) {
-          dateFilterColumn = f.column;
-          break;
+      for (let i = 0; i < baseMetadata.reportFilters.length; i++) {
+        const f = baseMetadata.reportFilters[i];
+        if (f && typeof f.column === 'string') {
+          const colLower = f.column.toLowerCase();
+          if (colLower.includes('date') || colLower.includes('created') || colLower.includes('close')) {
+            dateFilterIndices.push(i);
+          }
         }
       }
     }
@@ -132,8 +150,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     async function runForYear(year: number): Promise<MarketYearData[]> {
       const meta = JSON.parse(JSON.stringify(baseMetadata));
 
-      // Set date filters to constrain to this year
-      // Through current date for latest year, full year for prior
+      // Compute date boundaries for this year
       const startDate = `${year}-01-01T00:00:00Z`;
       let endDate: string;
       if (year === latestYear) {
@@ -144,21 +161,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         endDate = `${year}-12-31T23:59:59Z`;
       }
 
-      // Replace existing date filters with our year-bounded ones
-      meta.reportFilters = [
-        {
-          column: dateFilterColumn,
-          operator: 'greaterOrEqual',
-          value: startDate
-        },
-        {
-          column: dateFilterColumn,
-          operator: 'lessOrEqual',
-          value: endDate
+      // Modify existing date filters to scope to this year (keep all other filters!)
+      if (dateFilterIndices.length > 0 && Array.isArray(meta.reportFilters)) {
+        for (const idx of dateFilterIndices) {
+          const f = meta.reportFilters[idx];
+          if (!f) continue;
+          if (f.operator === 'greaterOrEqual' || f.operator === 'greaterThan' || f.operator === 'after') {
+            f.value = startDate;
+          } else if (f.operator === 'lessOrEqual' || f.operator === 'lessThan' || f.operator === 'before') {
+            f.value = endDate;
+          }
         }
-      ];
+      } else {
+        // Fallback: use the standard date filter if we couldn't find existing ones
+        // Use the Salesforce standard filter instead of reportFilters
+        meta.standardDateFilter = {
+          column: 'CREATED_DATE',
+          durationValue: 'CUSTOM',
+          startDate: `${year}-01-01`,
+          endDate: year === latestYear
+            ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate() + 1).padStart(2, '0')}`
+            : `${year}-12-31`
+        };
+      }
 
       const runUrl = `${SALESFORCE_INSTANCE_URL}/services/data/${apiVersion}/analytics/reports/${REPORT_ID}?includeDetails=false`;
+      const runBody = { reportMetadata: meta };
       const runResp = await fetch(runUrl, {
         method: 'POST',
         headers: {
@@ -166,16 +194,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           'Content-Type': 'application/json',
           'Cache-Control': 'no-cache, no-store'
         },
-        body: JSON.stringify({ reportMetadata: meta })
+        body: JSON.stringify(runBody)
       });
 
       if (!runResp.ok) {
         const text = await runResp.text();
         console.error(`Markets report error for year ${year}: ${text}`);
+        // Store error for debug
+        (runForYear as any)._lastError = { year, status: runResp.status, text };
         return [];
       }
 
       const reportData = await runResp.json();
+
+      // Store debug info
+      (runForYear as any)._lastRun = {
+        year,
+        sentMetadata: meta,
+        groupingsDownCount: reportData.groupingsDown?.groupings?.length ?? 'N/A',
+        factMapKeys: Object.keys(reportData.factMap || {}),
+        aggregateKeys: Object.keys(reportData.reportExtendedMetadata?.aggregateColumnInfo || {}),
+        sampleGroupings: (reportData.groupingsDown?.groupings || []).slice(0, 5).map((g: any) => ({ key: g.key, label: g.label }))
+      };
 
       // Parse single-level groupings: Market → aggregates
       const groupings = reportData.groupingsDown?.groupings || [];
@@ -240,14 +280,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const allData = [...priorData, ...latestData];
     const markets = [...new Set(allData.map(r => r.market))].sort();
 
-    return res.status(200).json({
+    const responsePayload: any = {
       markets,
       marketData: allData,
       latestYear,
       priorYear,
       latestCount: latestData.length,
       priorCount: priorData.length
-    });
+    };
+
+    // Always include debug info temporarily to diagnose the empty results
+    responsePayload._debug = {
+      lastRun: (runForYear as any)._lastRun || null,
+      lastError: (runForYear as any)._lastError || null,
+      dateFilterIndices,
+      originalGroupingsDown,
+      originalFilters,
+      reportFiltersCount: baseMetadata.reportFilters?.length ?? 0
+    };
+
+    return res.status(200).json(responsePayload);
   } catch (err: any) {
     console.error('Markets Salesforce API error:', err);
     return res.status(500).json({
