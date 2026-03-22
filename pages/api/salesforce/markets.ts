@@ -152,30 +152,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         endDate = `${year}-12-31`;
       }
 
+      // MINIMAL override — only send what we need to change.
+      // Salesforce inherits all other settings (filters, aggregates, format, etc.)
+      // from the saved report. Sending extra fields causes errors like
+      // "Invalid value specified: 00NVL000000OA36."
       const meta: any = {
-        // Only Market grouping (date grouping removed)
+        // Override 1: Only Market grouping (remove date grouping to avoid 2K limit)
         groupingsDown: JSON.parse(JSON.stringify(baseMetadata.groupingsDown)),
-        // Keep all existing filters untouched
-        reportFilters: JSON.parse(JSON.stringify(baseMetadata.reportFilters || [])),
-        // Use standardDateFilter to scope to this year
+        // Override 2: Scope to this specific year
         standardDateFilter: {
           column: dateColumn,
           durationValue: 'CUSTOM',
           startDate,
           endDate
-        },
-        // Preserve report format and aggregates
-        reportFormat: baseMetadata.reportFormat,
-        aggregates: JSON.parse(JSON.stringify(baseMetadata.aggregates || [])),
+        }
       };
-
-      // Copy other known-valid fields if they exist
-      if (baseMetadata.scope) meta.scope = baseMetadata.scope;
-      if (baseMetadata.crossFilters) meta.crossFilters = JSON.parse(JSON.stringify(baseMetadata.crossFilters));
-      if (baseMetadata.historicalSnapshotDates) meta.historicalSnapshotDates = baseMetadata.historicalSnapshotDates;
-      if (baseMetadata.reportBooleanFilter) meta.reportBooleanFilter = baseMetadata.reportBooleanFilter;
-      if (baseMetadata.reportType) meta.reportType = JSON.parse(JSON.stringify(baseMetadata.reportType));
-      if (baseMetadata.detailColumns) meta.detailColumns = JSON.parse(JSON.stringify(baseMetadata.detailColumns));
 
       const yearDebug: any = {
         year,
