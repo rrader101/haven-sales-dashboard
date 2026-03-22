@@ -98,16 +98,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const describeData = await describeResp.json();
     const baseMetadata = describeData.reportMetadata;
 
-    // Remove "Created Date + Time" from row groupings — keep only Market
-    // This reduces grouping combos from ~15K to ~43
+    // Keep ONLY the Market grouping — remove all others (e.g. Created Date + Time).
+    // This reduces grouping combos from ~15K (date×market) to ~43 (market only).
+    // We match on "arket" to catch Market__c, Opportunity.Market__c, etc.
     if (Array.isArray(baseMetadata.groupingsDown)) {
-      baseMetadata.groupingsDown = baseMetadata.groupingsDown.filter(
+      const marketGrouping = baseMetadata.groupingsDown.find(
         (g: any) => {
-          const col = g.name || g.column || '';
-          // Keep Market, remove date groupings
-          return !col.includes('CREATED_DATE') && !col.includes('CreatedDate') && !col.includes('Created_Date');
+          const col = (g.name || g.column || '').toLowerCase();
+          return col.includes('market');
         }
       );
+      baseMetadata.groupingsDown = marketGrouping ? [marketGrouping] : baseMetadata.groupingsDown;
     }
 
     // Determine years to query
