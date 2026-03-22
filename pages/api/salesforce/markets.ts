@@ -232,24 +232,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       monthDebug.countIdx = countIdx;
       monthDebug.aggColumns = aggKeys.map(k => ({ key: k, label: aggInfo[k]?.label }));
 
+      // Track debug info for fact key resolution
+      let factHits = 0;
+      let factMisses = 0;
+      let firstFactKey = '';
+      let firstFactFound = false;
+
       for (const dateGroup of dateGroups) {
         const marketGroups = dateGroup.groupings || [];
         for (const mktGroup of marketGroups) {
           const market = String(mktGroup.label || mktGroup.value || '').trim();
           if (!market || market === '-') continue;
 
-          const factKey = `${dateGroup.key}_${mktGroup.key}!T`;
+          // In Salesforce SUMMARY reports with nested groupings, the subgroup key
+          // already encodes the full path (e.g. "0_0" = dateGroup 0, mktGroup 0).
+          // The factMap key is just "<subGroupKey>!T", NOT "<parentKey>_<subKey>!T".
+          const factKey = `${mktGroup.key}!T`;
           const fact = factMap[factKey];
+
+          if (!firstFactKey) {
+            firstFactKey = factKey;
+            firstFactFound = !!fact;
+          }
 
           let amount = 0;
           let count = 0;
           if (fact && fact.aggregates) {
+            factHits++;
             if (amountIdx >= 0 && fact.aggregates[amountIdx]) {
               amount = parseFloat(fact.aggregates[amountIdx].value || '0');
             }
             if (countIdx >= 0 && fact.aggregates[countIdx]) {
               count = parseInt(fact.aggregates[countIdx].value || '0', 10);
             }
+          } else {
+            factMisses++;
           }
 
           const existing = markets.get(market) || { amount: 0, count: 0 };
@@ -260,6 +277,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       monthDebug.marketsFound = markets.size;
+      monthDebug.factHits = factHits;
+      monthDebug.factMisses = factMisses;
+      monthDebug.firstFactKey = firstFactKey;
+      monthDebug.firstFactFound = firstFactFound;
       return { markets, debug: monthDebug };
     }
 
