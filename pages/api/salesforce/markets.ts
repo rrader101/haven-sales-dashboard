@@ -124,15 +124,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       debugLog.keptGrouping = null;
     }
 
-    // CRITICAL: Disable the report chart — when we remove the Sales_Date grouping,
-    // the chart still references it and Salesforce throws:
-    // "This report has no chart group named Opportunity.Sales_Date__c."
-    // Setting hasChart=false and clearing chart prevents this error.
-    baseMetadata.hasChart = false;
-    if (baseMetadata.chart) {
-      delete baseMetadata.chart;
-    }
-
     // Determine the date column for standardDateFilter
     // The report's standardDateFilter uses CLOSE_DATE, but the actual date field
     // used in groupings and filters is Opportunity.Sales_Date__c.
@@ -148,15 +139,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 3) Run the report for a specific year
     async function runForYear(year: number): Promise<{ data: MarketYearData[]; debug: any }> {
-      // Deep clone metadata for this run
-      const meta = JSON.parse(JSON.stringify(baseMetadata));
-
-      // Set standardDateFilter to scope to this year ONLY
-      // This is the safest approach — doesn't touch reportFilters at all
+      // Build a CLEAN metadata object with only the fields Salesforce accepts
+      // for the Analytics Report Run POST. Sending unknown properties from describe
+      // causes JSON_PARSER_ERROR.
       const startDate = `${year}-01-01`;
       let endDate: string;
       if (year === latestYear) {
-        // Include today + 1 day buffer
         const d = new Date();
         d.setDate(d.getDate() + 1);
         endDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -164,12 +152,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         endDate = `${year}-12-31`;
       }
 
-      meta.standardDateFilter = {
-        column: dateColumn,
-        durationValue: 'CUSTOM',
-        startDate,
-        endDate
+      const meta: any = {
+        // Only Market grouping (date grouping removed)
+        groupingsDown: JSON.parse(JSON.stringify(baseMetadata.groupingsDown)),
+        // Keep all existing filters untouched
+        reportFilters: JSON.parse(JSON.stringify(baseMetadata.reportFilters || [])),
+        // Use standardDateFilter to scope to this year
+        standardDateFilter: {
+          column: dateColumn,
+          durationValue: 'CUSTOM',
+          startDate,
+          endDate
+        },
+        // Preserve report format and aggregates
+        reportFormat: baseMetadata.reportFormat,
+        aggregates: JSON.parse(JSON.stringify(baseMetadata.aggregates || [])),
       };
+
+      // Copy other known-valid fields if they exist
+      if (baseMetadata.scope) meta.scope = baseMetadata.scope;
+      if (baseMetadata.crossFilters) meta.crossFilters = JSON.parse(JSON.stringify(baseMetadata.crossFilters));
+      if (baseMetadata.historicalSnapshotDates) meta.historicalSnapshotDates = baseMetadata.historicalSnapshotDates;
+      if (baseMetadata.reportBooleanFilter) meta.reportBooleanFilter = baseMetadata.reportBooleanFilter;
+      if (baseMetadata.reportType) meta.reportType = JSON.parse(JSON.stringify(baseMetadata.reportType));
+      if (baseMetadata.detailColumns) meta.detailColumns = JSON.parse(JSON.stringify(baseMetadata.detailColumns));
 
       const yearDebug: any = {
         year,
