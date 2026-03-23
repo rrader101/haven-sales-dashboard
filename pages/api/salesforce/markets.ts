@@ -191,23 +191,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const reportData = await resp.json();
 
-      // Find aggregate indices — use exact key matching to avoid picking up
-      // the wrong "amount" aggregate (e.g. mx!AMOUNT instead of s!AMOUNT)
+      // CRITICAL: Use reportMetadata.aggregates for the correct ordering.
+      // Object.keys(aggregateColumnInfo) returns keys in arbitrary JS order,
+      // which does NOT match the aggregate values array in factMap.
+      // reportMetadata.aggregates is the authoritative order.
+      const metaAggOrder: string[] = reportData.reportMetadata?.aggregates || [];
       const aggInfo = reportData.reportExtendedMetadata?.aggregateColumnInfo || {};
-      const aggKeys = Object.keys(aggInfo);
       let amountIdx = -1;
       let countIdx = -1;
-      for (let i = 0; i < aggKeys.length; i++) {
-        const key = aggKeys[i];
-        // Exact match: "s!AMOUNT" = Sum of Amount
-        if (key === 's!AMOUNT') amountIdx = i;
-        // Exact match: "RowCount" = Record Count
-        if (key === 'RowCount') countIdx = i;
+      for (let i = 0; i < metaAggOrder.length; i++) {
+        if (metaAggOrder[i] === 's!AMOUNT') amountIdx = i;
+        if (metaAggOrder[i] === 'RowCount') countIdx = i;
       }
-      // Fallback: if exact keys not found, try label-based (prefer "Sum of")
+      // Fallback: label-based search using the correct ordering
       if (amountIdx === -1 || countIdx === -1) {
-        for (let i = 0; i < aggKeys.length; i++) {
-          const info = aggInfo[aggKeys[i]];
+        for (let i = 0; i < metaAggOrder.length; i++) {
+          const info = aggInfo[metaAggOrder[i]];
           const label = (info?.label || '').toLowerCase();
           if (amountIdx === -1 && label.startsWith('sum of amount')) amountIdx = i;
           if (countIdx === -1 && label === 'record count') countIdx = i;
@@ -230,7 +229,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       monthDebug.factMapKeysSample = Object.keys(factMap).slice(0, 5);
       monthDebug.amountIdx = amountIdx;
       monthDebug.countIdx = countIdx;
-      monthDebug.aggColumns = aggKeys.map(k => ({ key: k, label: aggInfo[k]?.label }));
+      monthDebug.metaAggOrder = metaAggOrder;
+      monthDebug.aggColumns = metaAggOrder.map(k => ({ key: k, label: aggInfo[k]?.label }));
 
       // Track debug info for fact key resolution
       let factHits = 0;
