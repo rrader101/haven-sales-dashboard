@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Add-on Attach Rate Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1117; --panel:#1a1d27; --panel2:#222633; --txt:#e6e8ee;
+    --muted:#9aa1b0; --accent:#5b8cff; --accent2:#39d98a; --warn:#ffb454;
+    --grid:#2a2e3c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--txt);padding:28px;}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:22px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:24px}
+  .card{background:var(--panel);border:1px solid var(--grid);border-radius:12px;padding:16px 18px}
+  .card .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  .card .val{font-size:28px;font-weight:600;margin-top:6px}
+  .card .val small{font-size:14px;color:var(--muted);font-weight:400}
+  .panel{background:var(--panel);border:1px solid var(--grid);border-radius:12px;padding:18px 20px;margin-bottom:22px}
+  .panel h2{font-size:15px;margin:0 0 14px;font-weight:600}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  .controls{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .controls button{background:var(--panel2);color:var(--txt);border:1px solid var(--grid);
+    padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px}
+  .controls button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  canvas{max-height:340px}
+  .note{background:#2a2230;border:1px solid #4a3a52;border-left:3px solid var(--warn);
+    border-radius:8px;padding:12px 16px;font-size:13px;color:#e8d8c0;margin-bottom:22px}
+  @media(max-width:760px){.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>Checkout Add-on Attach Rate</h1>
+<div class="sub">Daily performance · Mar 19 – Jun 17, 2026 · <span id="ndays"></span> days</div>
+
+<div class="cards" id="cards"></div>
+
+<div class="note" id="insight"></div>
+
+<div class="panel">
+  <h2>Daily checkouts &amp; attach rate</h2>
+  <div class="controls">
+    <button data-rng="all" class="active">All</button>
+    <button data-rng="30">Last 30d</button>
+    <button data-rng="14">Last 14d</button>
+  </div>
+  <canvas id="mainChart"></canvas>
+</div>
+
+<div class="row">
+  <div class="panel">
+    <h2>Weekly attach rate (%)</h2>
+    <canvas id="weekRate"></canvas>
+  </div>
+  <div class="panel">
+    <h2>Weekly volume (checkouts vs add-ons)</h2>
+    <canvas id="weekVol"></canvas>
+  </div>
+</div>
+
+<script>
+const DATA = [["2026-03-19",20,1,5.0],["2026-03-20",37,1,2.7],["2026-03-21",4,0,0.0],["2026-03-22",1,0,0.0],["2026-03-23",34,2,5.9],["2026-03-24",23,0,0.0],["2026-03-25",29,2,6.9],["2026-03-26",11,2,18.2],["2026-03-27",27,5,18.5],["2026-03-28",6,1,16.7],["2026-03-29",2,0,0.0],["2026-03-30",20,2,10.0],["2026-03-31",43,8,18.6],["2026-04-01",27,2,7.4],["2026-04-02",28,4,14.3],["2026-04-03",23,4,17.4],["2026-04-04",4,0,0.0],["2026-04-06",20,3,15.0],["2026-04-07",32,2,6.2],["2026-04-08",23,1,4.3],["2026-04-09",26,1,3.8],["2026-04-10",26,2,7.7],["2026-04-11",6,1,16.7],["2026-04-12",2,0,0.0],["2026-04-13",16,2,12.5],["2026-04-14",25,3,12.0],["2026-04-15",18,4,22.2],["2026-04-16",30,6,20.0],["2026-04-17",22,0,0.0],["2026-04-18",5,1,20.0],["2026-04-20",21,3,14.3],["2026-04-21",19,1,5.3],["2026-04-22",22,2,9.1],["2026-04-23",13,1,7.7],["2026-04-24",26,3,11.5],["2026-04-25",2,0,0.0],["2026-04-27",19,0,0.0],["2026-04-28",36,3,8.3],["2026-04-29",50,4,8.0],["2026-04-30",47,7,14.9],["2026-05-01",41,4,9.8],["2026-05-02",3,1,33.3],["2026-05-03",4,1,25.0],["2026-05-04",24,2,8.3],["2026-05-05",42,2,4.8],["2026-05-06",38,6,15.8],["2026-05-07",35,5,14.3],["2026-05-08",31,8,25.8],["2026-05-09",7,0,0.0],["2026-05-10",3,0,0.0],["2026-05-11",31,8,25.8],["2026-05-12",23,0,0.0],["2026-05-13",42,10,23.8],["2026-05-14",24,2,8.3],["2026-05-15",33,3,9.1],["2026-05-16",2,1,50.0],["2026-05-17",1,0,0.0],["2026-05-18",19,0,0.0],["2026-05-19",35,3,8.6],["2026-05-20",31,4,12.9],["2026-05-21",27,1,3.7],["2026-05-22",19,5,26.3],["2026-05-23",3,0,0.0],["2026-05-24",3,0,0.0],["2026-05-25",12,3,25.0],["2026-05-26",26,2,7.7],["2026-05-27",28,3,10.7],["2026-05-28",25,2,8.0],["2026-05-29",37,2,5.4],["2026-05-30",4,1,25.0],["2026-05-31",3,0,0.0],["2026-06-01",29,4,13.8],["2026-06-02",30,5,16.7],["2026-06-03",45,0,0.0],["2026-06-04",35,0,0.0],["2026-06-05",35,0,0.0],["2026-06-06",5,0,0.0],["2026-06-07",1,0,0.0],["2026-06-08",13,1,7.7],["2026-06-09",29,0,0.0],["2026-06-10",27,1,3.7],["2026-06-11",38,0,0.0],["2026-06-12",29,2,6.9],["2026-06-13",4,0,0.0],["2026-06-14",2,0,0.0],["2026-06-15",31,0,0.0],["2026-06-16",29,0,0.0],["2026-06-17",5,0,0.0]];
+
+const days = DATA.map(d=>d[0]);
+const co   = DATA.map(d=>d[1]);
+const ao   = DATA.map(d=>d[2]);
+const totCo = co.reduce((a,b)=>a+b,0);
+const totAo = ao.reduce((a,b)=>a+b,0);
+const overall = totAo/totCo*100;
+const bestDay = DATA.reduce((m,d)=> d[1]>=5 && d[3]>m[3] ? d : m, ["",0,0,-1]);
+const peakVol = DATA.reduce((m,d)=> d[1]>m[1]?d:m);
+
+// cards
+const cards=[
+  ["Total checkouts", totCo.toLocaleString()],
+  ["Total add-ons", totAo.toLocaleString()],
+  ["Overall attach rate", overall.toFixed(1)+"<small>%</small>"],
+  ["Peak day volume", peakVol[1]+"<small> ("+peakVol[0].slice(5)+")</small>"],
+  ["Best attach day", bestDay[3].toFixed(1)+"<small>% ("+bestDay[0].slice(5)+")</small>"],
+];
+document.getElementById('cards').innerHTML = cards.map(c=>
+  `<div class="card"><div class="label">${c[0]}</div><div class="val">${c[1]}</div></div>`).join('');
+document.getElementById('ndays').textContent = DATA.length;
+
+// insight: recent attach rate collapse
+const last15 = DATA.slice(-15);
+const r15 = last15.reduce((a,d)=>a+d[2],0)/last15.reduce((a,d)=>a+d[1],0)*100;
+document.getElementById('insight').innerHTML =
+  `<b>Heads up:</b> Add-on attach rate has dropped sharply in June — the last 15 days averaged <b>${r15.toFixed(1)}%</b> vs the <b>${overall.toFixed(1)}%</b> overall. Several recent high-volume days (Jun 3–5, Jun 9, 11, 15–16) recorded <b>zero</b> add-ons, which may indicate a tracking or checkout-flow issue worth investigating.`;
+
+Chart.defaults.color = '#9aa1b0';
+Chart.defaults.font.family = '-apple-system,Segoe UI,Roboto,sans-serif';
+const grid = '#2a2e3c';
+
+// main chart
+let main;
+function drawMain(n){
+  const slice = n==='all'?DATA:DATA.slice(-parseInt(n));
+  const L=slice.map(d=>d[0].slice(5));
+  if(main) main.destroy();
+  main = new Chart(document.getElementById('mainChart'),{
+    data:{labels:L,datasets:[
+      {type:'bar',label:'Checkouts',data:slice.map(d=>d[1]),backgroundColor:'#5b8cff66',
+       borderColor:'#5b8cff',borderWidth:1,yAxisID:'y',order:2},
+      {type:'bar',label:'Add-ons',data:slice.map(d=>d[2]),backgroundColor:'#39d98a',
+       yAxisID:'y',order:1},
+      {type:'line',label:'Attach rate %',data:slice.map(d=>d[3]),borderColor:'#ffb454',
+       backgroundColor:'#ffb454',tension:.3,yAxisID:'y1',pointRadius:2,borderWidth:2,order:0}
+    ]},
+    options:{responsive:true,interaction:{mode:'index',intersect:false},
+      scales:{
+        x:{grid:{color:grid},ticks:{maxRotation:90,minRotation:90,autoSkip:true,maxTicksLimit:30}},
+        y:{position:'left',grid:{color:grid},title:{display:true,text:'Count'}},
+        y1:{position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'Attach %'},min:0}
+      },
+      plugins:{legend:{labels:{usePointStyle:true}}}}
+  });
+}
+drawMain('all');
+document.querySelectorAll('.controls button').forEach(b=>{
+  b.onclick=()=>{document.querySelectorAll('.controls button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');drawMain(b.dataset.rng);};
+});
+
+// weekly aggregation (ISO-ish: group by Monday)
+function monday(s){const d=new Date(s+'T00:00:00');const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day);return d.toISOString().slice(0,10);}
+const wk={};
+DATA.forEach(d=>{const k=monday(d[0]);(wk[k]=wk[k]||[0,0]);wk[k][0]+=d[1];wk[k][1]+=d[2];});
+const wkKeys=Object.keys(wk).sort();
+const wkRate=wkKeys.map(k=>wk[k][0]?wk[k][1]/wk[k][0]*100:0);
+const wkLab=wkKeys.map(k=>k.slice(5));
+
+new Chart(document.getElementById('weekRate'),{
+  type:'line',
+  data:{labels:wkLab,datasets:[{label:'Attach rate %',data:wkRate,borderColor:'#ffb454',
+    backgroundColor:'#ffb45433',fill:true,tension:.3,pointRadius:3}]},
+  options:{plugins:{legend:{display:false}},scales:{x:{grid:{color:grid}},y:{grid:{color:grid},min:0,
+    title:{display:true,text:'%'}}}}
+});
+new Chart(document.getElementById('weekVol'),{
+  type:'bar',
+  data:{labels:wkLab,datasets:[
+    {label:'Checkouts',data:wkKeys.map(k=>wk[k][0]),backgroundColor:'#5b8cff'},
+    {label:'Add-ons',data:wkKeys.map(k=>wk[k][1]),backgroundColor:'#39d98a'}]},
+  options:{scales:{x:{grid:{color:grid},stacked:false},y:{grid:{color:grid}}},
+    plugins:{legend:{labels:{usePointStyle:true}}}}
+});
+</script>
+</body>
+</html>
