@@ -1,107 +1,117 @@
 <!-- PALI Return Rate — standalone snapshot. Open in any browser. No Salesforce or Cowork access needed. -->
 <meta charset="utf-8">
 <style>
-  :root { color-scheme: light; }
+  :root { color-scheme: dark; }
   * { box-sizing: border-box; }
-  body { margin:0; padding:20px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
-         background:#f7f8fa; color:#1a1d23; font-size:14px; }
-  h1 { font-size:20px; margin:0 0 4px; }
-  .sub { color:#6b7280; font-size:13px; margin-bottom:16px; }
-  .hero { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:18px 20px; margin-bottom:16px; }
-  .hero h2 { margin:0 0 2px; font-size:14px; font-weight:600; }
-  .hero .cap { font-size:12px; color:#6b7280; margin-bottom:16px; }
+  body { margin:0; padding:22px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+         background:#0a0b0d; color:#e7e9ea; font-size:14px; }
+  h1 { font-size:22px; margin:0 0 4px; color:#fff; letter-spacing:-0.01em; font-weight:700; }
+  .sub { color:#7f858e; font-size:13px; margin-bottom:18px; }
+  .sub b { color:#c9ccd1; font-weight:600; }
+
+  .hero { background:#141518; border:1px solid #26282c; border-radius:12px; padding:18px 20px; margin-bottom:16px; }
+  .hero h2 { margin:0 0 2px; font-size:14px; font-weight:600; color:#e7e9ea; }
+  .hero .cap { font-size:12px; color:#7f858e; margin-bottom:16px; }
+
   .mkts { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
-  .mk { border:1px solid #e5e7eb; border-radius:9px; padding:13px 14px; }
-  .mk.total { background:#f8fafc; border-color:#cbd5e1; }
+  .mk { border:1px solid #26282c; border-radius:10px; padding:13px 14px; background:#17181b; }
+  .mk.total { background:#1b1d21; border-color:#34373d; }
   .mk.clickable { cursor:pointer; transition:border-color .12s, box-shadow .12s; }
-  .mk.clickable:hover { border-color:#0f766e; box-shadow:0 2px 8px rgba(15,118,110,.12); }
-  .mk.open { border-color:#0f766e; box-shadow:0 0 0 2px rgba(15,118,110,.18); }
-  .mk .name { font-size:13px; font-weight:700; margin-bottom:10px; }
-  .mk .name span { font-weight:400; color:#9ca3af; font-size:11px; display:block; }
+  .mk.clickable:hover { border-color:#22c55e; box-shadow:0 0 0 1px rgba(34,197,94,.25); }
+  .mk.open { border-color:#22c55e; box-shadow:0 0 0 2px rgba(34,197,94,.35); }
+  .mk .name { font-size:13px; font-weight:700; margin-bottom:10px; color:#e7e9ea; }
+  .mk .name span { font-weight:400; color:#6b7178; font-size:11px; display:block; }
   .row { display:flex; align-items:center; gap:7px; margin-bottom:6px; font-size:12px; }
-  .row .yr { width:32px; color:#6b7280; font-size:11px; }
-  .track { flex:1; height:15px; background:#f1f5f9; border-radius:4px; overflow:hidden; }
+  .row .yr { width:32px; color:#7f858e; font-size:11px; }
+  .track { flex:1; height:15px; background:#26282c; border-radius:4px; overflow:hidden; }
   .fill { height:100%; border-radius:4px; }
-  .f25 { background:#94a3b8; } .f26 { background:#0f766e; }
-  .row .v { width:42px; text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
-  .dl { margin-top:9px; padding-top:8px; border-top:1px solid #f1f5f9; font-size:12px;
+  .f25 { background:#5b6472; } .f26 { background:#22c55e; }
+  .row .v { width:42px; text-align:right; font-variant-numeric:tabular-nums; font-weight:600; color:#e7e9ea; }
+  .dl { margin-top:9px; padding-top:8px; border-top:1px solid #26282c; font-size:12px;
         display:flex; justify-content:space-between; align-items:center; }
-  .up { color:#15803d; font-weight:700; } .down { color:#b91c1c; font-weight:700; }
-  .drillhint { margin-top:7px; font-size:11px; color:#0f766e; font-weight:600; }
-  .axisnote { font-size:10px; color:#cbd5e1; margin-top:8px; }
+  .up { color:#22c55e; font-weight:700; } .down { color:#f87171; font-weight:700; }
+  .drillhint { margin-top:7px; font-size:11px; color:#22c55e; font-weight:600; }
+  .axisnote { font-size:10px; color:#4a4e55; margin-top:8px; }
+
   #drill { margin-top:16px; }
-  .drillbox { border:1px solid #0f766e; border-radius:9px; overflow:hidden; }
-  .drillhead { background:#f0fdfa; padding:11px 14px; display:flex; justify-content:space-between;
-               align-items:center; border-bottom:1px solid #cfe9e4; }
-  .drillhead b { font-size:13px; }
-  .drillhead .x { cursor:pointer; color:#6b7280; font-size:20px; line-height:1; padding:0 6px; }
-  .dtabs { display:flex; border-bottom:1px solid #e5e7eb; background:#fff; }
-  .dtabs button { flex:1; border:0; background:#fff; padding:10px; font-size:12px; cursor:pointer;
-                  color:#6b7280; border-bottom:2px solid transparent; text-align:left; }
-  .dtabs button.on { color:#0f766e; font-weight:700; border-bottom-color:#0f766e; background:#f0fdfa; }
-  .dnote { padding:10px 14px; font-size:12px; color:#6b7280; background:#fafbfc; border-bottom:1px solid #eef2f7; }
-  .callout { background:#eff6ff; border:1px solid #bfdbfe; border-left:4px solid #2563eb; border-radius:8px;
-             padding:13px 15px; margin-bottom:16px; font-size:13px; line-height:1.6; }
-  .callout b { color:#1e40af; }
-  .warn { background:#fffbeb; border:1px solid #fcd34d; border-left:4px solid #d97706; border-radius:8px;
-          padding:13px 15px; margin-bottom:16px; font-size:13px; line-height:1.6; }
-  .warn b { color:#92400e; }
+  .drillbox { border:1px solid #2f7d4e; border-radius:9px; overflow:hidden; }
+  .drillhead { background:rgba(34,197,94,.08); padding:11px 14px; display:flex; justify-content:space-between;
+               align-items:center; border-bottom:1px solid #26482f; }
+  .drillhead b { font-size:13px; color:#e7e9ea; }
+  .drillhead .x { cursor:pointer; color:#7f858e; font-size:20px; line-height:1; padding:0 6px; }
+  .dtabs { display:flex; border-bottom:1px solid #26282c; background:#141518; }
+  .dtabs button { flex:1; border:0; background:#141518; padding:10px; font-size:12px; cursor:pointer;
+                  color:#7f858e; border-bottom:2px solid transparent; text-align:left; }
+  .dtabs button.on { color:#22c55e; font-weight:700; border-bottom-color:#22c55e; background:rgba(34,197,94,.08); }
+  .dnote { padding:10px 14px; font-size:12px; color:#8a9099; background:#17181b; border-bottom:1px solid #26282c; }
+
+  .callout { background:rgba(59,130,246,.08); border:1px solid #24405f; border-left:4px solid #3b82f6;
+             border-radius:8px; padding:13px 15px; margin-bottom:16px; font-size:13px; line-height:1.6; }
+  .callout b { color:#93c5fd; }
+  .warn { background:rgba(245,166,35,.07); border:1px solid #4a3a1c; border-left:4px solid #f5a623;
+          border-radius:8px; padding:13px 15px; margin-bottom:16px; font-size:13px; line-height:1.6; }
+  .warn b { color:#f5c168; }
+
   .controls { display:flex; gap:16px; align-items:center; flex-wrap:wrap;
-              background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 14px; margin-bottom:16px; }
-  .cg { display:flex; align-items:center; gap:8px; font-size:12px; color:#6b7280; }
-  .cg b { color:#374151; font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:11px; }
-  .seg { display:inline-flex; border:1px solid #d1d5db; border-radius:7px; overflow:hidden; }
-  .seg button { border:0; background:#fff; padding:5px 11px; font-size:12px; cursor:pointer; color:#4b5563; }
-  .seg button.on { background:#1f3864; color:#fff; font-weight:600; }
-  .seg button + button { border-left:1px solid #d1d5db; }
-  .refresh { border:0; background:#0f766e; color:#fff; font-weight:600; font-size:12px;
+              background:#141518; border:1px solid #26282c; border-radius:12px; padding:10px 14px; margin-bottom:16px; }
+  .cg { display:flex; align-items:center; gap:8px; font-size:12px; color:#7f858e; }
+  .cg b { color:#c9ccd1; font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:11px; }
+  .seg { display:inline-flex; border:1px solid #34373d; border-radius:7px; overflow:hidden; }
+  .seg button { border:0; background:#17181b; padding:5px 12px; font-size:12px; cursor:pointer; color:#8a9099; }
+  .seg button.on { background:#f5a623; color:#161514; font-weight:600; }
+  .seg button + button { border-left:1px solid #34373d; }
+  .refresh { border:0; background:#22c55e; color:#0a0b0d; font-weight:600; font-size:12px;
              padding:7px 13px; border-radius:7px; cursor:pointer; }
-  .refresh:hover { background:#0d635c; } .refresh:disabled { background:#9ca3af; cursor:default; }
-  .panel { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:16px 18px; margin-bottom:16px; }
-  .panel h2 { font-size:14px; margin:0 0 12px; font-weight:600; }
+  .refresh:hover { background:#16a34a; } .refresh:disabled { background:#3a3d42; color:#8a9099; cursor:default; }
+
+  .panel { background:#141518; border:1px solid #26282c; border-radius:12px; padding:16px 18px; margin-bottom:16px; }
+  .panel h2 { font-size:14px; margin:0 0 12px; font-weight:600; color:#e7e9ea; }
   .chartbox { position:relative; height:280px; }
+
   table { border-collapse:collapse; width:100%; font-size:13px; }
-  th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#6b7280;
-       border-bottom:1px solid #e5e7eb; padding:8px 10px; font-weight:600; }
+  th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#7f858e;
+       border-bottom:1px solid #26282c; padding:8px 10px; font-weight:600; }
   th.num, td.num { text-align:right; }
-  td { padding:8px 10px; border-bottom:1px solid #f3f4f6; }
-  tbody tr:hover { background:#f9fafb; }
-  tr.ret { background:#f0fdfa; }
-  tr.ret:hover { background:#e3f7f2; }
-  tr.newrow { background:#f0fdfa; }
-  .yes { color:#0f766e; font-weight:700; font-size:15px; }
-  .no { color:#cbd5e1; }
-  .conv { display:inline-block; font-size:10px; background:#fef3c7; color:#92400e; padding:1px 6px;
+  td { padding:8px 10px; border-bottom:1px solid #1f2124; color:#d4d7db; }
+  tbody tr:hover { background:#1b1d21; }
+  tr.ret { background:rgba(34,197,94,.07); }
+  tr.ret:hover { background:rgba(34,197,94,.13); }
+  tr.newrow { background:rgba(34,197,94,.07); }
+  .yes { color:#22c55e; font-weight:700; font-size:15px; }
+  .no { color:#4a4e55; }
+  .conv { display:inline-block; font-size:10px; background:rgba(245,166,35,.16); color:#f5c168; padding:1px 6px;
           border-radius:3px; margin-left:6px; font-weight:700; }
-  .muted { color:#9ca3af; }
-  .spin { display:inline-block; width:13px; height:13px; border:2px solid rgba(255,255,255,.4); border-top-color:#fff;
+  .muted { color:#6b7178; }
+  .spin { display:inline-block; width:13px; height:13px; border:2px solid rgba(255,255,255,.18); border-top-color:#22c55e;
           border-radius:50%; animation:sp .8s linear infinite; vertical-align:-2px; margin-right:6px; }
   @keyframes sp { to { transform:rotate(360deg); } }
-  .err { padding:10px 14px; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; color:#991b1b;
+  .err { padding:10px 14px; background:rgba(220,38,38,.1); border:1px solid #5a2222; border-radius:8px; color:#f87171;
          font-size:12px; margin-bottom:16px; }
-  .defs { font-size:12px; color:#6b7280; line-height:1.65; }
-  .defs b { color:#374151; }
+  .defs { font-size:12px; color:#7f858e; line-height:1.65; }
+  .defs b { color:#c9ccd1; }
+
   .bl { display:grid; grid-template-columns:1fr 32px 1fr 1fr 1fr; gap:0; align-items:stretch;
-        background:#fff; border:1px solid #e5e7eb; border-radius:10px; margin-bottom:16px; overflow:hidden; }
-  .blitem { padding:16px 18px; border-right:1px solid #f1f5f9; }
+        background:#141518; border:1px solid #26282c; border-radius:12px; margin-bottom:16px; overflow:hidden; }
+  .blitem { padding:16px 18px; border-right:1px solid #26282c; }
   .blitem:last-child { border-right:0; }
-  .blitem.base { background:#f8fafc; border-right:2px dashed #cbd5e1; }
-  .blitem.ctx { background:#fcfcfd; }
-  .bllbl { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:#6b7280; font-weight:700; }
-  .blval { font-size:32px; font-weight:700; margin:6px 0 3px; letter-spacing:-.02em; color:#1f3864; }
-  .blitem.base .blval { color:#64748b; }
-  .blitem.now .blval { color:#0f766e; }
-  .blval.up { color:#15803d; } .blval.down { color:#b91c1c; }
-  .blval.ctxv { color:#94a3b8; font-size:26px; }
-  .blsub { font-size:11px; color:#9ca3af; line-height:1.4; }
-  .blarrow { display:flex; align-items:center; justify-content:center; color:#cbd5e1; font-size:20px; background:#fff; }
+  .blitem.base { background:#1b1d21; border-right:2px dashed #3a3d42; }
+  .blitem.ctx { background:#141518; }
+  .bllbl { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:#7f858e; font-weight:700; }
+  .blval { font-size:32px; font-weight:700; margin:6px 0 3px; letter-spacing:-.02em; color:#e7e9ea; }
+  .blitem.base .blval { color:#8a9099; }
+  .blitem.now .blval { color:#22c55e; }
+  .blval.up { color:#22c55e; } .blval.down { color:#f87171; }
+  .blval.ctxv { color:#5b6472; font-size:26px; }
+  .blsub { font-size:11px; color:#6b7178; line-height:1.4; }
+  .blarrow { display:flex; align-items:center; justify-content:center; color:#3a3d42; font-size:20px; background:transparent; }
+
   tr.trow { cursor:pointer; }
-  tr.trow:hover { background:#f0fdfa; }
-  tr.trow.opened { background:#f0fdfa; box-shadow:inset 3px 0 0 #0f766e; }
+  tr.trow:hover { background:#1b1d21; }
+  tr.trow.opened { background:rgba(34,197,94,.07); box-shadow:inset 3px 0 0 #22c55e; }
   #drill2 { margin-top:14px; }
 </style>
 
-<h1>PALI Return Rate — New Draft vs Same Market, Prior Year</h1>
+<h1>PALI Return Rate</h1>
 <div class="sub">Advertisers who ran a <b>one-time paid ad</b> in an issue (and so received that issue's PALI), who then ran again in the <b>next issue of that same market</b>. <span style="color:#9ca3af">Snapshot of Salesforce data, 13 July 2026.</span></div>
 
 <div id="app"></div>
@@ -240,6 +250,8 @@ function render() {
   document.getElementById('app').innerHTML =
     (ERR ? '<div class="err"><b>Refresh failed.</b> ' + ERR + '<br>Showing the last good pull.</div>' : '') +
 
+    baselineStrip() +
+
     '<div class="hero">' +
       '<h2>The three issues that used the new draft, vs the same market a year earlier</h2>' +
       '<div class="cap">Each market&rsquo;s April 2026 issue (new draft) against its April 2025 issue (old draft). ' +
@@ -252,8 +264,6 @@ function render() {
       '</div>' +
       '<div id="drill"></div>' +
     '</div>' +
-
-    baselineStrip() +
 
     '<div class="controls">' +
       '<div class="cg"><b>Counts as a return</b>' +
@@ -309,7 +319,7 @@ function drawDrill(pairs) {
 
   if (DLOADING === DRILL) {
     box.innerHTML = '<div class="drillbox"><div class="dnote" style="padding:20px;text-align:center">' +
-      '<span class="spin" style="border-color:#cfe9e4;border-top-color:#0f766e"></span> ' +
+      '<span class="spin" style="border-color:rgba(255,255,255,.18);border-top-color:#22c55e"></span> ' +
       'Loading advertisers for <b>' + DRILL + '</b> from Salesforce&hellip;</div></div>';
     return;
   }
@@ -353,12 +363,12 @@ function drawDrill(pairs) {
           const nx = dk ? dk.next : '';
           return '<button data-tab="' + k + '" class="' + (k === DRILL ? 'on' : '') + '">' +
             '<b>' + k + '</b> ' + (nx ? '<span class="muted">→ ' + nx + '</span>' : '') + '<br>' + cnt +
-            (NEW_ISSUES.indexOf(k) >= 0 ? ' &nbsp;<b style="color:#0f766e">NEW DRAFT</b>' : '') +
+            (NEW_ISSUES.indexOf(k) >= 0 ? ' &nbsp;<b style="color:#22c55e">NEW DRAFT</b>' : '') +
           '</button>';
         }).join('') +
       '</div>' +
       '<div class="dnote">All <b>' + d.rows.length + '</b> advertisers who ran a one-time paid ad in <b>' + DRILL +
-        '</b> and were therefore sent its PALI. <b style="color:#0f766e">' + ret.length + '</b> came back in ' +
+        '</b> and were therefore sent its PALI. <b style="color:#22c55e">' + ret.length + '</b> came back in ' +
         d.next + '.</div>' +
       '<table><thead><tr>' +
         '<th style="width:36px">PA?</th><th>Advertiser</th>' +
@@ -385,7 +395,7 @@ function drawChart(all, pairs) {
   const labels = Object.keys(all.filter(c => series[c.market])
     .reduce((acc,c) => { acc[c.launch] = 1; return acc; }, {})).sort();
 
-  const colors = { SF:'#1f3864', BOS:'#b45309', DFW:'#7c3aed' };
+  const colors = { SF:'#3b82f6', BOS:'#f5a623', DFW:'#a855f7' };
   // last year's baseline — every old-draft issue, all markets — as a dashed reference line
   const baseAll = all.filter(c => c.era === 'old')
     .reduce((a,c) => ({ d:a.d + c.den, n:a.n + numOf(c) }), {d:0,n:0});
@@ -397,48 +407,86 @@ function drawChart(all, pairs) {
     borderColor: colors[m] || '#64748b',
     backgroundColor: 'transparent',
     spanGaps: true, tension: 0.3, borderWidth: 2,
-    pointRadius: labels.map(L => series[m][L] && series[m][L].era === 'new' ? 9 : 3),
-    pointStyle: labels.map(L => series[m][L] && series[m][L].era === 'new' ? 'rectRot' : 'circle'),
-    pointBackgroundColor: labels.map(L => series[m][L] && series[m][L].era === 'new' ? '#0f766e' : (colors[m] || '#64748b')),
-    pointBorderColor: labels.map(L => series[m][L] && series[m][L].era === 'new' ? '#0f766e' : (colors[m] || '#64748b'))
+    pointStyle: 'circle',
+    pointRadius: labels.map(L => series[m][L] && series[m][L].era === 'new' ? 7 : 3),
+    pointHoverRadius: labels.map(L => series[m][L] && series[m][L].era === 'new' ? 9 : 5),
+    pointBackgroundColor: labels.map(L => series[m][L] ? (series[m][L].era === 'new' ? '#22c55e' : (colors[m] || '#64748b')) : 'transparent'),
+    pointBorderColor: labels.map(L => series[m][L] ? (series[m][L].era === 'new' ? '#0a0b0d' : (colors[m] || '#64748b')) : 'transparent'),
+    pointBorderWidth: labels.map(L => series[m][L] && series[m][L].era === 'new' ? 2 : 1)
   }));
 
   ds.push({
     label: 'All old drafts, last 12 mo (' + baseRate.toFixed(1) + '%)',
     data: labels.map(() => baseRate),
-    borderColor: '#64748b', borderDash: [6,4], borderWidth: 2,
-    pointRadius: 0, fill: false, tension: 0
+    borderColor: '#7a828c', borderDash: [6,4], borderWidth: 2,
+    pointStyle: 'circle', pointRadius: 0, fill: false, tension: 0
   });
 
-  if (CHART) { CHART.destroy(); CHART = null; }
+  if (CHART) { try { CHART.destroy(); } catch (e) {} CHART = null; }
+
+  if (typeof Chart === 'undefined') { chartFallback(cv, mkts, series, labels, baseRate); return; }
+  try {
   CHART = new Chart(cv, {
     type: 'line',
     data: { labels: labels, datasets: ds },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 }, usePointStyle: true } },
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 }, usePointStyle: true, color: '#8a9099' } },
         tooltip: { callbacks: {
           label: ctx => {
-            const c = series[ctx.dataset.label][ctx.label];
-            if (!c) return ctx.dataset.label + ': no issue';
+            const mkt = series[ctx.dataset.label];
+            const c = mkt && mkt[ctx.label];
+            if (!c) return ctx.dataset.label;
             return ctx.dataset.label + ': ' + numOf(c) + ' of ' + c.den +
                    ' (' + pct(numOf(c), c.den).toFixed(1) + '%)';
           },
           afterLabel: ctx => {
-            const c = series[ctx.dataset.label][ctx.label];
+            const mkt = series[ctx.dataset.label];
+            const c = mkt && mkt[ctx.label];
             if (!c) return '';
             return c.base + ' → ' + c.next + (c.era === 'new' ? '   ◆ NEW DRAFT' : '');
           }
         } }
       },
       scales: {
-        y: { beginAtZero: true, suggestedMax: 20, ticks: { callback: v => v + '%' },
-             title: { display: true, text: 'Return rate' } },
-        x: { ticks: { maxRotation: 60, minRotation: 60, font: { size: 9 } } }
+        y: { beginAtZero: true, suggestedMax: 20,
+             ticks: { callback: v => v + '%', color: '#6b7178' },
+             grid: { color: 'rgba(255,255,255,.06)' },
+             title: { display: true, text: 'Return rate', color: '#8a9099' } },
+        x: { ticks: { maxRotation: 60, minRotation: 60, font: { size: 9 }, color: '#6b7178' },
+             grid: { color: 'rgba(255,255,255,.04)' } }
       }
     }
   });
+  } catch (e) {
+    chartFallback(cv, mkts, series, labels, baseRate);
+  }
+}
+
+// Text fallback so the "Every issue" section always shows its data,
+// even if the Chart.js CDN is blocked or the library errors.
+function chartFallback(cv, mkts, series, labels, baseRate) {
+  const box = cv.parentElement;
+  const cell = (m, L) => {
+    const c = series[m][L];
+    if (!c) return '<td class="num muted">—</td>';
+    const r = pct(numOf(c), c.den);
+    const isNew = c.era === 'new';
+    return '<td class="num" style="color:' + (isNew ? '#22c55e' : '#d4d7db') +
+      (isNew ? ';font-weight:700' : '') + '" title="' + c.base + ' → ' + c.next + '">' +
+      r.toFixed(0) + '%</td>';
+  };
+  box.style.height = 'auto';
+  box.innerHTML =
+    '<div class="muted" style="font-size:12px;margin-bottom:8px">Return rate by issue &middot; ' +
+      'baseline (all old drafts) = ' + baseRate.toFixed(1) + '% &middot; ' +
+      '<span style="color:#22c55e">green = new draft</span></div>' +
+    '<table><thead><tr><th>Market</th>' +
+      labels.map(L => '<th class="num" style="font-size:10px">' + L.slice(5) + '</th>').join('') +
+      '</tr></thead><tbody>' +
+      mkts.map(m => '<tr><td><b>' + m + '</b></td>' + labels.map(L => cell(m, L)).join('') + '</tr>').join('') +
+      '</tbody></table>';
 }
 
 function drawTri(all, marketSet) {
@@ -456,7 +504,7 @@ function drawTri(all, marketSet) {
       '<td><b>' + c.base + '</b></td>' +
       '<td class="muted">' + c.launch + '</td>' +
       '<td class="muted">' + c.next + (c.inflight ? ' <span class="muted">(in production)</span>' : '') + '</td>' +
-      '<td>' + (c.era === 'new' ? '<b style="color:#0f766e">NEW</b>' : '<span class="muted">old</span>') + '</td>' +
+      '<td>' + (c.era === 'new' ? '<b style="color:#22c55e">NEW</b>' : '<span class="muted">old</span>') + '</td>' +
       '<td class="num">' + c.den + '</td>' +
       '<td class="num">' + numOf(c) + '</td>' +
       '<td class="num"><b>' + fmt(numOf(c), c.den) + '</b></td>' +
