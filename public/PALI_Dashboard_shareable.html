@@ -1,4 +1,4 @@
-<!-- PALI Return Rate — standalone snapshot. Open in any browser. No Salesforce or Cowork access needed. -->
+<!-- PALI Return Rate — hosted build. Password-gated, live Salesforce REST refresh via PKCE OAuth. -->
 <meta charset="utf-8">
 <style>
   :root { color-scheme: dark; }
@@ -133,12 +133,56 @@
   .ccard .cpend { font-size:10px; font-weight:700; color:#f5c168; letter-spacing:.04em; line-height:1; margin:2px 0 1px; }
   .ccard .csub { font-size:10px; color:#7f858e; margin-top:5px; line-height:1.35; }
   @media (prefers-reduced-motion:reduce) { .cartrack { animation:none; } .carwrap { overflow-x:auto; } }
+  #gate { position:fixed; inset:0; z-index:100; background:#0a0b0d; display:none; align-items:center; justify-content:center; }
+  .gatebox { background:#141518; border:1px solid #26282c; border-radius:14px; padding:32px 30px; width:320px; text-align:center; }
+  .gtitle { font-size:20px; font-weight:700; color:#fff; }
+  .gsub { font-size:13px; color:#7f858e; margin:6px 0 18px; }
+  #gate input { width:100%; padding:11px 13px; border-radius:8px; border:1px solid #34373d; background:#0f1012; color:#e7e9ea; font-size:14px; }
+  #gate button { width:100%; margin-top:12px; padding:11px; border:0; border-radius:8px; background:#22c55e; color:#0a0b0d; font-weight:700; font-size:14px; cursor:pointer; }
+  #gate button:hover { background:#16a34a; }
+  #gerr { color:#f87171; font-size:12px; min-height:16px; margin-top:10px; }
+  #settings { position:fixed; inset:0; z-index:110; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; }
+  .setbox { background:#141518; border:1px solid #26282c; border-radius:14px; padding:24px 24px; width:440px; max-width:92vw; }
+  .settitle { font-size:16px; font-weight:700; color:#fff; margin-bottom:14px; }
+  #settings label { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#7f858e; font-weight:600; margin:12px 0 5px; }
+  #settings input { width:100%; padding:10px 12px; border-radius:8px; border:1px solid #34373d; background:#0f1012; color:#e7e9ea; font-size:13px; }
+  #setMsg { color:#f5c168; font-size:12px; min-height:16px; margin-top:10px; }
+  .setrow { display:flex; gap:10px; margin-top:14px; }
+  .setrow button { flex:1; padding:10px; border:0; border-radius:8px; background:#22c55e; color:#0a0b0d; font-weight:700; font-size:13px; cursor:pointer; }
+  .setrow button.ghost { background:#26282c; color:#c9ccd1; }
+  .setnote { font-size:11px; color:#6b7178; line-height:1.6; margin-top:16px; border-top:1px solid #26282c; padding-top:12px; }
+  .setnote code { background:#0f1012; border:1px solid #26282c; border-radius:4px; padding:1px 5px; color:#9ca3af; word-break:break-all; }
 </style>
 
 <h1>PALI Return Rate</h1>
-<div class="sub">Advertisers who ran a <b>one-time paid ad</b> in an issue (and so received that issue's PALI), who then ran again in the <b>next issue of that same market</b>. <span style="color:#9ca3af">Snapshot of Salesforce data, 13 July 2026.</span></div>
+<div class="sub">Advertisers who ran a <b>one-time paid ad</b> in an issue (and so received that issue's PALI), who then ran again in the <b>next issue of that same market</b>.</div>
 
-<div id="app"></div>
+<div id="gate">
+  <div class="gatebox">
+    <div class="gtitle">PALI Return Rate</div>
+    <div class="gsub">Enter password to continue</div>
+    <input id="gpw" type="password" placeholder="Password" autocomplete="off" spellcheck="false">
+    <button id="gbtn">Unlock</button>
+    <div id="gerr"></div>
+  </div>
+</div>
+
+<div id="settings">
+  <div class="setbox">
+    <div class="settitle">Salesforce connection</div>
+    <label>Consumer Key (Client ID)</label>
+    <input id="setClient" type="text" placeholder="3MVG9..." spellcheck="false">
+    <label>My Domain login URL</label>
+    <input id="setLogin" type="text" placeholder="https://havenlifestyles.my.salesforce.com" spellcheck="false">
+    <div id="setMsg"></div>
+    <div class="setrow"><button id="setSave">Save</button><button id="setCancel" class="ghost">Cancel</button></div>
+    <div class="setnote">In the Connected App, register this exact <b>Callback URL</b>:<br>
+      <code>https://haven-sales-dashboard.vercel.app/PALI_Dashboard_shareable.html</code><br>
+      and add <code>https://haven-sales-dashboard.vercel.app</code> to Setup &rarr; CORS.</div>
+  </div>
+</div>
+
+<div id="app" style="display:none"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
 <script>
@@ -177,9 +221,138 @@ function erfc(x){ const z=Math.abs(x), t=1/(1+z/2);
 
 let DLOADING = null;
 
-function loadDrill(key) {   // all 30 issues are baked into this file — pure lookup, no network
+function loadDrill(key) {            // all advertiser detail is baked in — no network needed
   DRILL = DETAIL[key] ? key : null;
   render();
+}
+
+// ===== Salesforce REST live refresh (PKCE OAuth, fully client-side) =====
+const REDIRECT_URI = 'https://haven-sales-dashboard.vercel.app/PALI_Dashboard_shareable.html';
+const API_VER = 'v60.0';
+function sfCfg() {
+  return { clientId: (localStorage.getItem('pali_sf_client') || '').trim(),
+           loginUrl: (localStorage.getItem('pali_sf_login') || 'https://havenlifestyles.my.salesforce.com').trim().replace(/\/+$/, '') };
+}
+let ACCESS_TOKEN = sessionStorage.getItem('pali_sf_token')    || '';
+let INSTANCE_URL = sessionStorage.getItem('pali_sf_instance') || '';
+
+function b64url(buf) {
+  return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+async function sha256buf(str) { return await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)); }
+function randStr(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); return b64url(a.buffer).slice(0, n); }
+
+async function sfConnect() {
+  const cfg = sfCfg();
+  if (!cfg.clientId) { openSettings('Enter your Salesforce Consumer Key (Client ID) first.'); return; }
+  const verifier = randStr(96);
+  sessionStorage.setItem('pali_pkce', verifier);
+  const challenge = b64url(await sha256buf(verifier));
+  const u = cfg.loginUrl + '/services/oauth2/authorize?response_type=code' +
+    '&client_id=' + encodeURIComponent(cfg.clientId) +
+    '&redirect_uri=' + encodeURIComponent(REDIRECT_URI) +
+    '&scope=' + encodeURIComponent('api refresh_token') +
+    '&code_challenge=' + challenge + '&code_challenge_method=S256';
+  window.location.assign(u);
+}
+async function sfHandleRedirect() {
+  const q = new URLSearchParams(location.search);
+  if (q.get('error')) { ERR = 'Salesforce: ' + (q.get('error_description') || q.get('error'));
+    history.replaceState({}, '', REDIRECT_URI); return; }
+  const code = q.get('code'); if (!code) return;
+  const cfg = sfCfg(), verifier = sessionStorage.getItem('pali_pkce') || '';
+  try {
+    const body = new URLSearchParams({ grant_type: 'authorization_code', code, client_id: cfg.clientId,
+      redirect_uri: REDIRECT_URI, code_verifier: verifier });
+    const r = await fetch(cfg.loginUrl + '/services/oauth2/token',
+      { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+    const j = await r.json();
+    if (!j.access_token) throw new Error(j.error_description || j.error || 'token exchange failed');
+    ACCESS_TOKEN = j.access_token; INSTANCE_URL = j.instance_url;
+    sessionStorage.setItem('pali_sf_token', ACCESS_TOKEN);
+    sessionStorage.setItem('pali_sf_instance', INSTANCE_URL);
+    history.replaceState({}, '', REDIRECT_URI);
+    await refresh();
+  } catch (e) { ERR = 'Salesforce sign-in failed: ' + (e.message || e);
+    history.replaceState({}, '', REDIRECT_URI); render(); }
+}
+async function sfQueryAll(soql) {
+  let url = INSTANCE_URL + '/services/data/' + API_VER + '/query?q=' + encodeURIComponent(soql);
+  const out = [];
+  while (url) {
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + ACCESS_TOKEN } });
+    if (r.status === 401) { ACCESS_TOKEN = ''; sessionStorage.removeItem('pali_sf_token');
+      throw new Error('Session expired — click Connect to sign in again.'); }
+    if (!r.ok) throw new Error('Salesforce query failed (' + r.status + ')');
+    const j = await r.json(); out.push.apply(out, j.records);
+    url = j.done ? null : (INSTANCE_URL + j.nextRecordsUrl);
+  }
+  return out;
+}
+function sfDisconnect() {
+  ACCESS_TOKEN = ''; INSTANCE_URL = '';
+  sessionStorage.removeItem('pali_sf_token'); sessionStorage.removeItem('pali_sf_instance'); render();
+}
+
+// cohort recompute — a faithful port of the server-side pipeline
+const _CLOSED   = new Set(['Sent To Printer','Printed And Sent','Published Online','Pagination Complete']);
+const _INFLIGHT = new Set(['Sales/Production']);
+const _NEW = new Set(['SF-042026','BOS-042026','DFW-042026',
+  'SF-071326','BOS-071326','TN-071326','DFW-071326','VA-071326','WI-071326','ATX/SA-071326',
+  'NE-070626','PB-070626','TB-070626','PHX-070626','HI-070626','PHIL-070626','LV-070626','SW-070626']);
+const _CUT = '2026-04-20', _FROM = '2026-04-13';
+function computeLive(iss, opps) {
+  const U = new Map();
+  for (const d of opps) {
+    const c = d.Contact__c; if (!c) continue;
+    const k = c + '|' + d.Issue__c;
+    let v = U.get(k); if (!v) { v = [0, 0, true]; U.set(k, v); }
+    const a = +d.Amount || 0, s = d.StageName;
+    if (s !== 'Dropped' && s !== 'Skipping Issue') v[0] += a;
+    if (s !== 'Skipping Issue') v[1] += a;
+    if (d.Agreement_Type_From_Agreement__c !== 'One-Time Deal') v[2] = false;
+  }
+  const mk = n => n && n.indexOf('-') >= 0 ? n.slice(0, n.lastIndexOf('-')) : null;
+  const byId = {}; iss.forEach(i => byId[i.Id] = i);
+  const cal = {};
+  for (const i of iss) { const m = mk(i.Name); if (m && m !== 'TEST') { (cal[m] = cal[m] || []).push([i.Launch_Date__c, i.Id]); } }
+  const nxt = {};
+  for (const m in cal) { const l = cal[m].sort((a, b) => a[0] < b[0] ? -1 : 1);
+    for (let k = 0; k < l.length - 1; k++) nxt[l[k][1]] = l[k + 1][1]; }
+  const booked = {};
+  for (const [k, v] of U) { if (v[1] > 0) { const iid = k.slice(k.indexOf('|') + 1); booked[iid] = (booked[iid] || 0) + 1; } }
+  const TYP = SNAP.typ, coh = {};
+  for (const [k, v] of U) {
+    const bar = k.indexOf('|'), c = k.slice(0, bar), iid = k.slice(bar + 1);
+    const bi = byId[iid]; if (!bi || bi.Launch_Date__c < _FROM) continue;
+    const bs = bi.Issue_Stage__c; if (!_CLOSED.has(bs) && !_INFLIGHT.has(bs)) continue;
+    if (v[0] <= 0 || !v[2]) continue;
+    const nm = bi.Name; let era;
+    if (_NEW.has(nm)) era = 1; else if (bi.Launch_Date__c < _CUT) era = 0; else continue;
+    const nid = nxt[iid]; if (!nid) continue;
+    const ni = byId[nid], st = ni.Issue_Stage__c; let pend = 0;
+    if (!_CLOSED.has(st) && !_INFLIGHT.has(st)) { if (_NEW.has(nm)) pend = 1; else continue; }
+    const m = mk(nm), t = TYP[m];
+    if (!coh[nm]) coh[nm] = [nm, bi.Launch_Date__c, ni.Name, _CLOSED.has(st) ? 0 : 1, era,
+      pend ? 0 : (t ? Math.round(Math.min((booked[nid] || 0) / t, 1.5) * 1000) / 1000 : 0), 0, 0, 0, pend];
+    const w = U.get(c + '|' + nid);
+    coh[nm][6] += 1;
+    coh[nm][7] += pend ? 0 : ((w && w[1] > 0) ? 1 : 0);
+    coh[nm][8] += pend ? 0 : ((w && w[0] > 0) ? 1 : 0);
+  }
+  return Object.values(coh).sort((a, b) => a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : (a[0] < b[0] ? -1 : 1));
+}
+
+async function refresh() {
+  if (!ACCESS_TOKEN) { await sfConnect(); return; }
+  BUSY = true; ERR = ''; render();
+  try {
+    const iss  = await sfQueryAll("SELECT Id, Name, Launch_Date__c, Issue_Stage__c FROM Issue__c WHERE Launch_Date__c != null");
+    const opps = await sfQueryAll("SELECT Id, Contact__c, Amount, StageName, Issue__c, Agreement_Type_From_Agreement__c FROM Opportunity WHERE Issue__r.Launch_Date__c >= " + _FROM + " AND Issue__c != null");
+    LIVE = computeLive(iss, opps).map(toC);
+    LIVE_AT = new Date().toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) + ' (live)';
+  } catch (e) { ERR = String(e.message || e); }
+  BUSY = false; render();
 }
 
 function render() {
@@ -324,14 +497,18 @@ function render() {
           '<button data-m="ran" class="' + (MODE==='ran'?'on':'') + '">Actually ran</button>' +
         '</span></div>' +
       '<div class="cg" style="margin-left:auto">' +
-        '<span class="muted">Snapshot of Salesforce data &middot; ' + SNAP.g + ' &middot; not live</span>' +
+        '<span class="muted">' + (ACCESS_TOKEN ? '<span style="color:#22c55e">&#9679; Connected</span>' : '&#9679; Not connected') +
+          ' &middot; slate ' + LIVE_AT + '</span>' +
+        '<button class="refresh" id="rfset" style="background:#26282c;color:#c9ccd1">&#9881; Settings</button>' +
+        (ACCESS_TOKEN ? '<button class="refresh" id="rfd" style="background:#26282c;color:#8a9099">Disconnect</button>' : '') +
+        '<button class="refresh" id="rf"' + (BUSY?' disabled':'') + '>' +
+          (BUSY ? '<span class="spin"></span>Refreshing&hellip;' : (ACCESS_TOKEN ? '&#8635; Refresh from Salesforce' : '&#128274; Connect Salesforce')) + '</button>' +
       '</div>' +
     '</div>' +
 
     '<div class="panel"><h2>Every issue in these three markets &mdash; 2025 vs 2026</h2>' +
       '<div class="chartbox"><canvas id="ch"></canvas></div></div>' +
 
-    '<div class="panel"><h2>Issue-by-issue detail &mdash; SF, BOS, DFW <span class="muted" style="font-weight:400">(click any row to see its advertisers)</span></h2><div id="tri"></div><div id="drill2"></div></div>' +
 
     '<div class="panel defs">' +
       '<b>The metric</b> &mdash; an advertiser ran a one-time paid ad in an issue; every one of them was sent that ' +
@@ -345,10 +522,15 @@ function render() {
       '<b>Returned</b> &mdash; a deal &gt; $0 in the next issue, in any stage except Skipping Issue, of any agreement ' +
         'type. An advertiser who comes back on a subscription still counts &mdash; that is a genuine return.<br>' +
       '<b>Advertiser key</b> &mdash; Opportunity.Contact__c (AccountId is null on 99.99% of Opportunities).<br>' +
-      '<b>This is a static snapshot</b> &mdash; pulled 13 July 2026 and baked into this file. It will not update on its ' +
-        'own. All ' + Object.keys(DETAIL).length + ' issues below are clickable offline; nothing is fetched.' +
+      '<b>Baseline is frozen</b> &mdash; the ' + BASELINE.length + ' cohorts whose return issue has already published ' +
+        'cannot change, so they are stored in this file. Only the ' + LIVE.length + ' returning into in-production ' +
+        'issues are refetched, on demand.' +
     '</div>';
 
+  const rf = document.getElementById('rf');
+  if (rf) rf.onclick = refresh;
+  const rfset = document.getElementById('rfset'); if (rfset) rfset.onclick = () => openSettings();
+  const rfd = document.getElementById('rfd'); if (rfd) rfd.onclick = sfDisconnect;
   document.querySelectorAll('[data-m]').forEach(b => { b.onclick = () => { MODE = b.dataset.m; render(); }; });
   document.querySelectorAll('[data-drill]').forEach(el => {
     el.onclick = () => {
@@ -588,5 +770,42 @@ function drawTri(all, marketSet) {
   });
 }
 
-render();
+const PW_HASH = 'cad5f1fe0f84fc9d47758d41f4aed041988e23b8b5fe63399807f0e897aa6ca8';
+async function sha256hex(s) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('');
+}
+async function tryUnlock() {
+  const v = document.getElementById('gpw').value;
+  if (await sha256hex(v) === PW_HASH) { sessionStorage.setItem('pali_unlock', '1'); unlock(); }
+  else { document.getElementById('gerr').textContent = 'Incorrect password.'; }
+}
+function unlock() {
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('app').style.display = '';
+  boot();
+}
+function openSettings(msg) {
+  const c = sfCfg();
+  document.getElementById('setClient').value = c.clientId;
+  document.getElementById('setLogin').value = c.loginUrl;
+  document.getElementById('setMsg').textContent = msg || '';
+  document.getElementById('settings').style.display = 'flex';
+}
+function closeSettings() { document.getElementById('settings').style.display = 'none'; }
+async function boot() { await sfHandleRedirect(); render(); }
+
+(function () {
+  document.getElementById('gbtn').onclick = tryUnlock;
+  document.getElementById('gpw').addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
+  document.getElementById('setSave').onclick = () => {
+    localStorage.setItem('pali_sf_client', document.getElementById('setClient').value.trim());
+    localStorage.setItem('pali_sf_login', (document.getElementById('setLogin').value.trim() || 'https://havenlifestyles.my.salesforce.com'));
+    closeSettings(); render();
+  };
+  document.getElementById('setCancel').onclick = closeSettings;
+  // if we're returning from a Salesforce redirect, or already unlocked this session, skip the gate
+  if (sessionStorage.getItem('pali_unlock') === '1') unlock();
+  else document.getElementById('gate').style.display = 'flex';
+})();
 </script>
