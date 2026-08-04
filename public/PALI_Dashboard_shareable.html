@@ -87,6 +87,14 @@
   @keyframes sp { to { transform:rotate(360deg); } }
   .warn { padding:10px 14px; background:rgba(234,179,8,.09); border:1px solid #5c4a12; border-radius:8px;
           color:#eab308; font-size:12px; margin-bottom:14px; line-height:1.5; }
+  /* values that moved on the last Salesforce refresh */
+  .chg { background:rgba(34,197,94,.10) !important; box-shadow:inset 0 0 0 1px rgba(34,197,94,.20);
+         border-radius:5px; }
+  .chgflash { animation: chgin 2.8s ease-out 1; }
+  @keyframes chgin { 0% { background:rgba(34,197,94,.40) !important; }
+                     100% { background:rgba(34,197,94,.10) !important; } }
+  .dlt { font-size:10px; margin-left:5px; letter-spacing:0; font-weight:600; }
+  .dlt.up { color:#22c55e; } .dlt.dn { color:#f5c168; }
   .err { padding:10px 14px; background:rgba(220,38,38,.1); border:1px solid #5a2222; border-radius:8px; color:#f87171;
          font-size:12px; margin-bottom:16px; }
   .defs { font-size:12px; color:#7f858e; line-height:1.65; }
@@ -260,6 +268,38 @@ function erfc(x){ const z=Math.abs(x), t=1/(1+z/2);
   const r=t*Math.exp(-z*z-1.26551223+t*(1.00002368+t*(0.37409196+t*(0.09678418+t*(-0.18628806+t*(0.27886807+
     t*(-1.13520398+t*(1.48851587+t*(-0.82215223+t*0.17087277)))))))));
   return x>=0 ? r : 2-r; }
+
+// ---- change tracking -------------------------------------------------------
+// Populated by a refresh: which values moved, and what they were before. Drives
+// the subtle highlight so a refresh shows its own work.
+let CHG = {}, CONV_CHG = {}, FLASH_AT = 0;
+const flashOn = () => (Date.now() - FLASH_AT) < 4000;
+
+// class/title attributes for a cell that may have changed
+function chgAttr(map, key, field, baseCls) {
+  const d = map[key] && map[key][field];
+  const cls = (baseCls ? baseCls : '') + (d ? (baseCls ? ' ' : '') + 'chg' + (flashOn() ? ' chgflash' : '') : '');
+  return (cls ? ' class="' + cls + '"' : '') +
+         (d ? ' title="was ' + d[0] + ' — refreshed ' + LAST_CHG_AT + '"' : '');
+}
+// small ▲/▼ next to a number that moved
+function dlt(map, key, field) {
+  const d = map[key] && map[key][field];
+  if (!d || typeof d[0] !== 'number' || typeof d[1] !== 'number' || d[0] === d[1]) return '';
+  const up = d[1] > d[0];
+  return '<span class="dlt ' + (up ? 'up' : 'dn') + '">' + (up ? '\u25b2' : '\u25bc') +
+         Math.abs(d[1] - d[0]) + '</span>';
+}
+function diffInto(store, key, pairs) {
+  const d = {};
+  for (const f in pairs) if (pairs[f][0] !== pairs[f][1]) d[f] = pairs[f];
+  const n = Object.keys(d).length;
+  if (n) store[key] = d;
+  return n;
+}
+let LAST_CHG_AT = '';
+// the rate cell moves if its numerator, denominator or pending state moved
+const rateMoved = c => !!(CHG[c.base] && (CHG[c.base].den || CHG[c.base][MODE] || CHG[c.base].pending));
 
 let DLOADING = null;
 
@@ -532,13 +572,29 @@ async function refresh() {
     const r = computeLive(iss, opps, prev);
     // merge, never replace: an issue keeps its stored numbers if the pull
     // could not rebuild it, so a row can never silently disappear.
+    const was = {}; LIVE.forEach(c => { was[c.base] = c; });
     LIVE = SNAP.l.map(row => r.rows[row[0]] || row).map(toC);
+    CHG = {}; let moved = 0;
+    LIVE.forEach(c => {
+      const b0 = was[c.base]; if (!b0) return;
+      moved += diffInto(CHG, c.base, {
+        den:    [b0.den, c.den],
+        booked: [b0.booked, c.booked],
+        ran:    [b0.ran, c.ran],
+        flag:   [b0.inflight ? 'in production' : 'not in production',
+                 c.inflight ? 'in production' : 'not in production'],
+        pending:[b0.pending ? 'still filling' : 'final', c.pending ? 'still filling' : 'final']
+      });
+    });
+    FLASH_AT = Date.now();
     const got = Object.keys(r.rows).length, want = SNAP.l.length;
     if (r.skipped.length) WARN = r.skipped.length + ' of ' + want + ' issues could not be rebuilt (' +
       r.skipped.slice(0, 6).join(', ') + (r.skipped.length > 6 ? ', …' : '') +
       ') — those rows are showing their last stored numbers.';
+    LAST_CHG_AT = new Date().toLocaleString('en-US', { hour:'numeric', minute:'2-digit' });
     LIVE_AT = new Date().toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) +
-      ' (live · ' + got + '/' + want + ' refreshed)';
+      ' (live · ' + got + '/' + want + ' refreshed · ' +
+      (moved ? moved + ' value' + (moved === 1 ? '' : 's') + ' changed' : 'nothing changed') + ')';
   } catch (e) { ERR = String(e.message || e); }
   BUSY = false; render();
 }
@@ -639,15 +695,18 @@ function renderConv() {
     return { key: mk, sub: s.k + (s.k === 1 ? ' issue' : ' issues'), launch: groups[mk][0].launch, filling: groups[mk].some(r => r.filling), s: s };
   }).sort((a, b) => pct(b.s.nAll, b.s.dAll) - pct(a.s.nAll, a.s.dAll));
 
-  const line = (name, sub, r, warn, stage) =>
+  const line = (name, sub, r, warn, stage, key) =>
     '<tr' + (warn ? ' class="cvfill-row"' : '') + '>' +
       '<td class="cvname"><b>' + name + '</b>' + (sub ? '<span>' + sub + '</span>' : '') +
-        (warn ? '<span class="cvflag">still selling' + (stage ? ' &middot; ' + stage : '') + '</span>' : '') + '</td>' +
+        (warn ? '<span class="cvflag' + (key && CONV_CHG[key] && CONV_CHG[key].filling
+                  ? ' chg' + (flashOn() ? ' chgflash' : '') : '') +
+                '">still selling' + (stage ? ' &middot; ' + stage : '') + '</span>' : '') + '</td>' +
       '<td class="cvnum">' + r.dAll.toLocaleString() + '</td>' +
-      '<td class="cvnum">' + r.nAll.toLocaleString() + '</td>' +
-      '<td>' + convBar(r.nAll, r.dAll, 'ca') + '</td>' +
-      '<td>' + convBar(r.nOrig, r.dOrig, 'co') + '</td>' +
-      '<td>' + convBar(r.nRe, r.dRe, 'cr') + '</td>' +
+      '<td' + chgAttr(CONV_CHG, key, 'nAll', 'cvnum') + '>' + r.nAll.toLocaleString() +
+        dlt(CONV_CHG, key, 'nAll') + '</td>' +
+      '<td' + chgAttr(CONV_CHG, key, 'nAll') + '>' + convBar(r.nAll, r.dAll, 'ca') + '</td>' +
+      '<td' + chgAttr(CONV_CHG, key, 'nOrig') + '>' + convBar(r.nOrig, r.dOrig, 'co') + '</td>' +
+      '<td' + chgAttr(CONV_CHG, key, 'nRe') + '>' + convBar(r.nRe, r.dRe, 'cr') + '</td>' +
     '</tr>';
 
   const head = '<tr><th>' + (CONV_VIEW === 'market' ? 'Market' : 'Issue') + '</th><th class="cvnum">Interested replies</th>' +
@@ -655,7 +714,7 @@ function renderConv() {
 
   const body = CONV_VIEW === 'market'
     ? mktRows.map(m => line(m.key, m.sub, m.s, m.filling)).join('')
-    : scoped.map(r => line(r.iss, r.launch, r, r.filling, r.stage)).join('');
+    : scoped.map(r => line(r.iss, r.launch, r, r.filling, r.stage, r.iss)).join('');
 
   document.getElementById('view').innerHTML =
     (CONV_ERR ? '<div class="err"><b>Refresh failed.</b> ' + CONV_ERR + '<br>Showing the last good pull.</div>' : '') +
@@ -729,6 +788,7 @@ function renderConv() {
 async function refreshConv() {
   if (!ACCESS_TOKEN) { await sfConnect(); return; }
   CONV_BUSY = true; CONV_ERR = ''; CONV_WARN = ''; render();
+  const wasRows = {}; convRows().forEach(r => { wasRows[r.iss] = r; });
   try {
     // The reply side stays exactly as exported. Only the deal side is re-pulled,
     // in chunks so the query URL can never blow past Salesforce's limit as the
@@ -760,8 +820,22 @@ async function refreshConv() {
     if (missing.length) CONV_WARN = missing.length + ' issue(s) returned no deals from Salesforce (' +
       missing.slice(0, 6).join(', ') + (missing.length > 6 ? ', …' : '') +
       ') — those rows are showing their last stored numbers rather than zero.';
+    CONV_CHG = {}; let moved = 0;
+    convRows().forEach(r => {
+      const b0 = wasRows[r.iss]; if (!b0) return;
+      moved += diffInto(CONV_CHG, r.iss, {
+        nAll:  [b0.nAll, r.nAll],
+        nOrig: [b0.nOrig, r.nOrig],
+        nRe:   [b0.nRe, r.nRe],
+        deals: [b0.deals, r.deals],
+        filling: [b0.filling ? 'still selling' : 'done', r.filling ? 'still selling' : 'done']
+      });
+    });
+    FLASH_AT = Date.now();
+    LAST_CHG_AT = new Date().toLocaleString('en-US', { hour: 'numeric', minute: '2-digit' });
     CONV_AT = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) +
-      ' (live · ' + (names.length - missing.length) + '/' + names.length + ' refreshed)';
+      ' (live · ' + (names.length - missing.length) + '/' + names.length + ' refreshed · ' +
+      (moved ? moved + ' value' + (moved === 1 ? '' : 's') + ' changed' : 'nothing changed') + ')';
   } catch (e) { CONV_ERR = String(e.message || e); }
   CONV_BUSY = false; render();
 }
@@ -892,9 +966,11 @@ function renderReturn() {
     return '<div class="ccard' + (isP ? ' pend' : '') + (open ? ' copen' : '') + '" data-cd="' + c.base + '">' +
       '<div class="cmk">' + c.market + '</div>' +
       '<div class="cnm">' + c.base + '</div>' +
-      '<div class="crate">' + rate.toFixed(1) + '%' +
+      '<div class="crate' + (rateMoved(c) ? ' chg' + (flashOn() ? ' chgflash' : '') : '') + '">' + rate.toFixed(1) + '%' +
         (isP ? '<span class="cpend"> IN PRODUCTION</span>' : '') + '</div>' +
-      '<div class="csub"><b>' + numOf(c) + '</b> of ' + c.den + ' came in from ' + c.next +
+      '<div class="csub"><b' + chgAttr(CHG, c.base, MODE) + '>' + numOf(c) + dlt(CHG, c.base, MODE) +
+        '</b> of <span' + chgAttr(CHG, c.base, 'den') + '>' + c.den + dlt(CHG, c.base, 'den') +
+        '</span> came in from ' + c.next +
         (isP ? '<br><span style="color:#f5c168">still filling</span>' : '') + '</div>' +
     '</div>';
   };
@@ -1195,11 +1271,14 @@ function drawTri(all, marketSet) {
       '<td><b>' + c.market + '</b></td>' +
       '<td><b>' + c.base + '</b></td>' +
       '<td class="muted">' + c.launch + '</td>' +
-      '<td class="muted">' + c.next + (c.inflight ? ' <span class="muted">(in production)</span>' : '') + '</td>' +
+      '<td' + chgAttr(CHG, c.base, 'flag', 'muted') + '>' + c.next +
+        (c.inflight ? ' <span class="muted">(in production)</span>' : '') + '</td>' +
       '<td>' + (c.era === 'new' ? '<b style="color:#22c55e">NEW</b>' : '<span class="muted">old</span>') + '</td>' +
-      '<td class="num">' + c.den + '</td>' +
-      '<td class="num">' + (c.pending ? '<span class="no">—</span>' : numOf(c)) + '</td>' +
-      '<td class="num">' + (c.pending
+      '<td' + chgAttr(CHG, c.base, 'den', 'num') + '>' + c.den + dlt(CHG, c.base, 'den') + '</td>' +
+      '<td' + chgAttr(CHG, c.base, MODE, 'num') + '>' +
+        (c.pending ? '<span class="no">—</span>' : numOf(c) + dlt(CHG, c.base, MODE)) + '</td>' +
+      '<td' + (rateMoved(c) ? ' class="num chg' + (flashOn() ? ' chgflash' : '') + '"' : ' class="num"') + '>' +
+        (c.pending
         ? '<span class="conv" style="background:rgba(245,166,35,.16);color:#f5c168">pending</span>'
         : '<b>' + fmt(numOf(c), c.den) + '</b>') + '</td>' +
     '</tr>').join('') +
