@@ -124,13 +124,24 @@
   /* ---- new-draft carousel ---- */
   .carhead { margin:16px 0 9px; font-size:13px; font-weight:600; color:#e7e9ea; }
   .carhead .muted { font-weight:400; }
-  .carwrap { overflow:hidden; position:relative; padding:2px 0;
-             -webkit-mask-image:linear-gradient(90deg,transparent,#000 40px,#000 calc(100% - 40px),transparent);
-                     mask-image:linear-gradient(90deg,transparent,#000 40px,#000 calc(100% - 40px),transparent); }
-  .cartrack { display:flex; gap:11px; width:max-content;
-              animation:scroll-lr calc(var(--n,15) * 3.6s) linear infinite; }
-  .carwrap:hover .cartrack { animation-play-state:paused; }
-  @keyframes scroll-lr { from { transform:translateX(0); } to { transform:translateX(-50%); } }
+  .carbox { position:relative; }
+  .carwrap { overflow-x:auto; overflow-y:hidden; position:relative; padding:2px 0;
+             scrollbar-width:none; -ms-overflow-style:none; overscroll-behavior-x:contain; }
+  .carwrap::-webkit-scrollbar { display:none; }
+  .cartrack { display:flex; gap:11px; width:max-content; }
+  /* hover either edge to scroll; click to jump a page */
+  .carnav { position:absolute; top:0; bottom:0; width:54px; z-index:3; display:flex; align-items:center;
+            cursor:pointer; opacity:0; pointer-events:none; transition:opacity .18s;
+            -webkit-user-select:none; user-select:none; }
+  .carnav.on { opacity:1; pointer-events:auto; }
+  .carnav.l { left:0; justify-content:flex-start; padding-left:2px;
+              background:linear-gradient(90deg,#141518 45%,rgba(20,21,24,0)); }
+  .carnav.r { right:0; justify-content:flex-end; padding-right:2px;
+              background:linear-gradient(270deg,#141518 45%,rgba(20,21,24,0)); }
+  .carnav i { width:27px; height:27px; border-radius:50%; background:#1b1d21; border:1px solid #34373d;
+              color:#c9ccd1; font-size:13px; font-style:normal; line-height:25px; text-align:center;
+              transition:background .12s,color .12s,border-color .12s; }
+  .carnav:hover i { background:#22c55e; border-color:#22c55e; color:#0a0b0d; }
   .ccard { flex:0 0 auto; width:158px; border:1px solid #26282c; border-radius:9px; padding:11px 12px;
            background:#17181b; cursor:pointer; transition:border-color .12s, box-shadow .12s, transform .12s; }
   .ccard:hover { border-color:#22c55e; box-shadow:0 0 0 1px rgba(34,197,94,.25); transform:translateY(-2px); }
@@ -142,7 +153,6 @@
   .ccard .crate { font-size:23px; font-weight:700; color:#22c55e; letter-spacing:-.02em; line-height:1; }
   .ccard .cpend { font-size:8px; font-weight:700; color:#f5c168; letter-spacing:.04em; vertical-align:middle; }
   .ccard .csub { font-size:10px; color:#7f858e; margin-top:5px; line-height:1.35; }
-  @media (prefers-reduced-motion:reduce) { .cartrack { animation:none; } .carwrap { overflow-x:auto; } }
   #gate { position:fixed; inset:0; z-index:100; background:#0a0b0d; display:none; align-items:center; justify-content:center; }
   .gatebox { background:#141518; border:1px solid #26282c; border-radius:14px; padding:32px 30px; width:320px; text-align:center; }
   .gtitle { font-size:20px; font-weight:700; color:#fff; }
@@ -974,10 +984,16 @@ function renderReturn() {
         (isP ? '<br><span style="color:#f5c168">still filling</span>' : '') + '</div>' +
     '</div>';
   };
-  const roster = pairs.map(p => p.cur).concat(PENDING);
-  const carHtml = '<div class="carwrap"><div class="cartrack" style="--n:' + roster.length + '">' +
-      roster.map(cCard).join('') + roster.map(cCard).join('') +
-    '</div></div>';
+  // Every new-draft issue, in launch order — an issue stays on the carousel after it
+  // finishes instead of dropping off the moment it stops being "still filling".
+  const roster = all.filter(c => c.era === 'new')
+    .sort((a, b) => a.launch < b.launch ? -1 : a.launch > b.launch ? 1 : (a.market < b.market ? -1 : 1));
+  const carHtml =
+    '<div class="carbox">' +
+      '<div class="carnav l" id="carL" title="Scroll left"><i>&#10094;</i></div>' +
+      '<div class="carnav r" id="carR" title="Scroll right"><i>&#10095;</i></div>' +
+      '<div class="carwrap" id="carwrap"><div class="cartrack">' + roster.map(cCard).join('') + '</div></div>' +
+    '</div>';
 
   document.getElementById('view').innerHTML =
     (ERR ? '<div class="err"><b>Refresh failed.</b> ' + ERR + '<br>Showing the last good pull.</div>' : '') +
@@ -998,7 +1014,7 @@ function renderReturn() {
       '<div id="drill"></div>' +
       '<div class="carhead">Every issue now using the new draft &mdash; <b>' + roster.length + '</b> total ' +
         '<span class="muted">&middot; ' + PENDING.length + ' still in production (rate rising as they fill) ' +
-        '&middot; hover to pause, click any card for its advertisers</span></div>' +
+        '&middot; hover either edge to scroll, click a card for its advertisers</span></div>' +
       carHtml +
       '<div id="drillc"></div>' +
     '</div>' +
@@ -1063,9 +1079,45 @@ function renderReturn() {
     };
   });
 
+  wireCarousel();
   drawDrill(pairs);
   drawChart(all, pairs);
   drawTri(all, marketSet);
+}
+
+// Hover the left or right edge to scroll the carousel; click an edge to jump a
+// page. Horizontal position survives re-renders so a refresh doesn't snap you back.
+let CAR_X = 0;
+function wireCarousel() {
+  const wrap = document.getElementById('carwrap');
+  if (!wrap) return;
+  const L = document.getElementById('carL'), R = document.getElementById('carR');
+  let raf = null, dir = 0;
+  const maxX = () => Math.max(0, wrap.scrollWidth - wrap.clientWidth);
+  function sync() {
+    const m = maxX();
+    L.classList.toggle('on', wrap.scrollLeft > 2);
+    R.classList.toggle('on', wrap.scrollLeft < m - 2);
+    CAR_X = wrap.scrollLeft;
+  }
+  function stop() { if (raf) cancelAnimationFrame(raf); raf = null; dir = 0; }
+  function step() {
+    const m = maxX();
+    wrap.scrollLeft = Math.max(0, Math.min(m, wrap.scrollLeft + dir * 7));
+    sync();
+    if ((dir < 0 && wrap.scrollLeft <= 0) || (dir > 0 && wrap.scrollLeft >= m)) { raf = null; dir = 0; return; }
+    raf = requestAnimationFrame(step);
+  }
+  function start(d) { if (raf) return; dir = d; raf = requestAnimationFrame(step); }
+  L.onmouseenter = () => start(-1);
+  R.onmouseenter = () => start(1);
+  L.onmouseleave = stop;
+  R.onmouseleave = stop;
+  L.onclick = () => { stop(); wrap.scrollLeft -= wrap.clientWidth * 0.8; sync(); };
+  R.onclick = () => { stop(); wrap.scrollLeft += wrap.clientWidth * 0.8; sync(); };
+  wrap.onscroll = sync;
+  wrap.scrollLeft = Math.min(CAR_X, maxX());
+  sync();
 }
 
 function drawDrill(pairs) {
