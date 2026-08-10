@@ -8,50 +8,94 @@
 <script src="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/gridjs.umd.js" integrity="sha384-/XXDzxe4FsGiAe50i/u9pY/Vy/uX654MHB1xoc1BJNnH1WXHhqHga9g3q5tF4gj7" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/theme/mermaid.min.css" integrity="sha384-jZvDSsmGB9oGGT/4l9bHXGoAv1OxvG/cFmSo0dZaSqmBgvQTKDBFAMftlXTmMbNW" crossorigin="anonymous">
 <style>
-:root{color-scheme:light;
- --bg:#f7f8fa;--card:#fff;--ink:#16202c;--muted:#67727e;--line:#e6eaee;
- --drop:#e2483d;--won:#2a9d6f;--accent:#2f6df0;--amber:#d98a00;--violet:#7a5cff;
- --shadow:0 1px 2px rgba(16,32,44,.06),0 2px 8px rgba(16,32,44,.05);}
+:root{color-scheme:dark;
+ --bg:#0a0b0d;--card:#141518;--card2:#17181b;--card3:#1b1d21;
+ --ink:#e7e9ea;--ink2:#d4d7db;--ink3:#c9ccd1;--muted:#7f858e;--muted2:#6b7178;--faint:#4a4e55;
+ --line:#26282c;--line2:#34373d;--hair:#1f2124;
+ --drop:#f87171;--won:#22c55e;--accent:#3b82f6;--amber:#f5a623;--violet:#a78bfa;--grey:#5b6472;}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
-.wrap{max-width:1080px;margin:0 auto;padding:20px 18px 60px;}
-h1{font-size:21px;margin:0 0 2px;letter-spacing:-.2px;}
+.wrap{max-width:1500px;margin:0 auto;padding:22px 22px 60px;}
+h1{font-size:22px;margin:0 0 4px;color:#fff;font-weight:700;letter-spacing:-.01em;}
 .sub{color:var(--muted);font-size:13px;margin-bottom:16px;}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px;}
-.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);}
-.kpi .v{font-size:26px;font-weight:650;letter-spacing:-.5px;}
-.kpi .l{color:var(--muted);font-size:12px;margin-top:2px;font-weight:600;}
-.kpi .ksub{color:var(--muted);font-size:10.5px;margin-top:3px;line-height:1.3;}
-.kpiscope{font-size:11.5px;color:var(--muted);line-height:1.45;margin:-6px 0 18px;padding:10px 13px;background:#f7f9fc;border:1px solid var(--line);border-radius:10px;}
-.kpiscope b{color:var(--ink);}
+.sub b{color:var(--ink3);font-weight:600;}
+
+.statusbar{display:flex;justify-content:flex-end;align-items:center;gap:9px;background:var(--card);
+  border:1px solid var(--line);border-radius:12px;padding:13px 18px;margin-bottom:16px;font-size:13px;color:var(--muted);}
+.statusbar .dot{width:8px;height:8px;border-radius:50%;background:var(--grey);display:inline-block;}
+.statusbar b{color:var(--ink3);font-weight:600;}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));background:var(--card);
+  border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:16px;}
+.kpi{padding:16px 18px;border-right:1px solid var(--line);}
+.kpi:last-child{border-right:0;}
+.kpi .l{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;}
+.kpi .v{font-size:32px;font-weight:700;margin:6px 0 3px;letter-spacing:-.02em;color:var(--ink);}
+.kpi .ksub{font-size:11px;color:var(--muted2);line-height:1.4;}
+.kpi.big{background:var(--card3);}
 .kpi.big .v{color:var(--drop);}
-.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--line);}
-.tab{padding:9px 14px;border:none;background:none;color:var(--muted);font-size:13.5px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
-.tab.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+.kpi.good .v{color:var(--won);}
+
+.kpiscope{font-size:12px;color:var(--muted);line-height:1.65;margin:0 0 16px;padding:14px 16px;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;}
+.kpiscope b{color:var(--ink3);}
+
+.tabs{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--line);}
+.tab{padding:10px 16px;border:none;background:none;color:var(--muted);font-size:13.5px;cursor:pointer;
+  border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .12s;}
+.tab:hover{color:var(--ink3);}
+.tab.on{color:var(--won);border-bottom-color:var(--won);font-weight:700;}
 .panel{display:none;}.panel.on{display:block;}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow);margin-bottom:16px;}
-.card h2{font-size:15px;margin:0 0 3px;}
-.card .note{color:var(--muted);font-size:12.5px;margin:0 0 12px;}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px;}
+.card h2{font-size:14px;margin:0 0 3px;font-weight:600;color:var(--ink);}
+.card .note{color:var(--muted);font-size:12px;margin:0 0 14px;line-height:1.55;}
+.card .note b{color:var(--ink3);}
 .chartbox{position:relative;height:300px;}
 .chartbox.sm{height:240px;}.chartbox.tall{height:520px;}
-.insight{background:#f3f7ff;border:1px solid #dce8ff;border-radius:10px;padding:11px 13px;font-size:13px;color:#1f3a66;margin-top:12px;}
-.insight b{color:#15294a;}
-.foot{color:var(--muted);font-size:11.5px;margin-top:8px;}
-/* Grid.js header readability: wrap instead of truncating */
-.gridjs-wrapper{overflow-x:auto;}
-table.gridjs-table{min-width:840px;}
-th.gridjs-th{vertical-align:bottom;background:#f1f4f8;}
-th.gridjs-th .gridjs-th-content{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.2;font-size:11.5px;}
+
+.insight{background:rgba(59,130,246,.08);border:1px solid #24405f;border-left:4px solid var(--accent);
+  border-radius:8px;padding:13px 15px;font-size:13px;line-height:1.6;color:#b9c6d8;margin-top:14px;}
+.insight b{color:#93c5fd;}
+.foot{color:var(--muted2);font-size:11.5px;line-height:1.6;margin-top:8px;}
+
+.controls{display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:var(--card2);
+  border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:14px;}
+label{font-size:11px;color:var(--ink3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
+select{border:1px solid var(--line2);border-radius:7px;padding:6px 10px;font-size:12.5px;
+  background:var(--card3);color:var(--ink2);cursor:pointer;}
+select:focus{outline:none;border-color:var(--won);}
+
+/* ---- Grid.js dark theme ---- */
+.gridjs-container{color:var(--ink2);padding:0;}
+.gridjs-wrapper{overflow-x:auto;box-shadow:none;border:1px solid var(--line);border-radius:8px;background:var(--card);}
+table.gridjs-table{min-width:840px;width:100%!important;background:var(--card);}
+th.gridjs-th{vertical-align:bottom;background:var(--card3);border-color:var(--line);color:var(--muted);
+  text-transform:uppercase;letter-spacing:.04em;font-weight:700;}
+th.gridjs-th .gridjs-th-content{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25;font-size:10.5px;}
+th.gridjs-th-sort:hover,th.gridjs-th-sort:focus{background:#22242a;}
 td.gridjs-td,th.gridjs-th{padding:8px 10px;}
-.controls{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
-label{font-size:12.5px;color:var(--muted);}
-select{border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--card);color:var(--ink);}
+td.gridjs-td{background:transparent;border-color:var(--hair);color:var(--ink2);font-size:12.5px;}
+.gridjs-tr:hover td.gridjs-td{background:var(--card3);}
+.gridjs-head{background:transparent;padding:0 0 10px;}
+.gridjs-search input.gridjs-input{background:var(--card3);border:1px solid var(--line2);color:var(--ink2);border-radius:7px;}
+.gridjs-search input.gridjs-input::placeholder{color:var(--faint);}
+.gridjs-search input.gridjs-input:focus{box-shadow:none;border-color:var(--won);}
+.gridjs-footer{background:var(--card);border-color:var(--line);box-shadow:none;color:var(--muted);}
+.gridjs-summary{color:var(--muted);}
+.gridjs-pagination .gridjs-pages button{background:var(--card2);border:1px solid var(--line2);color:var(--muted);}
+.gridjs-pagination .gridjs-pages button:hover:not(:disabled){background:var(--card3);color:var(--ink2);}
+.gridjs-pagination .gridjs-pages button:disabled{background:var(--card);color:var(--faint);}
+.gridjs-pagination .gridjs-pages button.gridjs-currentPage{background:var(--won);color:var(--bg);font-weight:700;border-color:var(--won);}
+.gridjs-sort{filter:invert(.68);}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Deal Drop-Rate Analytics</h1>
-  <div class="sub">Why deals drop, how the rate moves over time, and how it compares year-over-year — across Haven publications. Data snapshot: August 10, 2026.</div>
+  <div class="sub">Why deals drop, how the rate moves over time, and how it compares <b>year-over-year</b> — across Haven publications.</div>
+
+  <div class="statusbar"><span class="dot"></span> Static snapshot · <b>Salesforce pull 2026-08-10</b></div>
 
   <div class="kpis" id="kpis"></div>
   <div class="kpiscope" id="kpiScope"></div>
@@ -151,7 +195,7 @@ select{border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size
 const DATA={
   generated:"2026-06-02",
   kpi:{"approved":108105,"dropped":22162,"skip":5988,"drop_rate":17.0},
-  trend:[[2022,9,19.3],[2022,10,19.4],[2022,11,19.4],[2022,12,16.7],[2023,1,16.6],[2023,2,18.3],[2023,3,20.6],[2023,4,20.4],[2023,5,18.9],[2023,6,17.4],[2023,7,15.9],[2023,8,15.1],[2023,9,16.0],[2023,10,17.2],[2023,11,16.2],[2023,12,13.7],[2024,1,15.8],[2024,2,14.2],[2024,3,15.5],[2024,4,14.0],[2024,5,14.6],[2024,6,14.5],[2024,7,14.7],[2024,8,14.4],[2024,9,17.5],[2024,10,17.6],[2024,11,17.0],[2024,12,18.5],[2025,1,16.1],[2025,2,16.3],[2025,3,16.7],[2025,4,16.8],[2025,5,14.8],[2025,6,15.6],[2025,7,16.9],[2025,8,15.1],[2025,9,17.8],[2025,10,17.1],[2025,11,17.6],[2025,12,16.3],[2026,1,17.3],[2026,2,20.6],[2026,3,21.4],[2026,4,18.9],[2026,5,19.3],[2026,6,21.8],[2026,7,15.6]],
+  trend:[[2024,1,15.8],[2024,2,14.2],[2024,3,15.5],[2024,4,14.0],[2024,5,14.6],[2024,6,14.5],[2024,7,14.7],[2024,8,14.4],[2024,9,17.5],[2024,10,17.6],[2024,11,17.0],[2024,12,18.5],[2025,1,16.1],[2025,2,16.3],[2025,3,16.7],[2025,4,16.8],[2025,5,14.8],[2025,6,15.6],[2025,7,16.9],[2025,8,15.1],[2025,9,17.8],[2025,10,17.1],[2025,11,17.6],[2025,12,16.3],[2026,1,17.3],[2026,2,20.6],[2026,3,21.4],[2026,4,18.9],[2026,5,19.3],[2026,6,21.8],[2026,7,15.6]],
   reason_total:22162,
   reasons:[["No Reason Given",12472],["No Longer Interested",3279],["Unresponsive",3049],["Listing Not Ready",759],["Under Contract",565],["Duplicate",457],["Lindy Soft Sale",389],["Listing Expired",306],["Budget Issues",230],["Market Conditions",150],["Customer Issues",142],["Sold Listing",132],["Unhappy with Design",97],["Poor Results",40],["Bad Experience",38],["Switched to Competitor",29],["Business Closure/Career Change",28]],
   products:[["Full-Page Ad",18.3,48531],["Two-Page Spread",14.2,23468],["Half-Page Ad",12.2,8429],["Re-Run Current Ad",4.3,5201],["Camera-Ready Ad (CR)",2.9,3486],["1/6 Page Ad",28.7,3016],["Re-Run Previous Ad",3.2,2762],["Cover Wrap Overrun",26.9,1744],["Extra Copies",5.1,1569],["Haven Internal Editorial",8.7,1413],["Premium Placement (First 20 Pages)",7.2,1293],["Front-Cover",7.9,929],["15 Extra Copies",5.7,667],["10 Extra Copies",3.6,614],["Back-Cover",9.5,598],["Enhanced Digital Exposure",2.6,455],["30 Extra Copies",5.8,413],["Premium Placement (First 10 Pages)",12.7,411],["5 Extra Copies",5.4,408],["Inside FC Spread",6.5,293],["TTF",7.8,218]],
@@ -164,7 +208,20 @@ const DATA={
   issuerev:{"WI":[["081125",14885,16515,"072924",9812,11302],["092225",12155,13860,"090924",12430,15192],["110325",12628,15095,"102124",9308,11874],["121525",9135,11970,"120224",6482,7422],["012626",7965,9250,"011325",7020,8448],["030926",10852,13548,"022425",12975,14105],["042026",9392,11718,"040725",10268,12788],["060126",10912,11692,"051925",11000,13988]],"CHI":[["090125",11988,19453,"081924",15200,19240],["101325",16425,20268,"093024",18290,24320],["112425",11618,13548,"111124",12225,14772],["010526",8350,13150,"122324",9110,13482],["021626",17295,22360,"020325",12861,14641],["033026",13098,16915,"031725",9825,12848],["051126",16388,22070,"042825",12358,15978]],"SC":[["081825",22702,25898,"080524",19003,19590],["092925",23135,28758,"091624",22738,24956],["111025",18070,21865,"102824",21818,25190],["122225",15908,18312,"120924",16060,18528],["020226",21870,27635,"012025",14952,18178],["031626",22766,31996,"030325",22925,25660],["042726",23630,26760,"041425",17415,23000],["060826",21732,28452,"052625",21588,25580]],"VA":[["081125",21193,23858,"072924",15332,17022],["092225",21778,24856,"090924",22498,27190],["110325",20323,23633,"102124",17530,19943],["121525",14080,16863,"120224",14236,18133],["012626",16392,22615,"011325",15032,16925],["030926",23989,30059,"022425",14845,18520],["042026",20445,27368,"040725",15565,18815],["060126",24908,33110,"051925",24244,26444]],"DFW":[["081125",33611,42386,"072924",33665,40660],["092225",39188,47358,"090924",35888,44178],["110325",30738,39528,"102124",38253,45963],["121525",20738,27132,"120224",28780,37584],["012626",26169,38772,"011325",26070,32865],["030926",37629,51507,"022425",31202,38628],["042026",32989,39599,"040725",36651,45898],["060126",36670,48745,"051925",33248,39268]],"LV":[["080425",17182,19232,"072224",15200,17050],["091525",13478,18142,"090224",17904,21292],["102725",14628,19680,"101424",15882,20597],["120825",12315,13228,"112524",13715,15295],["011926",14218,16440,"010625",15548,17330],["030226",17524,20866,"021725",18282,22027],["041326",16145,18515,"033125",16735,21950],["052526",16798,22318,"051225",17995,21095]],"DEN":[["082525",15545,18368,"081224",16880,19065],["100625",16225,16892,"092324",18760,22490],["111725",11028,11792,"110424",15088,17678],["122925",13975,15510,"121624",12250,16920],["020926",14678,19060,"012725",12062,14055],["032326",19260,20538,"031025",15624,18986],["050426",15870,21120,"042125",15758,17492],["061526",16738,21138,"060225",18500,21490]],"PTL":[["082525",24111,29436,"081224",20172,21757],["100625",24828,27678,"092324",25795,28882],["111725",20642,22992,"110424",23156,25266],["122925",18201,20178,"121624",19604,22399],["020926",24898,28916,"012725",21644,25629],["032326",23880,29408,"031025",24853,27168],["050426",28800,33560,"042125",28856,31688],["061526",29935,36105,"060225",27902,29752]],"AL/MS":[["082525",14830,19038,"081224",16436,17769],["100625",13355,19340,"092324",16124,19914],["111725",7932,10968,"110424",15458,16682],["122925",8228,10428,"121624",11995,14455],["020926",11858,17080,"012725",13130,16632],["032326",14075,19010,"031025",14665,18345],["050426",12482,18610,"042125",12980,17605],["061526",11946,14696,"060225",11875,14800]],"CGY":[["090825",7703,10665,"082624",11451,13267],["102025",7181,9390,"100724",12197,14541],["120125",5849,7409,"111824",7247,8835],["011226",8532,10198,"123024",8139,10913],["022326",8912,13051,"021025",8075,9731],["040626",6948,8783,"032425",7967,9891],["051826",9335,12083,"050525",7871,10293]],"UPS":[["090825",21482,24104,"082624",22426,27424],["102025",19847,24338,"100724",19338,26146],["120125",12759,18622,"111824",11113,14478],["011226",10972,14368,"123024",12269,13654],["022326",15174,18999,"021025",13016,16183],["040626",19549,23884,"032425",9954,12484],["051826",21728,30576,"050525",13813,16925]],"MIA":[["090825",35282,49990,"082624",43156,48972],["102025",46828,62446,"100724",51758,59802],["120125",36601,52326,"111824",29906,36034],["011226",33310,40825,"123024",33814,39726],["022326",36799,50674,"021025",27144,33384],["040626",36124,49559,"032425",41534,50871],["051826",36806,46556,"050525",43114,48824]],"OC/SD":[["082525",20599,26091,"081224",17342,19996],["100625",18851,21549,"092324",21275,27600],["111725",13871,16231,"110424",16532,18708],["122925",11443,14146,"121624",13448,15971],["020926",18653,23948,"012725",17868,21798],["032326",20906,32006,"031025",24184,29869],["050426",15215,21470,"042125",23066,28578],["061526",11615,18535,"060225",23709,28361]],"SEA":[["081825",39441,44936,"080524",30390,38785],["092925",35914,41427,"091624",36610,41060],["111025",31896,37636,"102824",29555,33162],["122225",27364,31301,"120924",19058,21580],["020226",28160,31280,"012025",24040,28660],["031626",38222,46502,"030325",28305,32085],["042726",43708,51982,"041425",33352,40272],["060826",48688,57888,"052625",45815,53280]],"TB":[["080425",44358,53958,"072224",35423,40131],["091525",42726,55073,"090224",42080,50948],["120825",42133,49373,"112524",40646,47918],["011926",49472,65514,"010625",54608,61642],["030226",48492,65764,"021725",51106,59788],["041326",42928,55260,"033125",50760,58203],["052526",40833,52990,"051225",57226,65506]],"NE":[["080425",32393,38559,"072224",20451,24150],["091525",27757,30874,"090224",30391,36171],["102725",25479,28679,"101424",28776,35420],["120825",19790,23760,"112524",19740,23132],["011926",16707,20714,"010625",22351,25194],["030226",24689,29612,"021725",17966,20751],["041326",32630,36345,"033125",23336,28796],["052526",39234,44827,"051225",28806,32929]],"LOU/AR":[["090125",11302,15265,"081924",14650,16875],["101325",14843,19393,"093024",15872,19752],["112425",13033,15278,"111124",13995,18740],["010526",12051,15436,"122324",13099,15019],["021626",15010,19890,"020325",11600,14098],["033026",12918,18788,"031725",10220,14180],["051126",13128,17320,"042825",12028,16358]],"VC":[["090825",21717,24684,"082624",20772,23818],["102025",22061,25674,"100724",18137,20956],["120125",19140,21303,"111824",16600,17111],["011226",21369,23219,"123024",17908,19846],["022326",23173,26726,"021025",19371,22336],["040626",28108,31132,"032425",17627,19699],["051826",24956,27466,"050525",18956,22168]],"FLP":[["090825",42707,54590,"082624",37799,45905],["102025",43175,52175,"100724",44821,54436],["120125",34448,42716,"111824",38878,46886],["011226",37140,45443,"123024",39009,47336],["022326",39808,53978,"021025",39841,47746],["040626",35443,49138,"032425",44178,55498],["051826",37618,45430,"050525",56669,66439]],"MW":[["090125",16788,20333,"081924",22040,25072],["101325",22556,26898,"093024",26592,31248],["112425",11658,14823,"111124",15480,18308],["010526",11802,13982,"122324",12170,13686],["021626",20439,26152,"020325",10316,12878],["033026",24660,31395,"031725",14833,17838],["051126",17808,23185,"042825",15823,19853]],"DC":[["082525",26818,32386,"081224",30450,32988],["100625",28580,34422,"092324",35638,41260],["111725",24252,27785,"110424",26920,32373],["122925",24345,29545,"121624",26976,32079],["020926",27922,35292,"012725",21606,25073],["032326",36558,46052,"031025",27863,32866],["050426",34832,43768,"042125",26401,30081]],"BOS":[["081125",25771,29304,"072924",23505,25665],["092225",26822,30105,"090924",31108,36960],["110325",17874,26224,"102124",25142,30438],["121525",14192,17072,"120224",19405,24375],["012626",17606,20481,"011325",20750,22432],["030926",19736,27999,"022425",19802,23450],["042026",25210,32602,"040725",23915,25578],["060126",25622,32495,"051925",27908,36980]],"CO":[["081825",26592,29197,"080524",24819,27881],["092925",27286,33174,"091624",30884,35089],["111025",26903,31370,"102824",24992,27771],["122225",23898,25673,"120924",21613,24093],["020226",27462,30832,"012025",19917,23555],["031626",31112,32225,"030325",21660,24940],["042726",33092,37082,"041425",25157,28410],["060826",28257,34835,"052625",35145,38382]],"SF":[["081125",32142,35495,"072924",20799,24276],["092225",20672,23085,"090924",30236,34044],["110325",23528,26045,"102124",25564,30241],["121525",20978,25058,"120224",21384,24511],["012626",19972,22446,"011325",20596,22956],["030926",27345,36178,"022425",26004,32326],["042026",26488,32794,"040725",28248,33860],["060126",28372,34795,"051925",28190,31580]],"TOR":[["082525",47797,53159,"081224",47656,53359],["100625",52613,64534,"092324",53889,63950],["111725",30643,40004,"110424",39623,48931],["122925",37855,42919,"121624",31151,34950],["020926",39551,47668,"012725",38532,45905],["032326",39919,50157,"031025",40641,48640],["050426",44147,51000,"042125",47790,56298]],"MTNW":[["090125",37513,44593,"081924",32906,37243],["101325",37756,45899,"093024",37716,44098],["112425",27856,33414,"111124",33035,39326],["010526",26986,31995,"122324",24340,29738],["021626",37374,42816,"020325",27862,31626],["033026",40224,48054,"031725",29750,38155],["051126",40140,47266,"042825",36167,41877]],"LA":[["090125",37230,51002,"081924",30922,35300],["101325",41110,53605,"093024",42023,51780],["112425",29378,36570,"111124",41724,51974],["010526",29788,35015,"122324",37620,45424],["021626",44075,57868,"020325",47706,55460],["033026",42499,59186,"031725",45315,53183],["051126",37708,50558,"042825",40402,51085]],"OH/IN":[["090125",15694,22924,"081924",22390,25490],["101325",15305,18910,"093024",16892,21732],["112425",10712,14790,"111124",12020,14765],["010526",9080,12020,"122324",12502,14468],["021626",8160,12610,"020325",11378,14182],["033026",13125,16460,"031725",14780,18850],["051126",11885,16555,"042825",13915,17315]],"NJ":[["081825",17973,21616,"080524",18752,24650],["092925",17402,22937,"091624",20678,23078],["111025",13795,17145,"102824",21148,23946],["122225",13382,15678,"120924",12910,17216],["020226",15708,22542,"012025",12020,14500],["031626",12492,17746,"030325",18885,22698],["042726",14120,21770,"041425",16890,21240],["060826",16462,23805,"052625",20992,23380]],"TN":[["081125",29230,32902,"072924",20302,25980],["092225",22458,26983,"090924",24949,35267],["110325",23240,27600,"102124",24939,30022],["121525",19088,23110,"120224",19995,25308],["012626",23301,30709,"011325",19645,24508],["030926",22861,36376,"022425",22728,27802],["042026",32592,41042,"040725",21025,27782],["060126",26706,35216,"051925",25850,31748]],"NYC":[["082525",20500,26760,"081224",23160,27702],["100625",19177,23825,"092324",24558,31508],["111725",19132,23297,"110424",20348,26842],["122925",18830,25040,"121624",18428,23882],["020926",19334,30208,"012725",19388,23928],["032326",24310,29935,"031025",18400,26210],["050426",23928,33488,"042125",23142,28820]],"ATX/SA":[["081125",32276,36864,"072924",28158,30588],["092225",28226,36006,"090924",36134,41632],["110325",32631,37504,"102124",33465,40473],["121525",26720,31830,"120224",28494,34982],["012626",22288,28150,"011325",31210,38273],["030926",26445,39770,"022425",37943,40680],["042026",28730,37148,"040725",33961,41561],["060126",32489,41042,"051925",37463,43378]],"ATL":[["081825",24850,28778,"080524",20148,25492],["092925",25432,29854,"091624",27262,32848],["111025",22792,28400,"102824",21166,30410],["122225",20430,27618,"120924",16565,21945],["020226",24445,33887,"012025",17108,19960],["031626",24928,35362,"030325",22078,28840],["042726",34428,45732,"041425",25138,32732],["060826",32462,45998,"052625",18785,25005]],"HOU":[["081825",17152,20250,"080524",11210,13438],["092925",18268,24570,"091624",20058,25435],["111025",14822,20505,"102824",16685,22792],["122225",12450,16320,"120924",11935,15855],["020226",15102,21575,"012025",16725,22065],["031626",20200,31275,"030325",17168,25368],["042726",19045,24185,"041425",16462,20185],["060826",20510,24850,"052625",19282,22568]],"PHIL":[["080425",22515,27058,"072224",15588,19130],["091525",21072,28485,"090224",19318,23128],["102725",19785,26525,"101424",18655,21030],["120825",11585,14120,"112524",13065,15670],["011926",16475,18695,"010625",15950,17380],["030226",15985,19468,"021725",13838,17012],["041326",20248,28065,"033125",13852,17165],["052526",21628,28552,"051225",22740,27748]],"HI":[["080425",17750,19818,"072224",22952,24832],["091525",19708,21605,"090224",21578,23725],["102725",24738,28115,"101424",24948,28725],["120825",18348,21222,"112524",24572,25318],["011926",22582,26152,"010625",23078,28200],["030226",23490,26428,"021725",24330,27392],["041326",16394,18719,"033125",24705,27675],["052526",21792,24188,"051225",20400,23660]],"PHX":[["080425",31030,35385,"072224",28014,33135],["091525",33651,43378,"090224",33461,40298],["102725",34396,39006,"101424",33001,40608],["120825",34201,40848,"112524",25168,30402],["011926",39038,45182,"010625",29154,34905],["030226",39832,51762,"021725",27411,35007],["041326",36895,50582,"033125",30766,35834],["052526",36113,47646,"051225",29374,32754]],"DET":[["090125",18930,22216,"081924",21653,23030],["101325",22332,26722,"093024",22383,26550],["112425",14838,18098,"111124",16083,17906],["010526",16932,19958,"122324",13023,13970],["021626",21291,28781,"020325",15259,18674],["033026",21366,27856,"031725",13890,15700],["051126",27274,34290,"042825",16521,20868]],"MN":[["090825",11855,13010,"082624",15846,16982],["102025",10608,13088,"100724",13586,15681],["120125",7010,9475,"111824",8468,9448],["011226",6645,7688,"123024",8400,9262],["022326",12062,13888,"021025",8618,10772],["040626",13980,17170,"032425",9928,11280],["051826",12448,15118,"050525",11572,14672]],"CA":[["090825",29832,35942,"082624",33469,42901],["102025",28326,32784,"100724",33569,39539],["120125",25580,30462,"111824",21300,29668],["011226",22698,27848,"123024",20438,25919],["022326",24638,29480,"021025",21220,27040],["040626",32732,45665,"032425",29428,36018],["051826",39038,44492,"050525",29068,35315]],"NC":[["081825",34090,41330,"080524",27472,31052],["092925",38986,47400,"091624",32160,41103],["111025",26170,34566,"102824",24826,30808],["122225",25700,30560,"120924",26300,29824],["020226",41912,53754,"012025",24260,28886],["031626",36250,50290,"030325",30782,36986],["042726",39813,49183,"041425",36160,42314],["060826",32868,44210,"052625",43390,49228]],"PB":[["080425",26830,32373,"072224",21128,25920],["091525",33582,40054,"090224",32382,40038],["102725",37868,43990,"101424",31092,38999],["120825",39912,45750,"112524",32930,37410],["011926",37722,43652,"010625",30637,34770],["030226",32759,40619,"021725",41938,46400],["041326",31389,37670,"033125",36430,43510],["052526",34160,39440,"051225",30242,35475]],"SW":[["080425",5645,5740,"072224",5008,6052],["091525",5880,6582,"090224",3780,6118],["102725",7115,7785,"101424",5652,7248],["120825",4962,5862,"112524",4165,5252],["011926",6668,7448,"010625",6550,6940],["030226",4128,5535,"021725",6100,7340],["041326",5508,6252,"033125",8850,10285],["052526",5668,7642,"051225",7820,10465]]}
 };
 
-const C={ink:'#16202c',muted:'#67727e',drop:'#e2483d',won:'#2a9d6f',accent:'#2f6df0',amber:'#d98a00',violet:'#7a5cff',line:'#e6eaee'};
+const C={ink:'#e7e9ea',muted:'#7f858e',drop:'#f87171',won:'#22c55e',accent:'#3b82f6',amber:'#f5a623',violet:'#a78bfa',grey:'#5b6472',line:'#26282c'};
+Chart.defaults.color=C.muted;
+Chart.defaults.borderColor=C.line;
+Chart.defaults.font.family='-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif';
+Chart.defaults.scale.grid.color=C.line;
+Chart.defaults.scale.ticks.color=C.muted;
+Chart.defaults.scale.title.color='#c9ccd1';
+Chart.defaults.plugins.legend.labels.color=C.muted;
+Chart.defaults.plugins.tooltip.backgroundColor='#1b1d21';
+Chart.defaults.plugins.tooltip.borderColor='#34373d';
+Chart.defaults.plugins.tooltip.borderWidth=1;
+Chart.defaults.plugins.tooltip.titleColor='#fff';
+Chart.defaults.plugins.tooltip.bodyColor='#d4d7db';
+Chart.defaults.plugins.tooltip.padding=10;
 const MONTHS=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const charts={};
 let revGridInst=null, pubGridInst=null;
@@ -181,7 +238,7 @@ function renderKPIs(){
     {v:num(total),l:'Closed deals counted',s:'Won + Dropped (the rate’s denominator)'},
     {v:num(k.skip),l:'Excluded as skips',s:'Skipping Issue + "Dropped This Issue"'}
   ];
-  document.getElementById('kpis').innerHTML=cards.map(c=>`<div class="kpi ${c.big?'big':''}"><div class="v">${c.v}</div><div class="l">${c.l}</div><div class="ksub">${c.s}</div></div>`).join('');
+  document.getElementById('kpis').innerHTML=cards.map(c=>`<div class="kpi ${c.big?'big':''}"><div class="l">${c.l}</div><div class="v">${c.v}</div><div class="ksub">${c.s}</div></div>`).join('');
   document.getElementById('kpiScope').innerHTML='<b>Scope of these totals:</b> all-time, every Haven publication (issues launching Jun 2021 – Dec 2026), all issue stages. A drop = StageName "Dropped" excluding Agreement Drop Reason "Dropped This Issue"; drop rate = Dropped ÷ (Approved + Dropped). "Skipping Issue" and "Dropped This Issue" closures are treated as skips, not drops. The tabs below each apply their own time window or stage filter — for example, <b>Revenue YoY</b> covers printed issues (Sent To Printer) for Aug 2025–Jul 2026 vs. the prior year, and <b>YoY by Publication</b> compares those same two 12-month windows.';
 }
 
@@ -191,7 +248,7 @@ function renderTrend(){
   destroy('trend');
   charts.trend=new Chart(document.getElementById('trendChart'),{
     type:'line',
-    data:{labels,datasets:[{label:'Drop rate',data:t.map(r=>r[2]),borderColor:C.drop,backgroundColor:'rgba(226,72,61,.08)',fill:true,tension:.3,pointRadius:2,borderWidth:2}]},
+    data:{labels,datasets:[{label:'Drop rate',data:t.map(r=>r[2]),borderColor:C.drop,backgroundColor:'rgba(248,113,113,.10)',fill:true,tension:.3,pointRadius:2,borderWidth:2}]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'Drop rate: '+c.parsed.y+'%'}}},
       scales:{y:{ticks:{callback:v=>v+'%'},title:{display:true,text:'Drop rate'}},x:{ticks:{maxTicksLimit:16,autoSkip:true}}}}
@@ -201,7 +258,7 @@ function renderYoYMonth(){
   const byYear={};
   DATA.trend.forEach(([yr,mo,rate])=>{(byYear[yr]=byYear[yr]||{})[mo]=rate;});
   const years=Object.keys(byYear).map(Number).sort();
-  const palette=['#c2ccd6','#9aa7b4',C.violet,C.amber,C.drop];
+  const palette=[C.grey,C.amber,C.drop,C.violet,C.accent];
   const datasets=years.map((y,i)=>({label:String(y),data:MONTHS.slice(1).map((_,m)=>byYear[y][m+1]??null),
      borderColor:palette[i%palette.length],backgroundColor:'transparent',tension:.3,spanGaps:true,borderWidth:y>=2025?2.6:1.5,pointRadius:2}));
   destroy('yoyM');
@@ -211,7 +268,7 @@ function renderYoYMonth(){
       plugins:{legend:{position:'bottom',labels:{boxWidth:12,usePointStyle:true}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.parsed.y==null?'—':c.parsed.y+'%')}}},
       scales:{y:{ticks:{callback:v=>v+'%'}}}}
   });
-  document.getElementById('trendInsight').innerHTML='Drop rate has held in the <b>mid-to-high teens (~14–18%)</b> for four years, with a mild seasonal lift in late winter (Feb–Mar). Early-2026 issues tick up toward <b>20–21%</b> — worth watching, though the very latest cohorts are still maturing.';
+  document.getElementById('trendInsight').innerHTML='Drop rate has held in the <b>mid-to-high teens (~14–18%)</b> since 2024, with a mild seasonal lift in late winter (Feb–Mar). Early-2026 issues tick up toward <b>20–21%</b> — worth watching, though the very latest cohorts are still maturing.';
 }
 
 const money=n=>'$'+Math.round(n).toLocaleString();
@@ -274,9 +331,9 @@ function renderRevYoY(){
   document.getElementById('revKpis').innerHTML=[
     {v:money(totThis),l:'Won revenue, printed issues (this yr)'},
     {v:money(mPrior),l:'Matched prior-year issues (won)'},
-    {v:(opct>0?'+':'')+opct+'%',l:'Won revenue YoY (matched)',cls:opct<0?'big':''},
+    {v:(opct>0?'+':'')+opct+'%',l:'Won revenue YoY (matched)',cls:opct<0?'big':'good'},
     {v:n,l:'Printed issues this year'}
-  ].map(c=>`<div class="kpi ${c.cls||''}"><div class="v">${c.v}</div><div class="l">${c.l}</div></div>`).join('');
+  ].map(c=>`<div class="kpi ${c.cls||''}"><div class="l">${c.l}</div><div class="v">${c.v}</div></div>`).join('');
 
   const rows=DATA.issuerev[pub]||[];
   const tn=r=>pub+'-'+r[0], pn=r=>r[3]?pub+'-'+r[3]:'—';
@@ -285,8 +342,8 @@ function renderRevYoY(){
   charts.rev=new Chart(document.getElementById('revChart'),{
     type:'bar',
     data:{labels,datasets:[
-      {label:'This year (won $)',data:rows.map(r=>r[1]),backgroundColor:C.accent},
-      {label:'Prior year (won $)',data:rows.map(r=>r[4]),backgroundColor:'#b9c4d4'}
+      {label:'This year (won $)',data:rows.map(r=>r[1]),backgroundColor:C.won},
+      {label:'Prior year (won $)',data:rows.map(r=>r[4]),backgroundColor:C.grey}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{position:'bottom',labels:{boxWidth:12,usePointStyle:true}},
@@ -331,7 +388,7 @@ function renderReasons(){
   charts.reason=new Chart(document.getElementById('reasonChart'),{
     type:'bar',
     data:{labels:arr.map(r=>r[0]),datasets:[{label:'Dropped deals',data:arr.map(r=>r[1]),
-      backgroundColor:arr.map(r=>r[0]==='No Reason Given'?'#c2ccd6':C.accent)}]},
+      backgroundColor:arr.map(r=>r[0]==='No Reason Given'?C.grey:C.accent)}]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>num(c.parsed.x)+' deals ('+(100*c.parsed.x/tot).toFixed(1)+'%)'}}},
       scales:{x:{title:{display:true,text:'Dropped deals'}}}}
