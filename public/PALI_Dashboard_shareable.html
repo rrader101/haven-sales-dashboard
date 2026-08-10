@@ -104,7 +104,7 @@
   .defs { font-size:12px; color:#7f858e; line-height:1.65; }
   .defs b { color:#c9ccd1; }
 
-  .bl { display:grid; grid-template-columns:1fr 32px 1fr; gap:0; align-items:stretch;
+  .bl { display:grid; grid-template-columns:1fr 32px 1fr 1fr; gap:0; align-items:stretch;
         background:#141518; border:1px solid #26282c; border-radius:12px; margin-bottom:16px; overflow:hidden; }
   .blitem { padding:16px 18px; border-right:1px solid #26282c; }
   .blitem:last-child { border-right:0; }
@@ -118,6 +118,9 @@
   .blval.ctxv { color:#5b6472; font-size:26px; }
   .blsub { font-size:11px; color:#6b7178; line-height:1.4; }
   .blarrow { display:flex; align-items:center; justify-content:center; color:#3a3d42; font-size:20px; background:transparent; }
+  .blitem.rev { background:#141518; }
+  .blpp { font-size:14px; font-weight:700; margin-left:8px; vertical-align:middle; }
+  .blpp.up { color:#22c55e; } .blpp.down { color:#f87171; }
 
   tr.trow { cursor:pointer; }
   tr.trow:hover { background:#1b1d21; }
@@ -146,7 +149,7 @@
               color:#c9ccd1; font-size:13px; font-style:normal; line-height:25px; text-align:center;
               transition:background .12s,color .12s,border-color .12s; }
   .carnav:hover i { background:#22c55e; border-color:#22c55e; color:#0a0b0d; }
-  .ccard { flex:0 0 auto; width:158px; border:1px solid #26282c; border-radius:9px; padding:11px 12px;
+  .ccard { flex:0 0 auto; width:182px; border:1px solid #26282c; border-radius:9px; padding:11px 12px;
            background:#17181b; cursor:pointer; transition:border-color .12s, box-shadow .12s, transform .12s; }
   .ccard:hover { border-color:#22c55e; box-shadow:0 0 0 1px rgba(34,197,94,.25); transform:translateY(-2px); }
   .ccard.copen { border-color:#22c55e; box-shadow:0 0 0 2px rgba(34,197,94,.4); }
@@ -157,6 +160,13 @@
   .ccard .crate { font-size:23px; font-weight:700; color:#22c55e; letter-spacing:-.02em; line-height:1; }
   .ccard .cpend { font-size:8px; font-weight:700; color:#f5c168; letter-spacing:.04em; vertical-align:middle; }
   .ccard .csub { font-size:10px; color:#7f858e; margin-top:5px; line-height:1.35; }
+  .crev { margin-top:7px; padding-top:6px; border-top:1px solid #26282c; }
+  .crevv { font-size:14px; font-weight:700; color:#e7e9ea; font-variant-numeric:tabular-nums; }
+  .crevv.zero { color:#5b6472; }
+  .rdlt { font-size:10px; font-weight:700; margin-left:5px; vertical-align:1px; }
+  .rdlt.up { color:#22c55e; } .rdlt.dn { color:#f87171; }
+  .crevs { font-size:9.5px; color:#6b7178; margin-top:3px; line-height:1.35; }
+  .rstale { color:#f5c168; white-space:nowrap; cursor:help; }
   #gate { position:fixed; inset:0; z-index:100; background:#0a0b0d; display:none; align-items:center; justify-content:center; }
   .gatebox { background:#141518; border:1px solid #26282c; border-radius:14px; padding:32px 30px; width:320px; text-align:center; }
   .gtitle { font-size:20px; font-weight:700; color:#fff; }
@@ -265,9 +275,31 @@ const DETAIL = {"SF-040725":{"prev":"SF-022425","market":"SF","era":"old","rows"
 const NEW_ISSUES = ['SF-042026','BOS-042026','DFW-042026'];
 const LIVE_FROM  = '2026-04-13';
 
+// ---------------------------------------------------------------------------
+// THE ROLLING SLATE
+// The new draft was on every market from this date, so anything launched on or
+// after it counts as new-draft without being named anywhere. Issues before it
+// keep the per-issue flag baked into the snapshot — that period was a mixed
+// rollout and the date alone can't tell them apart.
+const NEW_FROM = '2026-06-22';
+// An issue only joins once it is this old. Fresher than that and its cohort has
+// barely begun to fill, so the rate would read as a collapse rather than a
+// number in progress. Measured off the launch date.
+const MATURE_DAYS = 14;
+const _iso = d => new Date(d).toISOString().slice(0, 10);
+// the newest launch date eligible today — recomputed on every render and every
+// refresh, which is what makes the slate roll forward on its own
+const matureOn = () => _iso(Date.now() - MATURE_DAYS * 864e5);
+const isNewDraft = (bakedFlag, launch) => !!bakedFlag || launch >= NEW_FROM;
+// ---------------------------------------------------------------------------
 
-const toC = x => ({ base:x[0], launch:x[1], next:x[2], inflight:!!x[3], era:x[4]?'new':'old',
-  mat:x[5], den:x[6], booked:x[7], ran:x[8], pending:!!x[9], market:x[0].slice(0,x[0].lastIndexOf('-')),
+const toC = x => ({ base:x[0], launch:x[1], next:x[2], inflight:!!x[3],
+  era:isNewDraft(x[4], x[1]) ? 'new' : 'old',
+  mat:x[5], den:x[6], booked:x[7], ran:x[8],
+  // an issue joining by date is "still filling" whenever Salesforce still has it
+  // open; the hand-classified ones keep the flag they were exported with
+  pending:!!(x[9] || (x[1] >= NEW_FROM && x[3])), market:x[0].slice(0,x[0].lastIndexOf('-')),
+  revB:x[10] != null ? x[10] : null, revN:x[11] != null ? x[11] : null,
   frozen:x[1] < LIVE_FROM });
 
 const BASELINE = SNAP.f.map(toC);
@@ -326,6 +358,24 @@ let DLOADING = null;
 // counts on it. Baseline issues stay baked — those cohorts are settled.
 const DLIVE = {};
 const detailOf = k => DLIVE[k] || DETAIL[k];
+
+// Dollars behind the returns: what the advertisers who actually came back had
+// spent in the base issue, against what they spent coming in. Same people on
+// both sides, so the delta is real uplift per returning advertiser — not just
+// more of them. Reads the live drill list when a refresh pulled one, otherwise
+// the list stored in this file.
+function revOf(c) {
+  if (!c) return null;
+  // a refresh computes these alongside the counts, so they are never behind them
+  if (c.revN != null) return { n: c.booked, before: c.revB, now: c.revN, live: true };
+  const d = detailOf(c.base);
+  if (!d || !d.rows) return null;
+  const R = d.rows.filter(r => r[2] === 1);
+  return { n: R.length,
+           before: R.reduce((a, r) => a + (r[1] || 0), 0),
+           now:    R.reduce((a, r) => a + (r[3] || 0), 0) };
+}
+const revUp = r => (r && r.before) ? (r.now / r.before - 1) * 100 : 0;
 const _soqlStr = s => "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
 
 // issue Ids captured by the last refresh, so a drill-down reads exactly the same
@@ -504,6 +554,14 @@ function prevMap(iss) {
   return prev;
 }
 
+// An issue the baked slate never named still belongs on it if the calendar says
+// it used the new draft and it has had its two weeks to fill. This is what makes
+// a refresh pick up slates published after this file was built.
+function isDiscovered(name, launch) {
+  const m = _mk(name);
+  return !!(m && m !== 'TEST' && launch && launch >= NEW_FROM && launch <= matureOn());
+}
+
 // TARGET-ANCHORED: each issue is measured by its PREVIOUS same-market issue.
 // Returns { rows: {name: row}, skipped: [name] } — only issues it could fully
 // rebuild appear in rows, so the caller can fall back for the rest.
@@ -524,19 +582,31 @@ function computeLive(iss, opps, prev) {
   const rows = {}, skipped = [], seen = new Set();
   for (const i of iss) {
     const nm = i.Name, b = _BAKED[nm];
-    if (!b || !_TRACKED.has(nm)) continue;              // tracked slate only
-    if (b[1] && i.Launch_Date__c !== b[1]) continue;    // guard against duplicate names
+    // the slate is the baked list PLUS anything the calendar has grown since:
+    // new-draft by launch date and old enough to have filled
+    if (!b && !isDiscovered(nm, i.Launch_Date__c)) continue;
+    if (b && !_TRACKED.has(nm) && !isDiscovered(nm, i.Launch_Date__c)) continue;
+    if (b && b[1] && i.Launch_Date__c !== b[1]) continue;   // guard against duplicate names
     seen.add(nm);
     const pid = prev[i.Id];
-    if (!pid) { skipped.push(nm); continue; }
+    if (!pid) { if (b) skipped.push(nm); continue; }
     const P = byId[pid], cohortP = cohortOf[pid] || [];
     const den = cohortP.length;
-    if (!den) { skipped.push(nm); continue; }
-    let bk = 0, rn = 0;
-    for (const c of cohortP) { const w = U.get(c + '|' + i.Id); if (w && w[1] > 0) bk++; if (w && w[0] > 0) rn++; }
-    // stage drives in-production / still-filling; draft era + maturity stay static
+    if (!den) { if (b) skipped.push(nm); continue; }
+    let bk = 0, rn = 0, rvB = 0, rvN = 0;
+    for (const c of cohortP) {
+      const w = U.get(c + '|' + i.Id);
+      if (w && w[1] > 0) { bk++; const pw = U.get(c + '|' + pid); rvB += pw ? pw[0] : 0; rvN += w[1]; }
+      if (w && w[0] > 0) rn++;
+    }
+    // stage drives in-production / still-filling. For a baked issue the draft era
+    // and the "can be in production" flag stay as exported; for a discovered one
+    // the launch date settles the era and the stage settles the rest.
     const open = !_CLOSED.has(i.Issue_Stage__c) ? 1 : 0;
-    rows[nm] = [nm, i.Launch_Date__c, P.Name, open, b[4] || 0, b[5] || 0, den, bk, rn, (b[9] ? open : 0)];
+    const pend = (!b || b[9] || i.Launch_Date__c >= NEW_FROM) ? open : 0;
+    rows[nm] = b
+      ? [nm, i.Launch_Date__c, P.Name, open, b[4] || 0, b[5] || 0, den, bk, rn, pend, rvB, rvN]
+      : [nm, i.Launch_Date__c, P.Name, open, 1, 0, den, bk, rn, pend, rvB, rvN];
   }
   _TRACKED.forEach(nm => { if (!seen.has(nm) && skipped.indexOf(nm) < 0) skipped.push(nm); });
   return { rows: rows, skipped: skipped };
@@ -567,11 +637,15 @@ async function refresh() {
     const prev = prevMap(iss);
     // targets = the tracked slate; also pull each target's previous issue,
     // because that is where the cohort denominator comes from.
+    // a target is either on the baked slate or one the calendar has grown since
+    const onTarget = i => {
+      const b = _BAKED[i.Name];
+      if (b && b[1] && i.Launch_Date__c !== b[1]) return false;
+      return (b && _TRACKED.has(i.Name)) || isDiscovered(i.Name, i.Launch_Date__c);
+    };
     const need = [];
     for (const i of iss) {
-      const b = _BAKED[i.Name];
-      if (!b || !_TRACKED.has(i.Name)) continue;
-      if (b[1] && i.Launch_Date__c !== b[1]) continue;
+      if (!onTarget(i)) continue;
       need.push(i.Id);
       if (prev[i.Id]) need.push(prev[i.Id]);
     }
@@ -581,9 +655,7 @@ async function refresh() {
     for (const k in SF_ID) delete SF_ID[k];
     for (const k in DLIVE) delete DLIVE[k];
     for (const i of iss) {
-      const b2 = _BAKED[i.Name];
-      if (!b2 || !_TRACKED.has(i.Name)) continue;
-      if (b2[1] && i.Launch_Date__c !== b2[1]) continue;
+      if (!onTarget(i)) continue;
       SF_ID[i.Name] = { id: i.Id, prevId: prev[i.Id] || null };
     }
     const opps = await sfQueryOppsByIssue(need);
@@ -591,7 +663,14 @@ async function refresh() {
     // merge, never replace: an issue keeps its stored numbers if the pull
     // could not rebuild it, so a row can never silently disappear.
     const was = {}; LIVE.forEach(c => { was[c.base] = c; });
-    LIVE = SNAP.l.map(row => r.rows[row[0]] || row).map(toC);
+    // baked rows keep their place; anything the pull discovered is appended, so
+    // the slate grows with the calendar instead of being frozen at build time
+    const _baked = new Set(SNAP.l.map(row => row[0]));
+    const _found = Object.keys(r.rows).filter(n => !_baked.has(n))
+      .sort((a, b) => { const A = r.rows[a], B = r.rows[b];
+        return A[1] < B[1] ? -1 : A[1] > B[1] ? 1 : (a < b ? -1 : 1); });
+    const ADDED = _found.filter(n => !was[n]);
+    LIVE = SNAP.l.map(row => r.rows[row[0]] || row).concat(_found.map(n => r.rows[n])).map(toC);
     CHG = {}; let moved = 0;
     LIVE.forEach(c => {
       const b0 = was[c.base]; if (!b0) return;
@@ -605,14 +684,16 @@ async function refresh() {
       });
     });
     FLASH_AT = Date.now();
-    const got = Object.keys(r.rows).length, want = SNAP.l.length;
+    const got = Object.keys(r.rows).length, want = SNAP.l.length + _found.length;
     if (r.skipped.length) WARN = r.skipped.length + ' of ' + want + ' issues could not be rebuilt (' +
       r.skipped.slice(0, 6).join(', ') + (r.skipped.length > 6 ? ', …' : '') +
       ') — those rows are showing their last stored numbers.';
     LAST_CHG_AT = new Date().toLocaleString('en-US', { hour:'numeric', minute:'2-digit' });
     LIVE_AT = new Date().toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) +
       ' (live · ' + got + '/' + want + ' refreshed · ' +
-      (moved ? moved + ' value' + (moved === 1 ? '' : 's') + ' changed' : 'nothing changed') + ')';
+      (moved ? moved + ' value' + (moved === 1 ? '' : 's') + ' changed' : 'nothing changed') +
+      (ADDED.length ? ' · ' + ADDED.length + ' new issue' + (ADDED.length === 1 ? '' : 's') +
+        ' added: ' + ADDED.slice(0, 4).join(', ') + (ADDED.length > 4 ? ', …' : '') : '') + ')';
   } catch (e) { ERR = String(e.message || e); }
   BUSY = false; render();
 }
@@ -906,9 +987,6 @@ function renderReturn() {
   const all = BASELINE.concat(LIVE);
   const byName = {}; all.forEach(c => byName[c.base] = c);
 
-  // an open drill-down whose card just got filtered out closes with it
-  if (DRILL && byName[DRILL] && byName[DRILL].era === 'new' && !inScope(byName[DRILL])) DRILL = null;
-
   // pair each new-draft issue with the SAME market's issue in the same slot one year earlier
   const pairs = NEW_ISSUES.map(nm => {
     const cur = byName[nm]; if (!cur) return null;
@@ -933,11 +1011,19 @@ function renderReturn() {
   // NEW = every issue that used the new draft.
   const OLD_ALL = all.filter(c => c.era === 'old')
     .reduce((a,c) => ({ d:a.d + c.den, n:a.n + numOf(c), k:a.k + 1 }), {d:0,n:0,k:0});
-  // The scope toggle decides which new-draft issues feed the headline and carousel.
-  const NEW_SEL = all.filter(c => c.era === 'new' && inScope(c));
+  // The slate is every new-draft issue old enough to have filled. Issues younger
+  // than that are held back until they mature, so the list grows on its own.
+  const CUT = matureOn();
+  const onSlate = c => c.era === 'new' && c.launch <= CUT;
+  // The scope toggle decides which of those feed the headline and carousel.
+  const NEW_SEL = all.filter(c => onSlate(c) && inScope(c));
   const NEW_ALL = NEW_SEL
     .reduce((a,c) => ({ d:a.d + c.den, n:a.n + numOf(c), k:a.k + 1 }), {d:0,n:0,k:0});
-  const NEW_FINAL_K = all.filter(c => c.era === 'new' && !c.pending).length;
+  const NEW_FINAL_K = all.filter(c => onSlate(c) && !c.pending).length;
+
+  // an open drill-down whose card just got filtered out closes with it
+  if (DRILL && byName[DRILL] && byName[DRILL].era === 'new' &&
+      !(onSlate(byName[DRILL]) && inScope(byName[DRILL]))) DRILL = null;
   // new-draft issues whose next slate hasn't opened yet — shown but not yet measurable
   const PENDING = all.filter(c => c.era === 'new' && c.pending)
     .sort((a,b) => a.launch < b.launch ? 1 : a.launch > b.launch ? -1 : (a.market < b.market ? -1 : 1));
@@ -975,6 +1061,20 @@ function renderReturn() {
               (PENDING.length ? ' &middot; ' + PENDING.length + ' still in production (' +
                 PENDING.reduce((a,c) => a + c.den, 0) + ' advertisers, filling now) excluded' : '')) + '</div>' +
       '</div>' +
+      '<div class="blitem rev">' +
+        '<div class="bllbl">What the returners spent</div>' +
+        (REV.n
+          ? '<div class="blval">' + money(REV.now) +
+              '<span class="blpp ' + (revDelta >= 0 ? 'up' : 'down') + '">' +
+              (revDelta >= 0 ? '+' : '') + revDelta.toFixed(1) + '%</span></div>' +
+            '<div class="blsub">vs ' + money(REV.before) + ' the same ' + REV.n +
+              ' advertisers spent in their base issue &middot; ' +
+              (revDelta >= 0 ? 'they came back bigger' : 'they came back smaller') +
+              (REV.k < roster.length ? ' &middot; <span style="color:#f5c168">dollars known for ' + REV.k +
+                ' of ' + roster.length + ' issues &mdash; refresh to fill in the rest</span>' : '') + '</div>'
+          : '<div class="blval ctxv">&mdash;</div>' +
+            '<div class="blsub">no advertisers have come back in the selected issues yet</div>') +
+      '</div>' +
     '</div>';
 
 
@@ -990,12 +1090,36 @@ function renderReturn() {
         '</b> of <span' + chgAttr(CHG, c.base, 'den') + '>' + c.den + dlt(CHG, c.base, 'den') +
         '</span> came in from ' + c.next +
         (isP ? '<br><span style="color:#f5c168">still filling</span>' : '') + '</div>' +
+      revLine(c) +
     '</div>';
+  };
+  // what the returning advertisers spent here vs what they spent last time
+  const revLine = c => {
+    const r = revOf(c);
+    if (!r) return '';
+    if (!r.n) return '<div class="crev"><span class="crevv zero">$0</span>' +
+      '<div class="crevs">nobody back yet</div></div>';
+    // flagged only when the stored list matches neither count on the card —
+    // "ran" and "booked" differ by dropped deals, and either is a fair match
+    const up = revUp(r), stale = !r.live && r.n !== c.booked && r.n !== c.ran;
+    return '<div class="crev">' +
+      '<span class="crevv">' + money(r.now) + '</span>' +
+      '<span class="rdlt ' + (up >= 0 ? 'up' : 'dn') + '">' + (up >= 0 ? '+' : '') + up.toFixed(0) + '%</span>' +
+      '<div class="crevs">vs ' + money(r.before) + ' these ' + r.n + ' spent last time' +
+        (stale ? ' <span class="rstale" title="The advertiser list stored in this file is behind the live count on this card. Refresh, then open the card to pull the current list.">&#9679; stored list</span>' : '') +
+      '</div></div>';
   };
   // Every new-draft issue, in launch order — an issue stays on the carousel after it
   // finishes instead of dropping off the moment it stops being "still filling".
   const roster = NEW_SEL.slice()
     .sort((a, b) => a.launch < b.launch ? -1 : a.launch > b.launch ? 1 : (a.market < b.market ? -1 : 1));
+
+  // dollars across whichever issues the scope toggle has selected
+  const REV = roster.reduce((a, c) => {
+    const r = revOf(c);
+    return r ? { n: a.n + r.n, before: a.before + r.before, now: a.now + r.now, k: a.k + 1 } : a;
+  }, { n:0, before:0, now:0, k:0 });
+  const revDelta = revUp(REV);
   const carHtml =
     '<div class="carbox">' +
       '<div class="carnav l" id="carL" title="Scroll left"><i>&#10094;</i></div>' +
@@ -1041,9 +1165,10 @@ function renderReturn() {
       '<b>The metric</b> &mdash; each issue is measured by its <i>previous</i> issue of the same market: those ' +
         'advertisers ran a one-time paid ad and were sent the PALI selling this issue. How many of them came into ' +
         'this issue?<br>' +
-      '<b>New draft</b> &mdash; the April slate (SF/BOS/DFW-042026, now final) plus the July 6 &amp; July 13 slates ' +
-        '(15 more markets). The July issues are still in production, so their rate is partial and will rise as they ' +
-        'fill &mdash; they are flagged &ldquo;in production&rdquo; in the carousel. The <b>Issues</b> toggle decides ' +
+      '<b>New draft</b> &mdash; the April pilot (SF/BOS/DFW-042026) and the mixed-rollout issues flagged in this ' +
+        'file, plus <b>every issue launched on or after ' + NEW_FROM + '</b>, by which point the new draft was on ' +
+        'every market. Issues still in production have a partial rate that will rise as they fill &mdash; they are ' +
+        'flagged &ldquo;in production&rdquo; in the carousel. The <b>Issues</b> toggle decides ' +
         'which of them the carousel and the headline average cover: <i>Completed only</i> drops them, <i>All</i> ' +
         'folds them in and the headline becomes a floor, <i>In production</i> shows just those partial issues on ' +
         'their own. Any other issue on/after 2026-04-20 that did not use the new draft is excluded entirely.<br>' +
@@ -1052,6 +1177,18 @@ function renderReturn() {
       '<b>Came in</b> &mdash; a deal &gt; $0 in this issue, in any stage except Skipping Issue, of any agreement ' +
         'type. An advertiser who comes in on a subscription still counts &mdash; that is a genuine return.<br>' +
       '<b>Advertiser key</b> &mdash; Opportunity.Contact__c (AccountId is null on 99.99% of Opportunities).<br>' +
+      '<b>The dollars</b> &mdash; only the advertisers who <i>came back</i> are counted, on both sides: what they ' +
+        'spent in the base issue against what they spent coming into this one. Same people, so the % is uplift per ' +
+        'returning advertiser and not just a bigger crowd &mdash; a return rate can rise while the dollars fall if ' +
+        'the people coming back are buying smaller. Advertisers who never returned are in neither number. ' +
+        'The figures come from the advertiser list in this file; on an issue whose live count has moved past that ' +
+        'stored list the dollars are flagged <span class="rstale">&#9679; stored list</span> &mdash; open the card ' +
+        'after a refresh to pull the current one.<br>' +
+      '<b>The slate rolls forward</b> &mdash; an issue joins ' + MATURE_DAYS + ' days after it launches, so ' +
+        'nothing appears while its cohort has barely started filling (today that means anything launched on or ' +
+        'before <b>' + matureOn() + '</b>). A refresh reads the whole Salesforce issue calendar, so slates ' +
+        'published after this file was built are picked up on their own &mdash; newly added issues are named in ' +
+        'the timestamp beside the refresh button. Without a refresh you see the slate as of the stored pull.<br>' +
       '<b>Baseline is frozen</b> &mdash; the ' + BASELINE.length + ' older issues are stored in this file and ' +
         'never refetched. The ' + _LIVE_SET.length + ' issues on the tracked slate are rebuilt from Salesforce ' +
         'on demand: each is re-measured against its previous same-market issue, and its &ldquo;in production&rdquo; ' +
