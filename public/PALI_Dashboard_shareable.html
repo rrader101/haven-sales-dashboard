@@ -60,6 +60,10 @@
   .seg button { border:0; background:#17181b; padding:5px 12px; font-size:12px; cursor:pointer; color:#8a9099; }
   .seg button.on { background:#f5a623; color:#161514; font-weight:600; }
   .seg button + button { border-left:1px solid #34373d; }
+  /* Salesforce connection strip, pinned above the tabs on every tab */
+  .sfbar { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap;
+           background:#141518; border:1px solid #26282c; border-radius:12px; padding:9px 14px; margin-bottom:14px;
+           font-size:12px; color:#7f858e; }
   .refresh { border:0; background:#22c55e; color:#0a0b0d; font-weight:600; font-size:12px;
              padding:7px 13px; border-radius:7px; cursor:pointer; }
   .refresh:hover { background:#16a34a; } .refresh:disabled { background:#3a3d42; color:#8a9099; cursor:default; }
@@ -100,7 +104,7 @@
   .defs { font-size:12px; color:#7f858e; line-height:1.65; }
   .defs b { color:#c9ccd1; }
 
-  .bl { display:grid; grid-template-columns:1fr 32px 1fr 1fr 1fr; gap:0; align-items:stretch;
+  .bl { display:grid; grid-template-columns:1fr 32px 1fr; gap:0; align-items:stretch;
         background:#141518; border:1px solid #26282c; border-radius:12px; margin-bottom:16px; overflow:hidden; }
   .blitem { padding:16px 18px; border-right:1px solid #26282c; }
   .blitem:last-child { border-right:0; }
@@ -269,6 +273,10 @@ const toC = x => ({ base:x[0], launch:x[1], next:x[2], inflight:!!x[3], era:x[4]
 const BASELINE = SNAP.f.map(toC);
 let LIVE = SNAP.l.map(toC);
 let LIVE_AT = SNAP.g, MODE = 'booked', BUSY = false, ERR = '', WARN = '', DRILL = null, CHART = null;
+// 'all' = every new-draft issue; 'pend' = only the ones still in production;
+// 'done' = final issues only. Drives both the headline average and the carousel.
+let RET_SCOPE = 'done';
+const inScope = c => RET_SCOPE === 'all' || (RET_SCOPE === 'pend' ? c.pending : !c.pending);
 
 const pct = (n,d) => d ? (100*n/d) : 0;
 const fmt = (n,d) => d ? pct(n,d).toFixed(1)+'%' : '—';
@@ -756,14 +764,6 @@ function renderConv() {
         '<button data-cv="issue" class="' + (CONV_VIEW === 'issue' ? 'on' : '') + '">Issue</button>' +
         '<button data-cv="market" class="' + (CONV_VIEW === 'market' ? 'on' : '') + '">Market</button>' +
       '</span></div>' +
-      '<div class="cg" style="margin-left:auto">' +
-        '<span class="muted">' + (ACCESS_TOKEN ? '<span style="color:#22c55e">&#9679; Connected</span>' : '&#9679; Not connected') +
-          ' &middot; deals ' + CONV_AT + '</span>' +
-        '<button class="refresh" id="cvset" style="background:#26282c;color:#c9ccd1">&#9881; Settings</button>' +
-        '<button class="refresh" id="cvrf"' + (CONV_BUSY ? ' disabled' : '') + '>' +
-          (CONV_BUSY ? '<span class="spin"></span>Refreshing&hellip;'
-                     : (ACCESS_TOKEN ? '&#8635; Refresh deals from Salesforce' : '&#128274; Connect Salesforce')) + '</button>' +
-      '</div>' +
     '</div>' +
 
     '<div class="panel"><table class="cvtable">' + head + body + '</table></div>' +
@@ -789,8 +789,6 @@ function renderConv() {
         'Salesforce on demand, so the rate here moves as deals get booked.' +
     '</div>';
 
-  const b1 = document.getElementById('cvrf'); if (b1) b1.onclick = refreshConv;
-  const b2 = document.getElementById('cvset'); if (b2) b2.onclick = () => openSettings();
   document.querySelectorAll('[data-cs]').forEach(b => { b.onclick = () => { CONV_SCOPE = b.dataset.cs; render(); }; });
   document.querySelectorAll('[data-cv]').forEach(b => { b.onclick = () => { CONV_VIEW = b.dataset.cv; render(); }; });
 }
@@ -860,11 +858,39 @@ const TAB_COPY = {
 };
 let TAB = 'pali';
 
+// The Salesforce connection strip lives at the top of the page and serves both
+// tabs — the refresh it fires and the timestamp it shows follow the active tab.
+function sfBarHtml() {
+  const busy  = TAB === 'conv' ? CONV_BUSY : BUSY;
+  const stamp = TAB === 'conv' ? 'deals ' + CONV_AT : 'slate ' + LIVE_AT;
+  const label = TAB === 'conv' ? '&#8635; Refresh deals from Salesforce' : '&#8635; Refresh from Salesforce';
+  return '<div class="sfbar">' +
+    '<span class="muted">' + (ACCESS_TOKEN ? '<span style="color:#22c55e">&#9679; Connected</span>' : '&#9679; Not connected') +
+      ' &middot; ' + stamp + '</span>' +
+    '<button class="refresh" id="sfset" style="background:#26282c;color:#c9ccd1">&#9881; Settings</button>' +
+    (ACCESS_TOKEN ? '<button class="refresh" id="sfdis" style="background:#26282c;color:#8a9099">Disconnect</button>' : '') +
+    '<button class="refresh" id="sfrf"' + (busy ? ' disabled' : '') + '>' +
+      (busy ? '<span class="spin"></span>Refreshing&hellip;'
+            : (ACCESS_TOKEN ? label : '&#128274; Connect Salesforce')) + '</button>' +
+  '</div>';
+}
+
+function wireSfBar() {
+  const bar = document.getElementById('sfbar');
+  if (!bar) return;
+  bar.innerHTML = sfBarHtml();
+  const rf = document.getElementById('sfrf');
+  if (rf) rf.onclick = () => { if (TAB === 'conv') refreshConv(); else refresh(); };
+  const st = document.getElementById('sfset');  if (st) st.onclick = () => openSettings();
+  const ds = document.getElementById('sfdis');  if (ds) ds.onclick = sfDisconnect;
+}
+
 function render() {
   const app = document.getElementById('app');
   if (!document.getElementById('view')) {
-    app.innerHTML = '<div class="tabs" id="tabbar"></div><div id="view"></div>';
+    app.innerHTML = '<div id="sfbar"></div><div class="tabs" id="tabbar"></div><div id="view"></div>';
   }
+  wireSfBar();
   document.getElementById('tabbar').innerHTML = TABS.map(t =>
     '<button class="tab' + (TAB === t[0] ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + '</button>').join('');
   document.getElementById('ttl').innerHTML = TAB_COPY[TAB][0];
@@ -879,6 +905,9 @@ function render() {
 function renderReturn() {
   const all = BASELINE.concat(LIVE);
   const byName = {}; all.forEach(c => byName[c.base] = c);
+
+  // an open drill-down whose card just got filtered out closes with it
+  if (DRILL && byName[DRILL] && byName[DRILL].era === 'new' && !inScope(byName[DRILL])) DRILL = null;
 
   // pair each new-draft issue with the SAME market's issue in the same slot one year earlier
   const pairs = NEW_ISSUES.map(nm => {
@@ -904,8 +933,11 @@ function renderReturn() {
   // NEW = every issue that used the new draft.
   const OLD_ALL = all.filter(c => c.era === 'old')
     .reduce((a,c) => ({ d:a.d + c.den, n:a.n + numOf(c), k:a.k + 1 }), {d:0,n:0,k:0});
-  const NEW_ALL = all.filter(c => c.era === 'new' && !c.pending)
+  // The scope toggle decides which new-draft issues feed the headline and carousel.
+  const NEW_SEL = all.filter(c => c.era === 'new' && inScope(c));
+  const NEW_ALL = NEW_SEL
     .reduce((a,c) => ({ d:a.d + c.den, n:a.n + numOf(c), k:a.k + 1 }), {d:0,n:0,k:0});
+  const NEW_FINAL_K = all.filter(c => c.era === 'new' && !c.pending).length;
   // new-draft issues whose next slate hasn't opened yet — shown but not yet measurable
   const PENDING = all.filter(c => c.era === 'new' && c.pending)
     .sort((a,b) => a.launch < b.launch ? 1 : a.launch > b.launch ? -1 : (a.market < b.market ? -1 : 1));
@@ -918,10 +950,6 @@ function renderReturn() {
   const bpval = erfc(Math.abs(bz)/Math.SQRT2);
   const bse = Math.sqrt(bp2*(1-bp2)/NEW_ALL.d);
   const blo = (bp2 - 1.96*bse)*100, bhi = (bp2 + 1.96*bse)*100;
-
-  const marketSet = new Set(pairs.map(p => p.market));
-  const tri = all.filter(c => c.era === 'old' && marketSet.has(c.market));
-  const triR = pct(tri.reduce((a,c)=>a+numOf(c),0), tri.reduce((a,c)=>a+c.den,0));
 
   const baselineStrip = () =>
     '<div class="bl">' +
@@ -936,39 +964,19 @@ function renderReturn() {
         '<div class="bllbl">New draft</div>' +
         '<div class="blval">' + bNew.toFixed(1) + '%</div>' +
         '<div class="blsub">' + NEW_ALL.n + ' of ' + NEW_ALL.d + ' advertisers &middot; ' +
-          NEW_ALL.k + ' of ' + (NEW_ALL.k + PENDING.length) + ' issues final' +
-          (PENDING.length ? ' &middot; ' + PENDING.length + ' still in production (' +
-            PENDING.reduce((a,c) => a + c.den, 0) + ' advertisers, filling now)' : '') + '</div>' +
-      '</div>' +
-      '<div class="blitem delta">' +
-        '<div class="bllbl">vs baseline</div>' +
-        '<div class="blval ' + (bDelta>=0?'up':'down') + '">' + (bDelta>=0?'+':'') + bDelta.toFixed(1) + 'pp</div>' +
-        '<div class="blsub">95% CI ' + blo.toFixed(1) + '&ndash;' + bhi.toFixed(1) + '% &middot; p = ' + bpval.toFixed(2) + '</div>' +
-      '</div>' +
-      '<div class="blitem ctx">' +
-        '<div class="bllbl">SF / BOS / DFW only</div>' +
-        '<div class="blval ctxv">' + triR.toFixed(1) + '%</div>' +
-        '<div class="blsub">old-draft average in just these 3 markets</div>' +
+          (RET_SCOPE === 'all'
+            ? 'all ' + NEW_ALL.k + ' issues' +
+              (PENDING.length ? ' &middot; includes ' + PENDING.length + ' still in production (' +
+                PENDING.reduce((a,c) => a + c.den, 0) + ' advertisers), so this rate is a floor' : '')
+          : RET_SCOPE === 'pend'
+            ? NEW_ALL.k + ' of ' + (NEW_FINAL_K + PENDING.length) + ' issues still in production &middot; ' +
+              'partial by definition &mdash; these rates keep rising as the issues fill'
+            : NEW_FINAL_K + ' of ' + (NEW_FINAL_K + PENDING.length) + ' issues final' +
+              (PENDING.length ? ' &middot; ' + PENDING.length + ' still in production (' +
+                PENDING.reduce((a,c) => a + c.den, 0) + ' advertisers, filling now) excluded' : '')) + '</div>' +
       '</div>' +
     '</div>';
 
-  const card = (name, sub, a25, a26, keys) => {
-    const r25 = pct(a25.n,a25.d), r26 = pct(a26.n,a26.d), dd = r26 - r25;
-    const ck = !!keys;
-    const open = ck && DRILL && keys.indexOf(DRILL) >= 0;
-    return '<div class="mk' + (name === 'All three' ? ' total' : '') + (ck ? ' clickable' : '') +
-             (open ? ' open' : '') + '"' + (ck ? ' data-drill="' + keys.join(',') + '"' : '') + '>' +
-      '<div class="name">' + name + (sub ? '<span>' + sub + '</span>' : '') + '</div>' +
-      '<div class="row"><span class="yr">2025</span><div class="track"><div class="fill f25" style="width:' +
-        Math.min(r25*5,100).toFixed(0) + '%"></div></div><span class="v">' + r25.toFixed(1) + '%</span></div>' +
-      '<div class="row"><span class="yr">2026</span><div class="track"><div class="fill f26" style="width:' +
-        Math.min(r26*5,100).toFixed(0) + '%"></div></div><span class="v">' + r26.toFixed(1) + '%</span></div>' +
-      '<div class="dl"><span class="muted"><b>' + a26.n + '</b> of ' + a26.d + ' vs <b>' + a25.n + '</b> of ' + a25.d + '</span>' +
-        '<span class="' + (dd>=0?'up':'down') + '">' + (dd>=0?'+':'') + dd.toFixed(1) + 'pp</span></div>' +
-      (ck ? '<div class="drillhint">click to see the advertisers &rarr;</div>'
-          : '<div class="axisnote">bars scaled to a 20% axis</div>') +
-      '</div>';
-  };
 
   // ---- auto-scrolling carousel of every new-draft issue (measured + pending) ----
   const cCard = c => {
@@ -986,7 +994,7 @@ function renderReturn() {
   };
   // Every new-draft issue, in launch order — an issue stays on the carousel after it
   // finishes instead of dropping off the moment it stops being "still filling".
-  const roster = all.filter(c => c.era === 'new')
+  const roster = NEW_SEL.slice()
     .sort((a, b) => a.launch < b.launch ? -1 : a.launch > b.launch ? 1 : (a.market < b.market ? -1 : 1));
   const carHtml =
     '<div class="carbox">' +
@@ -1002,42 +1010,32 @@ function renderReturn() {
     baselineStrip() +
 
     '<div class="hero">' +
-      '<h2>The April pilot issues &mdash; first to use the new draft &mdash; vs the same market a year earlier</h2>' +
-      '<div class="cap">Each market&rsquo;s April 2026 pilot issue (new draft) against its April 2025 issue (old draft). ' +
-        'Same market, same slot in the calendar &mdash; market mix and seasonality held constant.</div>' +
-      '<div class="mkts">' +
-        pairs.map(p => card(p.market, p.prior.base + ' → ' + p.cur.base,
-          {d:p.prior.den, n:numOf(p.prior)}, {d:p.cur.den, n:numOf(p.cur)},
-          [p.prior.base, p.cur.base])).join('') +
-        card('All three', 'combined', P25, P26) +
-      '</div>' +
-      '<div id="drill"></div>' +
-      '<div class="carhead">Every issue now using the new draft &mdash; <b>' + roster.length + '</b> total ' +
-        '<span class="muted">&middot; ' + PENDING.length + ' still in production (rate rising as they fill) ' +
+      '<div class="carhead" style="margin-top:0">' +
+        (RET_SCOPE === 'pend'
+          ? 'New-draft issues still in production &mdash; <b>' + roster.length + '</b> ' +
+            '<span class="muted">&middot; ' + NEW_FINAL_K + ' final issue' + (NEW_FINAL_K === 1 ? '' : 's') + ' hidden ' +
+            '&middot; rates below are partial and still rising '
+          : 'Every issue now using the new draft &mdash; <b>' + roster.length + '</b>' +
+            (RET_SCOPE === 'all' ? ' total ' : ' final ') +
+            '<span class="muted">&middot; ' + PENDING.length + ' still in production' +
+            (RET_SCOPE === 'all' ? ' (rate rising as they fill) ' : ' hidden ')) +
         '&middot; hover either edge to scroll, click a card for its advertisers</span></div>' +
       carHtml +
       '<div id="drillc"></div>' +
     '</div>' +
 
     '<div class="controls">' +
+      '<div class="cg"><b>Issues</b><span class="seg">' +
+        '<button data-rs="all" class="' + (RET_SCOPE === 'all' ? 'on' : '') + '">All</button>' +
+        '<button data-rs="pend" class="' + (RET_SCOPE === 'pend' ? 'on' : '') + '">In production</button>' +
+        '<button data-rs="done" class="' + (RET_SCOPE === 'done' ? 'on' : '') + '">Completed only</button>' +
+      '</span></div>' +
       '<div class="cg"><b>Counts as a return</b>' +
         '<span class="seg">' +
           '<button data-m="booked" class="' + (MODE==='booked'?'on':'') + '">Booked (incl. dropped)</button>' +
           '<button data-m="ran" class="' + (MODE==='ran'?'on':'') + '">Actually ran</button>' +
         '</span></div>' +
-      '<div class="cg" style="margin-left:auto">' +
-        '<span class="muted">' + (ACCESS_TOKEN ? '<span style="color:#22c55e">&#9679; Connected</span>' : '&#9679; Not connected') +
-          ' &middot; slate ' + LIVE_AT + '</span>' +
-        '<button class="refresh" id="rfset" style="background:#26282c;color:#c9ccd1">&#9881; Settings</button>' +
-        (ACCESS_TOKEN ? '<button class="refresh" id="rfd" style="background:#26282c;color:#8a9099">Disconnect</button>' : '') +
-        '<button class="refresh" id="rf"' + (BUSY?' disabled':'') + '>' +
-          (BUSY ? '<span class="spin"></span>Refreshing&hellip;' : (ACCESS_TOKEN ? '&#8635; Refresh from Salesforce' : '&#128274; Connect Salesforce')) + '</button>' +
-      '</div>' +
     '</div>' +
-
-    '<div class="panel"><h2>Every issue in these three markets &mdash; 2025 vs 2026</h2>' +
-      '<div class="chartbox"><canvas id="ch"></canvas></div></div>' +
-
 
     '<div class="panel defs">' +
       '<b>The metric</b> &mdash; each issue is measured by its <i>previous</i> issue of the same market: those ' +
@@ -1045,8 +1043,10 @@ function renderReturn() {
         'this issue?<br>' +
       '<b>New draft</b> &mdash; the April slate (SF/BOS/DFW-042026, now final) plus the July 6 &amp; July 13 slates ' +
         '(15 more markets). The July issues are still in production, so their rate is partial and will rise as they ' +
-        'fill &mdash; they are flagged &ldquo;in production&rdquo; in the carousel and excluded from the headline ' +
-        'average. Any other issue on/after 2026-04-20 that did not use the new draft is excluded entirely.<br>' +
+        'fill &mdash; they are flagged &ldquo;in production&rdquo; in the carousel. The <b>Issues</b> toggle decides ' +
+        'which of them the carousel and the headline average cover: <i>Completed only</i> drops them, <i>All</i> ' +
+        'folds them in and the headline becomes a floor, <i>In production</i> shows just those partial issues on ' +
+        'their own. Any other issue on/after 2026-04-20 that did not use the new draft is excluded entirely.<br>' +
       '<b>One-time deal</b> &mdash; the base placement (in the previous issue) has Agreement Type (From Agreement) = ' +
         '&ldquo;One-Time Deal&rdquo;. Subscription, Contract and BOGO base placements are excluded.<br>' +
       '<b>Came in</b> &mdash; a deal &gt; $0 in this issue, in any stage except Skipping Issue, of any agreement ' +
@@ -1060,18 +1060,8 @@ function renderReturn() {
         'named above the table, so a row never silently drops out.' +
     '</div>';
 
-  const rf = document.getElementById('rf');
-  if (rf) rf.onclick = refresh;
-  const rfset = document.getElementById('rfset'); if (rfset) rfset.onclick = () => openSettings();
-  const rfd = document.getElementById('rfd'); if (rfd) rfd.onclick = sfDisconnect;
   document.querySelectorAll('[data-m]').forEach(b => { b.onclick = () => { MODE = b.dataset.m; render(); }; });
-  document.querySelectorAll('[data-drill]').forEach(el => {
-    el.onclick = () => {
-      const keys = el.dataset.drill.split(',');
-      if (DRILL && keys.indexOf(DRILL) >= 0) { DRILL = null; render(); }
-      else loadDrill(keys[1]);   // open on the 2026 issue
-    };
-  });
+  document.querySelectorAll('[data-rs]').forEach(b => { b.onclick = () => { RET_SCOPE = b.dataset.rs; render(); }; });
   document.querySelectorAll('[data-cd]').forEach(el => {
     el.onclick = () => {
       const k = el.dataset.cd;
@@ -1081,8 +1071,6 @@ function renderReturn() {
 
   wireCarousel();
   drawDrill(pairs);
-  drawChart(all, pairs);
-  drawTri(all, marketSet);
 }
 
 // Hover the left or right edge to scroll the carousel; click an edge to jump a
@@ -1121,12 +1109,7 @@ function wireCarousel() {
 }
 
 function drawDrill(pairs) {
-  const inPair = pairs.some(p => p.cur.base === DRILL || p.prior.base === DRILL);
-  const targetId = inPair ? 'drill' : 'drillc';   // hero cards -> #drill, carousel -> #drillc
-  ['drill','drillc'].forEach(id => {
-    if (id !== targetId) { const e = document.getElementById(id); if (e) e.innerHTML = ''; }
-  });
-  const box = document.getElementById(targetId);
+  const box = document.getElementById('drillc');   // every drill-down now opens under the carousel
   if (!box) return;
   if (!DRILL) { box.innerHTML = ''; return; }
 
