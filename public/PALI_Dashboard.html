@@ -291,10 +291,6 @@ const _iso = d => new Date(d).toISOString().slice(0, 10);
 // refresh, which is what makes the slate roll forward on its own
 const matureOn = () => _iso(Date.now() - MATURE_DAYS * 864e5);
 const isNewDraft = (bakedFlag, launch) => !!bakedFlag || launch >= NEW_FROM;
-// how many old-draft slates the baseline averages over
-const BASE_SLATES = 3;
-const _MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const fmtDay = s => _MON[+s.slice(5,7) - 1] + ' ' + (+s.slice(8,10));
 // ---------------------------------------------------------------------------
 
 const toC = x => ({ base:x[0], launch:x[1], next:x[2], inflight:!!x[3],
@@ -1011,23 +1007,9 @@ function renderReturn() {
   const se = Math.sqrt(p2*(1-p2)/P26.d);
   const lo = (p2-1.96*se)*100, hi = (p2+1.96*se)*100;
 
-  // BASELINE = the three most recent slates that ran entirely on the old draft.
-  // A slate is one launch date across every market. It only qualifies once at
-  // least one of its issues has gone to print, so a slate still being sold can
-  // never anchor the comparison, and any slate containing even one new-draft
-  // issue is out — a mixed week is not an old-draft benchmark.
-  const SLATES = {};
-  all.forEach(c => {
-    const g = SLATES[c.launch] || (SLATES[c.launch] = { rows: [], anyNew: false, anyPrinted: false });
-    g.rows.push(c);
-    if (c.era === 'new') g.anyNew = true;
-    if (!c.inflight) g.anyPrinted = true;
-  });
-  const OLD_SLATES = Object.keys(SLATES)
-    .filter(d => !SLATES[d].anyNew && SLATES[d].anyPrinted)
-    .sort().slice(-BASE_SLATES);
-  const OLD_ROWS = OLD_SLATES.reduce((a, d) => a.concat(SLATES[d].rows), []);
-  const OLD_ALL = OLD_ROWS
+  // BASELINE = every old-draft issue in the last 12 months, all markets.
+  // NEW = every issue that used the new draft.
+  const OLD_ALL = all.filter(c => c.era === 'old')
     .reduce((a,c) => ({ d:a.d + c.den, n:a.n + numOf(c), k:a.k + 1 }), {d:0,n:0,k:0});
   // The slate is every new-draft issue old enough to have filled. Issues younger
   // than that are held back until they mature, so the list grows on its own.
@@ -1058,13 +1040,10 @@ function renderReturn() {
   const baselineStrip = () =>
     '<div class="bl">' +
       '<div class="blitem base">' +
-        '<div class="bllbl">Baseline &mdash; last ' + OLD_SLATES.length + ' old-draft slate' +
-          (OLD_SLATES.length === 1 ? '' : 's') + '</div>' +
+        '<div class="bllbl">Last year&rsquo;s baseline &mdash; all old drafts</div>' +
         '<div class="blval">' + bOld.toFixed(1) + '%</div>' +
         '<div class="blsub">' + OLD_ALL.n.toLocaleString() + ' of ' + OLD_ALL.d.toLocaleString() +
-          ' advertisers &middot; ' + OLD_ALL.k + ' issues, all markets &middot; ' +
-          (OLD_SLATES.length ? OLD_SLATES.map(fmtDay).join(', ') + ' slates' : 'no completed old-draft slate found') +
-          '</div>' +
+          ' advertisers &middot; ' + OLD_ALL.k + ' issues, all markets, last 12 months</div>' +
       '</div>' +
       '<div class="blarrow">&rarr;</div>' +
       '<div class="blitem now">' +
@@ -1205,17 +1184,12 @@ function renderReturn() {
         'The figures come from the advertiser list in this file; on an issue whose live count has moved past that ' +
         'stored list the dollars are flagged <span class="rstale">&#9679; stored list</span> &mdash; open the card ' +
         'after a refresh to pull the current one.<br>' +
-      '<b>The baseline</b> &mdash; the last ' + BASE_SLATES + ' slates that ran <i>entirely</i> on the old draft, ' +
-        'every market in them, measured exactly the same way. A slate is one launch date; it qualifies only once ' +
-        'at least one of its issues has gone to print, so a slate still being sold can never anchor the ' +
-        'comparison, and a slate containing even one new-draft issue is out. Today that is the ' +
-        (OLD_SLATES.length ? OLD_SLATES.map(fmtDay).join(', ') : '&mdash;') + ' slates.<br>' +
       '<b>The slate rolls forward</b> &mdash; an issue joins ' + MATURE_DAYS + ' days after it launches, so ' +
         'nothing appears while its cohort has barely started filling (today that means anything launched on or ' +
         'before <b>' + matureOn() + '</b>). A refresh reads the whole Salesforce issue calendar, so slates ' +
         'published after this file was built are picked up on their own &mdash; newly added issues are named in ' +
         'the timestamp beside the refresh button. Without a refresh you see the slate as of the stored pull.<br>' +
-      '<b>Stored vs live</b> &mdash; the ' + BASELINE.length + ' older issues are stored in this file and ' +
+      '<b>Baseline is frozen</b> &mdash; the ' + BASELINE.length + ' older issues are stored in this file and ' +
         'never refetched. The ' + _LIVE_SET.length + ' issues on the tracked slate are rebuilt from Salesforce ' +
         'on demand: each is re-measured against its previous same-market issue, and its &ldquo;in production&rdquo; ' +
         'flag follows the issue stage in Salesforce, so a rate stops being provisional once the issue prints. ' +
@@ -1490,7 +1464,7 @@ function drawTri(all, marketSet) {
   });
 }
 
-const PW_HASH = '11f2ffd7aaedc567831a92175d8f1f591e8faa0baf1d6e33e9aba20a532424e0';
+const PW_HASH = '1503a9e9c576367d623ad6b9d9c7c778265bedd923cc13fb0f5bd1c167d1d584';
 async function sha256hex(s) {
   const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
   return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('');
