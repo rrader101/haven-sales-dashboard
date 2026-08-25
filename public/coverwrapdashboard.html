@@ -1,0 +1,1353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cover Wrap Overrun — No-Listing Email Campaign</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/gridjs.umd.js" integrity="sha384-/XXDzxe4FsGiAe50i/u9pY/Vy/uX654MHB1xoc1BJNnH1WXHhqHga9g3q5tF4gj7" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/theme/mermaid.min.css" integrity="sha384-jZvDSsmGB9oGGT/4l9bHXGoAv1OxvG/cFmSo0dZaSqmBgvQTKDBFAMftlXTmMbNW" crossorigin="anonymous">
+<style>
+:root{color-scheme:dark;
+ --bg:#0a0b0d;--card:#141518;--card2:#17181b;--card3:#1b1d21;
+ --ink:#e7e9ea;--ink2:#d4d7db;--ink3:#c9ccd1;--muted:#7f858e;--muted2:#6b7178;--faint:#4a4e55;
+ --line:#26282c;--line2:#34373d;--hair:#1f2124;
+ /* status — same semantics as the drop-rate dashboard */
+ --won:#22c55e;--drop:#f87171;--amber:#f5a623;
+ /* categorical series, validated for this surface (dark, #141518) */
+ --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;
+ --s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+.wrap{max-width:1500px;margin:0 auto;padding:22px 22px 60px;}
+h1{font-size:22px;margin:0 0 4px;color:#fff;font-weight:700;letter-spacing:-.01em;}
+.sub{color:var(--muted);font-size:13px;margin-bottom:16px;}
+.sub b{color:var(--ink3);font-weight:600;}
+
+/* ---- data connection strip ---- */
+.sfbar{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 14px;margin-bottom:14px;
+  font-size:12px;color:var(--muted);}
+.sfbar .muted{color:#6b7178;margin-right:auto;}
+.refresh{border:0;background:var(--won);color:#0a0b0d;font-weight:600;font-size:12px;
+  padding:7px 13px;border-radius:7px;cursor:pointer;font-family:inherit;}
+.refresh:hover:not(:disabled){background:#16a34a;}
+.refresh:disabled{background:#3a3d42;color:#8a9099;cursor:default;}
+.refresh.ghost{background:#26282c;color:#c9ccd1;}
+.refresh.ghost:hover{background:#31343a;}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.18);border-top-color:var(--won);
+  border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:6px;}
+@keyframes sp{to{transform:rotate(360deg);}}
+.err{display:none;padding:11px 14px;background:rgba(220,38,38,.1);border:1px solid #5a2222;border-radius:8px;
+  color:#f87171;font-size:12px;margin-bottom:16px;line-height:1.6;}
+.err.on{display:block;}
+.err b{color:#fca5a5;}
+.err code{background:#241a1a;padding:1px 5px;border-radius:4px;font-size:11.5px;color:#f0c9c9;}
+.ok{display:none;padding:11px 14px;background:rgba(34,197,94,.08);border:1px solid #1e4a2e;border-radius:8px;
+  color:#86efac;font-size:12px;margin-bottom:16px;line-height:1.6;}
+.ok.on{display:block;}
+
+/* ---- values that moved on the last refresh ---- */
+.chg{background:rgba(34,197,94,.10)!important;box-shadow:inset 0 0 0 1px rgba(34,197,94,.20);border-radius:5px;}
+.chgflash{animation:chgin 2.8s ease-out 1;}
+@keyframes chgin{0%{background:rgba(34,197,94,.40)!important;}100%{background:rgba(34,197,94,.10)!important;}}
+.dlt{font-size:11px;margin-left:6px;letter-spacing:0;font-weight:600;vertical-align:middle;}
+.dlt.up{color:var(--won);}.dlt.dn{color:#f5c168;}
+
+
+/* ---- settings modal ---- */
+#settings{position:fixed;inset:0;z-index:110;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:20px;}
+.setbox{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px;width:560px;max-width:94vw;
+  max-height:88vh;overflow-y:auto;}
+.settitle{font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;}
+.setsub{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px;}
+#settings label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+  font-weight:600;margin:12px 0 5px;}
+#settings input[type=text]{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line2);background:#0f1012;
+  color:var(--ink);font-size:12.5px;font-family:inherit;}
+#setMsg{color:#f5c168;font-size:12px;min-height:16px;margin-top:10px;line-height:1.6;}
+.setrow{display:flex;gap:10px;margin-top:14px;}
+.setrow button{flex:1;padding:10px;border:0;border-radius:8px;background:var(--won);color:#0a0b0d;
+  font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;}
+.setrow button.ghost{background:#26282c;color:var(--ink3);}
+.setnote{font-size:11px;color:var(--muted2);line-height:1.65;margin-top:16px;border-top:1px solid var(--line);padding-top:12px;}
+.setnote code{background:#0f1012;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:#9ca3af;word-break:break-all;}
+.setnote b{color:var(--ink3);}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));background:var(--card);
+  border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:16px;}
+.kpi{padding:16px 18px;border-right:1px solid var(--line);}
+.kpi:last-child{border-right:0;}
+.kpi .l{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;}
+.kpi .v{font-size:30px;font-weight:700;margin:6px 0 3px;letter-spacing:-.02em;color:var(--ink);}
+.kpi .ksub{font-size:11px;color:var(--muted2);line-height:1.4;}
+.kpi.big{background:var(--card3);}
+.kpi.big .v{color:var(--won);}
+.kpi.hero .v{color:#7dd3fc;}
+
+.kpiscope{font-size:12px;color:var(--muted);line-height:1.65;margin:0 0 16px;padding:14px 16px;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;}
+.kpiscope b{color:var(--ink3);}
+
+.tabs{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--line);}
+.tab{padding:10px 16px;border:none;background:none;color:var(--muted);font-size:13.5px;cursor:pointer;
+  border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .12s;font-family:inherit;}
+.tab:hover{color:var(--ink3);}
+.tab.on{color:var(--won);border-bottom-color:var(--won);font-weight:700;}
+.panel{display:none;}.panel.on{display:block;}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px;}
+.card h2{font-size:14px;margin:0 0 3px;font-weight:600;color:var(--ink);}
+.card .note{color:var(--muted);font-size:12px;margin:0 0 14px;line-height:1.55;}
+.card .note b{color:var(--ink3);}
+.chartbox{position:relative;height:300px;}
+.chartbox.sm{height:230px;}.chartbox.tall{height:460px;}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:900px){.two{grid-template-columns:1fr;}}
+
+.insight{background:rgba(57,135,229,.08);border:1px solid #24405f;border-left:4px solid var(--s1);
+  border-radius:8px;padding:13px 15px;font-size:13px;line-height:1.6;color:#b9c6d8;margin-top:14px;}
+.insight b{color:#93c5fd;}
+.foot{color:var(--muted2);font-size:11.5px;line-height:1.6;margin-top:8px;}
+
+.controls{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:var(--card2);
+  border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:14px;}
+.cgrp{display:flex;gap:7px;align-items:center;}
+label{font-size:11px;color:var(--ink3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
+select{border:1px solid var(--line2);border-radius:7px;padding:6px 10px;font-size:12.5px;
+  background:var(--card3);color:var(--ink2);cursor:pointer;font-family:inherit;}
+select:focus{outline:none;border-color:var(--won);}
+
+/* ---- drop zone ---- */
+#drop{border:2px dashed var(--line2);border-radius:12px;padding:34px 20px;text-align:center;color:var(--muted);
+  font-size:13px;line-height:1.7;cursor:pointer;transition:border-color .15s,background .15s;}
+#drop:hover,#drop.hot{border-color:var(--won);background:rgba(34,197,94,.05);color:var(--ink3);}
+#drop b{color:var(--ink2);}
+.schema{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+.schema th{text-align:left;padding:7px 9px;background:var(--card3);color:var(--muted);font-size:10.5px;
+  text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--line);}
+.schema td{padding:7px 9px;border-bottom:1px solid var(--hair);color:var(--ink2);vertical-align:top;}
+.schema td code{background:#0f1012;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:#9ca3af;font-size:11.5px;}
+.schema td.req{color:var(--won);font-weight:600;font-size:11px;text-transform:uppercase;}
+.schema td.opt{color:var(--muted2);font-weight:600;font-size:11px;text-transform:uppercase;}
+
+/* ---- Grid.js dark theme ---- */
+.gridjs-container{color:var(--ink2);padding:0;}
+.gridjs-wrapper{overflow-x:auto;box-shadow:none;border:1px solid var(--line);border-radius:8px;background:var(--card);}
+table.gridjs-table{min-width:840px;width:100%!important;background:var(--card);}
+th.gridjs-th{vertical-align:bottom;background:var(--card3);border-color:var(--line);color:var(--muted);
+  text-transform:uppercase;letter-spacing:.04em;font-weight:700;}
+th.gridjs-th .gridjs-th-content{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25;font-size:10.5px;}
+th.gridjs-th-sort:hover,th.gridjs-th-sort:focus{background:#22242a;}
+td.gridjs-td,th.gridjs-th{padding:8px 10px;}
+td.gridjs-td{background:transparent;border-color:var(--hair);color:#e3e6e9;font-size:12.5px;font-variant-numeric:tabular-nums;}
+.gridjs-tr:hover td.gridjs-td{background:var(--card3);}
+.gridjs-head{background:transparent;padding:0 0 10px;}
+.gridjs-search input.gridjs-input{background:var(--card3);border:1px solid var(--line2);color:var(--ink2);border-radius:7px;}
+.gridjs-search input.gridjs-input::placeholder{color:var(--faint);}
+.gridjs-search input.gridjs-input:focus{box-shadow:none;border-color:var(--won);}
+.gridjs-footer{background:var(--card);border-color:var(--line);box-shadow:none;color:var(--muted);}
+.gridjs-summary{color:var(--muted);}
+.gridjs-pagination .gridjs-pages button{background:var(--card2);border:1px solid var(--line2);color:var(--muted);}
+.gridjs-pagination .gridjs-pages button:hover:not(:disabled){background:var(--card3);color:var(--ink2);}
+.gridjs-pagination .gridjs-pages button:disabled{background:var(--card);color:var(--faint);}
+.gridjs-pagination .gridjs-pages button.gridjs-currentPage{background:var(--won);color:var(--bg);font-weight:700;border-color:var(--won);}
+.gridjs-sort{filter:invert(.68);}
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+.pill.won{background:rgba(34,197,94,.14);color:#6ee7a0;}
+.pill.open{background:rgba(57,135,229,.14);color:#8ab8ee;}
+.pill.drop{background:rgba(248,113,113,.13);color:#f0a3a3;}
+</style>
+</head>
+<body>
+
+
+<div id="settings">
+  <div class="setbox">
+    <div class="settitle">Data source</div>
+    <div class="setsub">Paste the published-CSV link for each file. The dashboard fetches these on
+      <b>Refresh</b>, so the newest export in your Drive folder flows straight through.</div>
+
+    <label>Deals CSV URL &mdash; Cover Wrap Overrun opportunities</label>
+    <input id="setDeals" type="text" placeholder="https://docs.google.com/spreadsheets/d/.../pub?gid=0&amp;single=true&amp;output=csv" spellcheck="false">
+
+    <label>Sends CSV URL &mdash; weekly no-listing email drops</label>
+    <input id="setSends" type="text" placeholder="https://docs.google.com/spreadsheets/d/.../pub?gid=1&amp;single=true&amp;output=csv" spellcheck="false">
+
+    <div id="setMsg"></div>
+    <div class="setrow"><button id="setSave">Save &amp; refresh</button><button id="setCancel" class="ghost">Cancel</button></div>
+
+    <div class="setnote">
+      <b>Getting a CSV URL from Drive.</b> Open the sheet &rarr; <b>File &rarr; Share &rarr; Publish to web</b> &rarr;
+      pick the tab &rarr; <b>Comma-separated values (.csv)</b> &rarr; Publish. Paste the link above.
+      A single Sheet with two tabs works well: one tab for deals, one for sends.<br><br>
+      <b>Keeping it current.</b> Point a Zap at the Drive folder &mdash; trigger <i>New File in Folder</i>,
+      action <i>Google Sheets &rarr; Create Spreadsheet Row(s)</i> or <i>Replace File</i> against that same
+      Sheet. The published URL never changes, so this page always reads the latest drop.<br><br>
+      <b>No link yet?</b> Close this and use the <b>Data</b> tab to drag a CSV straight in &mdash; nothing leaves your browser.
+      Links are stored only in this browser&rsquo;s local storage.
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="app" style="display:none">
+  <h1>Cover Wrap Overrun &mdash; No-Listing Email Campaign</h1>
+  <div class="sub">Agents with <b>no active listing</b> get a weekly email pitching a cover wrap of themselves or their
+    brokerage. This tracks which recipients went on to run a <b>Cover Wrap Overrun</b> deal, and what each email was worth.
+    Sends come from the YAMM slate sheets in Drive; deals from Salesforce, joined on contact email.</div>
+
+  <div id="sfbar"></div>
+  <div class="err" id="errBox"></div>
+  <div class="ok" id="okBox"></div>
+
+  <div class="controls" id="globalControls">
+    <div class="cgrp"><label for="cPeriod">Period</label>
+      <select id="cPeriod">
+        <option value="0">All time</option>
+        <option value="90">Last 90 days</option>
+        <option value="180">Last 6 months</option>
+        <option value="365">Last 12 months</option>
+        <option value="ytd">Year to date</option>
+      </select></div>
+    <div class="cgrp"><label for="cBasis">Revenue</label>
+      <select id="cBasis">
+        <option value="cwo">Cover Wrap Overrun only</option>
+        <option value="total">Full deal amount</option>
+      </select></div>
+    <div class="cgrp"><label for="cStage">Stage</label>
+      <select id="cStage">
+        <option value="won">Approved only</option>
+        <option value="wonopen">Approved + open</option>
+        <option value="all">All stages</option>
+      </select></div>
+    <div class="cgrp"><label for="cWin">Attribution</label>
+      <select id="cWin">
+        <option value="30">30 days</option>
+        <option value="60">60 days</option>
+        <option value="90" selected>90 days</option>
+        <option value="180">180 days</option>
+        <option value="0">Any time after send</option>
+      </select></div>
+    <div class="cgrp"><label for="cAxis">Time axis</label>
+      <select id="cAxis">
+        <option value="wave">Send wave (weekly)</option>
+        <option value="send">Month email was sent</option>
+        <option value="issue">Issue launch month</option>
+      </select></div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+  <div class="kpiscope" id="kpiScope"></div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-p="overview">Overview</button>
+    <button class="tab" data-p="slate">By Slate</button>
+    <button class="tab" data-p="issue">By Issue</button>
+    <button class="tab" data-p="month">By Send Month</button>
+    <button class="tab" data-p="deals">Deals</button>
+    <button class="tab" data-p="data">Data</button>
+  </div>
+
+  <div class="panel on" data-p="overview">
+    <div class="card">
+      <h2>Revenue booked over time</h2>
+      <p class="note" id="ovRevNote"></p>
+      <div class="chartbox"><canvas id="ovRevChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Revenue per email sent</h2>
+      <p class="note">Booked revenue in a month &divide; emails sent that month. This is the yield number &mdash;
+        what one email into the no-listing list is worth. Shown on the wave and send-month axes, since emails
+        are sent on a weekly cadence, not per issue.</p>
+      <div class="chartbox"><canvas id="ovPerChart"></canvas></div>
+      <div class="insight" id="ovInsight"></div>
+    </div>
+    <div class="two">
+      <div class="card">
+        <h2>Where deals land</h2>
+        <p class="note">Every attributed deal by stage. Approved = ran in the issue.</p>
+        <div class="chartbox sm"><canvas id="ovStageChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>How long conversion takes</h2>
+        <p class="note">Days from the email send to the opportunity being created.</p>
+        <div class="chartbox sm"><canvas id="ovLagChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" data-p="slate">
+    <div class="card">
+      <h2>Revenue by slate</h2>
+      <p class="note">Total booked revenue attributed to each slate, and what each slate&rsquo;s emails are worth.
+        A slate with modest total revenue can still be the best list if its <b>$ per email</b> is high &mdash;
+        compare the two charts.</p>
+      <div class="two">
+        <div><div class="chartbox tall"><canvas id="slRevChart"></canvas></div></div>
+        <div><div class="chartbox tall"><canvas id="slPerChart"></canvas></div></div>
+      </div>
+      <div id="slGrid" style="margin-top:18px"></div>
+      <div class="insight" id="slInsight"></div>
+    </div>
+  </div>
+
+  <div class="panel" data-p="issue">
+    <div class="card">
+      <h2>Revenue by issue</h2>
+      <p class="note">Which printed issues absorbed the cover wrap overruns these emails generated.
+        Filter to one market, or leave on all. <b>$ per email is not shown here</b> &mdash; emails go out weekly to a
+        list, not per issue, so there is no honest denominator at the issue level.</p>
+      <div class="controls">
+        <div class="cgrp"><label for="isMarket">Market</label><select id="isMarket"></select></div>
+        <div class="cgrp"><label for="isTop">Show</label>
+          <select id="isTop">
+            <option value="20">Top 20 issues</option>
+            <option value="40">Top 40 issues</option>
+            <option value="0">All issues</option>
+          </select></div>
+      </div>
+      <div class="chartbox tall"><canvas id="isChart"></canvas></div>
+      <div id="isGrid" style="margin-top:18px"></div>
+      <div class="insight" id="isInsight"></div>
+    </div>
+  </div>
+
+  <div class="panel" data-p="month">
+    <div class="card">
+      <h2>Send-month cohorts</h2>
+      <p class="note">Each month&rsquo;s email volume and the revenue it went on to produce, split by slate.
+        Recent months are still maturing &mdash; a deal can be created up to the attribution window after the send,
+        so the right-hand bars will keep growing.</p>
+      <div class="chartbox"><canvas id="moRevChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Volume vs. yield</h2>
+      <p class="note">Emails sent per month, and the revenue each one returned. Two separate scales, so they are two
+        separate charts &mdash; read them together, not against a shared axis.</p>
+      <div class="two">
+        <div><div class="chartbox sm"><canvas id="moVolChart"></canvas></div></div>
+        <div><div class="chartbox sm"><canvas id="moPerChart"></canvas></div></div>
+      </div>
+      <div id="moGrid" style="margin-top:18px"></div>
+      <div class="insight" id="moInsight"></div>
+    </div>
+  </div>
+
+  <div class="panel" data-p="deals">
+    <div class="card">
+      <h2>Attributed deals</h2>
+      <p class="note">Every deal matched back to an email send under the current filters. Search by name, company,
+        slate, issue or market. Sortable on any column.</p>
+      <div id="dlGrid"></div>
+    </div>
+  </div>
+
+  <div class="panel" data-p="data">
+    <div class="card">
+      <h2>Load data</h2>
+      <p class="note">Drag in a CSV, or set up published-CSV links under <b>Settings</b> so the dashboard pulls the
+        latest export from Drive on every refresh. Files are parsed in your browser &mdash; nothing is uploaded.</p>
+      <div id="drop">
+        <b>Drop CSV files here</b> &mdash; or click to browse<br>
+        Deals export, sends export, or both at once. Each file&rsquo;s role is detected from its column headers.
+      </div>
+      <input type="file" id="fileIn" accept=".csv,text/csv" multiple style="display:none">
+      <div id="loadStatus" class="foot" style="margin-top:14px"></div>
+    </div>
+
+    <div class="card">
+      <h2>Deals file &mdash; Cover Wrap Overrun opportunities</h2>
+      <p class="note">A Salesforce report at the <b>opportunity product</b> level works best: one row per line item.
+        The dashboard sums Cover Wrap Overrun lines into CWO revenue and every line into full-deal revenue.
+        An opportunity-level export works too &mdash; just give it a CWO amount column.
+        Column names are matched loosely, so <code>Close Date</code>, <code>close_date</code> and <code>CloseDate</code> all land.</p>
+      <table class="schema"><thead><tr><th style="width:88px">Needed</th><th style="width:210px">Column</th><th>Accepts</th></tr></thead>
+      <tbody id="schemaDeals"></tbody></table>
+    </div>
+
+    <div class="card">
+      <h2>Sends file &mdash; weekly no-listing emails</h2>
+      <p class="note">One row per recipient, or one row per send batch with a count. Per-recipient rows let the
+        dashboard join deals to sends on email address; batch rows still give the denominator for
+        <b>$ per email</b>, but then the deals file has to carry its own slate and send date.</p>
+      <table class="schema"><thead><tr><th style="width:88px">Needed</th><th style="width:210px">Column</th><th>Accepts</th></tr></thead>
+      <tbody id="schemaSends"></tbody></table>
+      <div class="insight">
+        <b>How attribution works.</b> A deal is credited to the most recent email sent to that address
+        <i>before</i> the opportunity was created, as long as the gap is inside the attribution window.
+        Change the window in the controls bar to see how sensitive the numbers are to that assumption.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Download a template</h2>
+      <p class="note">Two starter CSVs with the exact headers the dashboard expects, filled with a couple of
+        example rows. Match these and everything below lights up.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="refresh ghost" id="tplDeals">&#8595; deals-template.csv</button>
+        <button class="refresh ghost" id="tplSends">&#8595; sends-template.csv</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot" id="dataFoot"></div>
+</div>
+
+<script>
+/* =============================================================================
+   SNAPSHOT — demo data bundled with the file so the dashboard is never blank.
+   Replaced wholesale the moment a real CSV is loaded or fetched.
+   sends: [date, slate, market, emails, cost]
+   deals: [oppId, name, account, email, slate, sendDate, created, closeDate,
+           stage, issue, issueLaunch, market, cwo, total, lagDays]
+   ========================================================================== */
+const SNAPSHOT={"sends":[["2026-07-02","Slate 5","DC",1496,0.0],["2026-07-02","Slate 5","DC",1,0.0],["2026-07-02","Slate 5","DEN",1496,0.0],["2026-07-02","Slate 5","DEN",1,0.0],["2026-07-02","Slate 5","NYC",1492,0.0],["2026-07-02","Slate 5","NYC",3,0.0],["2026-07-02","Slate 5","NYC",2,0.0],["2026-07-02","Slate 5","PTL",1495,0.0],["2026-07-02","Slate 5","PTL",2,0.0],["2026-07-02","Slate 5","TOR",1496,0.0],["2026-07-02","Slate 5","TOR",1,0.0],["2026-07-02","Slate 5","TOR",1497,0.0],["2026-07-02","Slate 5","AL/MS",1497,0.0],["2026-07-02","Slate 5","OC/SD",1496,0.0],["2026-07-02","Slate 5","OC/SD",1,0.0],["2026-07-14","Slate 6","CHI",1497,0.0],["2026-07-14","Slate 6","DET",1496,0.0],["2026-07-14","Slate 6","DET",1,0.0],["2026-07-14","Slate 6","LA",1497,0.0],["2026-07-14","Slate 6","LA",1497,0.0],["2026-07-14","Slate 6","LOU",1497,0.0],["2026-07-14","Slate 6","MTN W",1496,0.0],["2026-07-14","Slate 6","MTN W",1,0.0],["2026-07-14","Slate 6","MW",1496,0.0],["2026-07-14","Slate 6","MW",1,0.0],["2026-07-14","Slate 6","OH",1493,0.0],["2026-07-14","Slate 6","OH",4,0.0],["2026-07-21","Slate 1","CA",1412,0.0],["2026-07-21","Slate 1","CA",85,0.0],["2026-07-21","Slate 1","CAN",749,0.0],["2026-07-21","Slate 1","CAN",1,0.0],["2026-07-21","Slate 1","FLP",1497,0.0],["2026-07-21","Slate 1","FLP",1497,0.0],["2026-07-21","Slate 1","MIA",1497,0.0],["2026-07-21","Slate 1","MN",1495,0.0],["2026-07-21","Slate 1","MN",2,0.0],["2026-07-21","Slate 1","UPS",749,0.0],["2026-07-21","Slate 1","UPS",1,0.0],["2026-07-21","Slate 1","VC",1495,0.0],["2026-07-21","Slate 1","VC",2,0.0],["2026-07-29","Slate 2","HI",1336,0.0],["2026-07-29","Slate 2","HI",2,0.0],["2026-07-29","Slate 2","LV",1495,0.0],["2026-07-29","Slate 2","LV",2,0.0],["2026-07-29","Slate 2","NE",1496,0.0],["2026-07-29","Slate 2","NE",1,0.0],["2026-07-29","Slate 2","PB",1497,0.0],["2026-07-29","Slate 2","PHIL",1497,0.0],["2026-07-29","Slate 2","PHX/SW",1497,0.0],["2026-07-29","Slate 2","PHX/SW",1497,0.0],["2026-07-29","Slate 2","TB",1497,0.0],["2026-07-29","Slate 2","TB",1496,0.0],["2026-07-29","Slate 2","TB",1,0.0],["2026-08-05","Slate 3","ATX/SA",1488,0.0],["2026-08-05","Slate 3","ATX/SA",7,0.0],["2026-08-05","Slate 3","ATX/SA",2,0.0],["2026-08-05","Slate 3","BOS",1496,0.0],["2026-08-05","Slate 3","BOS",1,0.0],["2026-08-05","Slate 3","DAL",1496,0.0],["2026-08-05","Slate 3","DAL",1,0.0],["2026-08-05","Slate 3","DAL",1497,0.0],["2026-08-05","Slate 3","SF",1486,0.0],["2026-08-05","Slate 3","SF",11,0.0],["2026-08-05","Slate 3","TN",1495,0.0],["2026-08-05","Slate 3","TN",2,0.0],["2026-08-05","Slate 3","VA",1493,0.0],["2026-08-05","Slate 3","VA",4,0.0],["2026-08-05","Slate 3","WI",1496,0.0],["2026-08-05","Slate 3","WI",1,0.0]],"deals":[["006VL00000ZgqR3YAJ","Andre Amini","Cacey \u00b7 DC","aamini@ttrsir.com","Slate 5","2026-07-02","2026-07-10","2026-07-13","Approved","DC-061526","2026-06-15","DC",495,495,8],["006VL00000aP0phYAC","Sammie Cordova","Angela \u00b7 PHX/SW","abqsammie@gmail.com","Slate 2","2026-07-29","2026-07-29","2026-08-14","Proof Sent","PHX-070626","2026-07-06","PHX",495,495,0],["006VL00000ant0EYAQ","Alan Martinez","Jack \u00b7 SF","alanmartinezsf@gmail.com","Slate 3","2026-08-05","2026-08-05","2026-08-21","Awaiting Material","SF-071326","2026-07-13","SF",495,495,0],["006VL00000a6YgbYAE","Alison Taylor","Alexander \u00b7 OH","alisonshomes@gmail.com","Slate 6","2026-07-14","2026-07-21","2026-07-31","Dropped","OH/IN-062226","2026-06-22","OH/IN",495,495,7],["006VL00000ZWPyQYAX","Arnie Litman","Cacey \u00b7 DC","alitman1@aol.com","Slate 5","2026-07-02","2026-07-06","2026-07-17","Approved","DC-061526","2026-06-15","DC",495,495,4],["006VL00000Zpes8YAB","Amy Johnson","Angela \u00b7 MW","amyjohnson@ruhlhomes.com","Slate 6","2026-07-14","2026-07-14","2026-07-31","Dropped","MW-062226","2026-06-22","MW",495,495,0],["006VL00000b84QwYAI","Andr\u00e9s Bego","Mark \u00b7 ATX/SA","andres@begorei.com","Slate 3","2026-08-05","2026-08-11","2026-08-21","Awaiting Material","ATX/SA-071326","2026-07-13","ATX/SA",495,495,6],["006VL00000armt2YAA","Andr\u00e9s Bego","Mark \u00b7 ATX/SA","andres@begorei.com","Slate 3","2026-08-05","2026-08-06","2026-08-21","Awaiting Material","ATX/SA-071326","2026-07-13","ATX/SA",495,495,1],["006VL00000ZtkkQYAR","Andrew Weiss","Aaron \u00b7 LA","andrew@mtn-homes.com","Slate 6","2026-07-14","2026-07-15","2026-07-30","Approved","LA-062226","2026-06-22","LA",495,495,1],["006VL00000aFpDZYA0","Albert Niels","Cacey \u00b7 MIA","aniels@onesothebysrealty.com","Slate 1","2026-07-21","2026-07-25","2026-08-05","Approved","MIA-062926","2026-06-29","MIA",495,495,4],["006VL00000ZcHtJYAV","Anika Charron","Caden \u00b7 NYC","anika.charron@raveis.com","Slate 5","2026-07-02","2026-07-08","2026-07-24","Dropped","NYC-061526","2026-06-15","NYC",495,495,6],["006VL00000avQnSYAU","Denise Matthews","Alexander \u00b7 VA","apassionforproperty@gmail.com","Slate 3","2026-08-05","2026-08-07","2026-08-21","Awaiting Material","VA-071326","2026-07-13","VA",495,495,2],["006VL00000Zpek2YAB","Ashley Terry","Angela \u00b7 MW","ashley.terry@woodsbros.com","Slate 6","2026-07-14","2026-07-14","2026-07-30","Approved","MW-062226","2026-06-22","MW",495,495,0],["006VL00000aWSndYAG","Sonal Asija","David \u00b7 LV","asijasonal@gmail.com","Slate 2","2026-07-29","2026-07-31","2026-08-28","Proof Sent","LV-070626","2026-07-06","LV",495,495,2],["006VL00000aWPTBYA4","Pat Wilkins","Aaron \u00b7 TB","assistant@marcoislandagent.com","Slate 2","2026-07-29","2026-07-31","2026-08-07","Proof Sent","TB-070626","2026-07-06","TB",495,495,2],["006VL00000ZagvqYAB","Agostino Calandrino","Alexander \u00b7 TOR","augiecalandrino@gmail.com","Slate 5","2026-07-02","2026-07-08","2026-07-24","Dropped","TOR-061526","2026-06-15","TOR",507.34,507.34,6],["006VL00000ZyQUwYAN","Bruce Meyer","Caden \u00b7 CHI","bmeyer@coldwellhomes.com","Slate 6","2026-07-14","2026-07-17","2026-07-22","Approved","CHI-062226","2026-06-22","CHI",495,495,3],["006VL00000aW009YAC","Bobbi Lee","Mark \u00b7 PHX/SW","bobbilee629@gmail.com","Slate 2","2026-07-29","2026-07-31","2026-08-14","Proof Sent","PHX-070626","2026-07-06","PHX",450,450,2],["006VL00000agRgbYAE","Marilyn Singer","Alexander \u00b7 FLP","broker@listrightrealty.com","Slate 1","2026-07-21","2026-08-03","2026-08-06","Approved","FLP-062926","2026-06-29","FLP",495,585,13],["006VL00000aUElZYAW","Brittney Vienneau","Jack \u00b7 HI","bvienneau@alohasir.com","Slate 2","2026-07-29","2026-07-31","2026-08-14","Awaiting Material","HI-070626","2026-07-06","HI",495,495,2],["006VL00000aTEHNYA4","Barbara Yancy-Tooks","Mark \u00b7 PHX/SW","byancyto@gmail.com","Slate 2","2026-07-29","2026-07-30","2026-08-14","Dropped","PHX-070626","2026-07-06","PHX",495,495,1],["006VL00000ZbuYYYAZ","Charlotte Colosia","Mark \u00b7 OC/SD","charlotte.charcee@gmail.com","Slate 5","2026-07-02","2026-07-08","2026-07-24","Dropped","OC/SD-061526","2026-06-15","OC/SD",495,495,6],["006VL00000a028MYAQ","Chelsea Surline","Jack \u00b7 DET","chelsea@surlinerealestate.com","Slate 6","2026-07-14","2026-07-18","2026-07-30","Approved","DET-062226","2026-06-22","DET",495,495,4],["006VL00000aXZ2HYAW","Christopher H Saia","Caden \u00b7 PB","chsaia@outlook.com","Slate 2","2026-07-29","2026-07-31","2026-08-07","Dropped","FLP-062926","2026-06-29","FLP",495,495,2],["006VL00000a8G7hYAE","Casa Realty","Cacey \u00b7 MIA","cmrealtypr@gmail.com","Slate 1","2026-07-21","2026-07-22","2026-08-07","Dropped","MIA-062926","2026-06-29","MIA",495,495,1],["006VL00000ZaLD3YAN","Alis Mao","Jack \u00b7 PTL","cozyhome@kniperealty.com","Slate 5","2026-07-02","2026-07-07","2026-07-24","Dropped","PTL-061526","2026-06-15","PTL",495,495,5],["006VL00000arrvtYAA","C. Tina","David \u00b7 NE","ctinarealestate@gmail.com","Slate 2","2026-07-29","2026-08-06","2026-08-14","Awaiting Material","NE-070626","2026-07-06","NE",495,495,8],["006VL00000aBsegYAC","Puff Darlin","Alexander \u00b7 FLP","dreamcatchercottages@me.com","Slate 1","2026-07-21","2026-07-23","2026-08-07","Dropped","FLP-062926","2026-06-29","FLP",495,495,2],["006VL00000ZQPbJYAX","Dave Trujillo","David \u00b7 DEN","dtrujillo@thegroupinc.com","Slate 5","2026-07-02","2026-07-02","2026-07-16","Approved","DEN-061526","2026-06-15","DEN",495,495,0],["006VL00000aPUSnYAO","Ed Ferreira","David \u00b7 VC","ed.ferreira@cbre.com","Slate 1","2026-07-21","2026-07-29","2026-08-07","Approved","VC-062926","2026-06-29","VC",507.34,507.34,8],["006VL00000aDnz3YAC","Laurence Mongeau","Angela \u00b7 TOR","homes@laurencemongeau.ca","Slate 5","2026-07-02","2026-07-24","2026-09-04","Pending","TOR-072726","2026-07-27","TOR",361.34,361.34,22],["006VL00000aPuv7YAC","MAUI COAST REAL ESTATE","Jack \u00b7 HI","info@mauicoastrealestate.com","Slate 2","2026-07-29","2026-07-29","2026-08-07","Approved","HI-070626","2026-07-06","HI",450,450,0],["006VL00000at5dRYAQ","Jamie Johnson","Jack \u00b7 HI","jjohnson@timberscompany.com","Slate 2","2026-07-29","2026-08-07","2026-08-14","Proof Sent","HI-070626","2026-07-06","HI",495,495,9],["006VL00000avPY1YAM","Katy Annett","David \u00b7 DAL","katy.annett@compass.com","Slate 3","2026-08-05","2026-08-07","2026-08-21","Proof Sent","DFW-071326","2026-07-13","DFW",395,395,2],["006VL00000asI4rYAE","Kenia Sanchez","David \u00b7 DAL","kenia.sanchez@compass.com","Slate 3","2026-08-05","2026-08-06","2026-08-21","Ad Material Received","DFW-071326","2026-07-13","DFW",495,495,1],["006VL00000aPBLJYA4","Kerry McCullar-McCormick","Angela \u00b7 PHX/SW","kerryjmccullar@gmail.com","Slate 2","2026-07-29","2026-07-29","2026-08-10","Approved","PHX-070626","2026-07-06","PHX",495,495,0],["006VL00000ZyU5VYAV","Bob Koetsier","Jack \u00b7 DET","koetsierteam1@gmail.com","Slate 6","2026-07-14","2026-07-17","2026-07-31","Dropped","DET-062226","2026-06-22","DET",495,495,3],["006VL00000ZflYHYAZ","Lou Lumani","Angela \u00b7 TOR","lou@loulumani.com","Slate 5","2026-07-02","2026-07-09","2026-07-24","Dropped","TOR-061526","2026-06-15","TOR",361.34,361.34,7],["006VL00000aL8U5YAK","Cheryl Rush","Jack \u00b7 DET","rushcd00@msn.com","Slate 6","2026-07-14","2026-07-28","2026-07-31","Dropped","DET-062226","2026-06-22","DET",495,495,14]]};
+
+let RAW=SNAPSHOT;
+let IS_LIVE=true;
+const REAL={sends:true,deals:true};
+let LIVE_AT='Salesforce + YAMM sheets &middot; 11 Aug 2026';
+
+/* column indices */
+const S_DATE=0,S_SLATE=1,S_MKT=2,S_EMAILS=3,S_COST=4;
+const D_ID=0,D_NAME=1,D_ACCT=2,D_EMAIL=3,D_SLATE=4,D_SEND=5,D_CREATED=6,D_CLOSE=7,
+      D_STAGE=8,D_ISSUE=9,D_LAUNCH=10,D_MKT=11,D_CWO=12,D_TOTAL=13,D_LAG=14;
+
+/* ---- chart theme ---- */
+const C={ink:'#e7e9ea',ink2:'#d4d7db',muted:'#7f858e',line:'#26282c',card:'#141518',
+  won:'#22c55e',drop:'#f87171',amber:'#f5a623',
+  cat:['#3987e5','#d95926','#199e70','#c98500','#d55181','#008300','#9085e9','#e66767']};
+Chart.defaults.color=C.muted;
+Chart.defaults.borderColor=C.line;
+Chart.defaults.font.family='-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif';
+Chart.defaults.scale.grid.color=C.line;
+Chart.defaults.scale.ticks.color=C.muted;
+Chart.defaults.scale.title.color='#c9ccd1';
+Chart.defaults.plugins.legend.labels.color=C.muted;
+Chart.defaults.plugins.tooltip.backgroundColor='#1b1d21';
+Chart.defaults.plugins.tooltip.borderColor='#34373d';
+Chart.defaults.plugins.tooltip.borderWidth=1;
+Chart.defaults.plugins.tooltip.titleColor='#fff';
+Chart.defaults.plugins.tooltip.bodyColor='#d4d7db';
+Chart.defaults.plugins.tooltip.padding=10;
+Chart.defaults.plugins.tooltip.displayColors=true;
+Chart.defaults.plugins.tooltip.boxWidth=10;
+Chart.defaults.plugins.tooltip.boxHeight=10;
+
+const MONTHS=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const charts={};
+const grids={};
+const num=n=>(n==null?0:Math.round(n)).toLocaleString();
+const money=n=>n==null?'—':'$'+Math.round(n).toLocaleString();
+const money2=n=>n==null?'—':'$'+(Math.round(n*100)/100).toFixed(2);
+const pct=n=>n==null?'—':n.toFixed(2)+'%';
+const r1=n=>Math.round(n*10)/10;
+function destroy(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+function ym(iso){return iso?iso.slice(0,7):'';}
+function ymLabel(k){const p=k.split('-');return MONTHS[+p[1]]+" '"+p[0].slice(2);}
+
+/* ---- current control state ---- */
+const ctrl={period:'0',basis:'cwo',stage:'won',win:90,axis:'wave'};
+function readControls(){
+  ctrl.period=document.getElementById('cPeriod').value;
+  ctrl.basis =document.getElementById('cBasis').value;
+  ctrl.stage =document.getElementById('cStage').value;
+  ctrl.win   =+document.getElementById('cWin').value;
+  ctrl.axis  =document.getElementById('cAxis').value;
+}
+
+/* =============================================================================
+   COMPUTE — everything the panels draw comes out of here, so the controls
+   only ever have to trigger one recomputation.
+   ========================================================================== */
+const WON=s=>/^approved$/i.test(s||'');
+const DROPPED=s=>/^(dropped|closed lost|lost)$/i.test(s||'');
+function stageOk(s){
+  if(ctrl.stage==='all') return true;
+  if(ctrl.stage==='won') return WON(s);
+  return !DROPPED(s);                       // wonopen
+}
+function periodStart(){
+  if(ctrl.period==='0') return null;
+  const now=latestDate();
+  if(ctrl.period==='ytd') return now.slice(0,4)+'-01-01';
+  const d=new Date(now+'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate()-(+ctrl.period));
+  return d.toISOString().slice(0,10);
+}
+let _latest=null;
+function latestDate(){
+  if(_latest) return _latest;
+  let m='';
+  RAW.sends.forEach(r=>{if(r[S_DATE]>m)m=r[S_DATE];});
+  RAW.deals.forEach(r=>{if(r[D_CREATED]>m)m=r[D_CREATED];});
+  _latest=m||new Date().toISOString().slice(0,10);
+  return _latest;
+}
+
+function compute(){
+  const from=periodStart();
+  const rev=d=>ctrl.basis==='cwo'?(d[D_CWO]||0):(d[D_TOTAL]||d[D_CWO]||0);
+
+  const sends=RAW.sends.filter(r=>!from||r[S_DATE]>=from);
+  const deals=RAW.deals.filter(d=>
+    (!from||d[D_SEND]>=from) && stageOk(d[D_STAGE]) &&
+    (ctrl.win===0 || d[D_LAG]==null || d[D_LAG]<=ctrl.win));
+
+  const emails=sends.reduce((a,r)=>a+(+r[S_EMAILS]||0),0);
+  const revenue=deals.reduce((a,d)=>a+rev(d),0);
+
+  /* ---- by slate ---- */
+  const slate={};
+  const touch=(m,k)=>(m[k]=m[k]||{emails:0,rev:0,deals:0,people:new Set()});
+  sends.forEach(r=>{touch(slate,r[S_SLATE]).emails+=(+r[S_EMAILS]||0);});
+  deals.forEach(d=>{const o=touch(slate,d[D_SLATE]);o.rev+=rev(d);o.deals++;o.people.add(d[D_EMAIL]||d[D_ID]);});
+
+  /* ---- by send month ---- */
+  const month={};
+  sends.forEach(r=>{touch(month,ym(r[S_DATE])).emails+=(+r[S_EMAILS]||0);});
+  deals.forEach(d=>{const o=touch(month,ym(d[D_SEND]));o.rev+=rev(d);o.deals++;o.people.add(d[D_EMAIL]||d[D_ID]);});
+
+  /* ---- by send wave (the individual weekly drop) ---- */
+  const wave={};
+  sends.forEach(r=>{touch(wave,r[S_DATE]).emails+=(+r[S_EMAILS]||0);});
+  deals.forEach(d=>{const o=touch(wave,d[D_SEND]);o.rev+=rev(d);o.deals++;o.people.add(d[D_EMAIL]||d[D_ID]);});
+  Object.keys(wave).forEach(k=>{if(!k)delete wave[k];});
+
+  /* ---- by send month × slate (for the stack) ---- */
+  const monthSlate={};
+  deals.forEach(d=>{const k=ym(d[D_SEND]);(monthSlate[k]=monthSlate[k]||{})[d[D_SLATE]]=
+    (monthSlate[k][d[D_SLATE]]||0)+rev(d);});
+
+  /* ---- by issue ---- */
+  const issue={};
+  deals.forEach(d=>{
+    const k=d[D_ISSUE]||'(no issue)';
+    const o=issue[k]=issue[k]||{rev:0,deals:0,market:d[D_MKT]||'',launch:d[D_LAUNCH]||''};
+    o.rev+=rev(d);o.deals++;
+    if(d[D_LAUNCH]&&(!o.launch||d[D_LAUNCH]<o.launch))o.launch=d[D_LAUNCH];
+  });
+
+  /* ---- by issue-launch month (alternate time axis) ---- */
+  const issueMonth={};
+  deals.forEach(d=>{const k=ym(d[D_LAUNCH]||d[D_CLOSE]||d[D_CREATED]);
+    if(!k)return;const o=issueMonth[k]=issueMonth[k]||{rev:0,deals:0};o.rev+=rev(d);o.deals++;});
+
+  /* ---- stage mix (ignores the stage filter — it IS the stage view) ---- */
+  const stageMix={Approved:0,Open:0,Dropped:0};
+  RAW.deals.filter(d=>(!from||d[D_SEND]>=from)&&(ctrl.win===0||d[D_LAG]==null||d[D_LAG]<=ctrl.win))
+    .forEach(d=>{const s=d[D_STAGE];stageMix[WON(s)?'Approved':(DROPPED(s)?'Dropped':'Open')]+=rev(d);});
+
+  /* ---- conversion lag histogram ---- */
+  const bins=[[0,14],[15,30],[31,45],[46,60],[61,90],[91,180],[181,1e9]];
+  const lag=bins.map(()=>0);
+  deals.forEach(d=>{const L=d[D_LAG];if(L==null)return;
+    for(let i=0;i<bins.length;i++){if(L>=bins[i][0]&&L<=bins[i][1]){lag[i]++;break;}}});
+
+  const unattributed=deals.filter(d=>!d[D_SEND]);
+  const unattrRev=unattributed.reduce((a,d)=>a+rev(d),0);
+  const people=new Set(deals.map(d=>d[D_EMAIL]||d[D_ID]));
+  const lags=deals.map(d=>d[D_LAG]).filter(v=>v!=null).sort((a,b)=>a-b);
+
+  return {from,rev,sends,deals,emails,revenue,slate,month,wave,monthSlate,issue,issueMonth,
+    stageMix,lag,lagBins:bins,converters:people.size,
+    unattributed:unattributed.length,unattrRev,
+    medLag:lags.length?lags[Math.floor(lags.length/2)]:null,
+    perEmail:emails?revenue/emails:0,
+    convRate:emails?100*deals.length/emails:0,
+    avgDeal:deals.length?revenue/deals.length:0};
+}
+let M=null;
+
+/* =============================================================================
+   RENDER
+   ========================================================================== */
+let MOVED={};
+function deltaHtml(key,fmt){
+  const d=MOVED[key];
+  if(d==null) return '';
+  return ' <span class="dlt '+(d>0?'up':'dn')+'">'+(d>0?'▲':'▼')+fmt(Math.abs(d))+'</span>';
+}
+function renderKPIs(){
+  const basisLbl=ctrl.basis==='cwo'?'Cover Wrap Overrun lines only':'full deal amount';
+  const stageLbl={won:'Approved deals only',wonopen:'Approved + still-open deals',all:'every stage incl. dropped'}[ctrl.stage];
+  const cards=[
+    {k:'revenue',v:money(M.revenue),l:'Revenue booked',s:basisLbl,cls:'big',f:x=>money(x)},
+    {k:'perEmail',v:money2(M.perEmail),l:'$ per email sent',s:'Revenue ÷ '+num(M.emails)+' emails',cls:'hero',f:x=>money2(x)},
+    {k:'emails',v:num(M.emails),l:'Emails sent',s:'No-listing drops in this period',f:x=>num(x)},
+    {k:'deals',v:num(M.deals.length),l:'Deals run',s:num(M.converters)+' distinct recipients'
+       +(M.medLag!=null?' · median '+M.medLag+'d to convert':''),f:x=>num(x)},
+    {k:'convRate',v:pct(M.convRate),l:'Conversion rate',s:'Deals ÷ emails sent',f:x=>x.toFixed(2)+'%'}
+  ];
+  document.getElementById('kpis').innerHTML=cards.map(c=>{
+    const moved=MOVED[c.k]!=null;
+    return `<div class="kpi ${c.cls||''}"><div class="l">${c.l}</div>`
+      +`<div class="v${moved?' chg chgflash':''}">${c.v}${deltaHtml(c.k,c.f)}</div>`
+      +`<div class="ksub">${c.s}</div></div>`;
+  }).join('');
+  const winLbl=ctrl.win===0?'any time after the send':'within '+ctrl.win+' days of the send';
+  const perLbl={'0':'all time','ytd':'year to date','90':'the last 90 days','180':'the last 6 months','365':'the last 12 months'}[ctrl.period];
+  document.getElementById('kpiScope').innerHTML=
+    '<b>What these numbers count:</b> deals carrying a <b>Cover Wrap Overrun</b> product, run by someone who received a '
+    +'no-listing email and whose opportunity was created '+winLbl+'. Revenue is the <b>'+basisLbl+'</b>; '
+    +stageLbl+' are included. Window: <b>'+perLbl+'</b> by send date. '
+    +'<b>$ per email</b> divides that revenue by every email sent in the same window &mdash; including the ones that '
+    +'never converted, which is what makes it a yield figure rather than a deal average.'
+    +(M.unattributed
+      ? ' <b style="color:#f5c168">'+num(M.unattributed)+' deal'+(M.unattributed===1?'':'s')+' ('+money(M.unattrRev)
+        +') could not be matched back to a send</b> &mdash; they are in the totals above, the Deals table and the '
+        +'issue splits, but not in the slate or send-month views &mdash; those will sum slightly short of the headline.'
+      : '');
+}
+
+/* ---- shared chart option builders ---- */
+const gap=w=>({borderColor:C.card,borderWidth:{top:w,right:w,bottom:0,left:0},borderRadius:4,borderSkipped:'bottom'});
+function barOpts(yTitle,fmt,horizontal){
+  return {responsive:true,maintainAspectRatio:false,
+    indexAxis:horizontal?'y':'x',
+    interaction:{mode:'nearest',axis:horizontal?'y':'x',intersect:false},
+    plugins:{legend:{display:false}},
+    scales:horizontal
+      ?{x:{ticks:{callback:fmt},title:{display:true,text:yTitle}},y:{grid:{display:false}}}
+      :{y:{ticks:{callback:fmt},title:{display:true,text:yTitle}},x:{grid:{display:false},ticks:{maxRotation:60,autoSkip:true,maxTicksLimit:20}}}};
+}
+
+const dayLabel=k=>{const p=k.split('-');return +p[2]+' '+MONTHS[+p[1]];};
+function renderOverview(){
+  const ax=ctrl.axis;
+  const src=ax==='wave'?M.wave:(ax==='send'?M.month:M.issueMonth);
+  const lab=ax==='wave'?dayLabel:ymLabel;
+  const keys=Object.keys(src).filter(k=>k).sort();
+  document.getElementById('ovRevNote').innerHTML=
+    ax==='wave'
+    ? 'Revenue attributed to the <b>individual weekly drop</b> it came from. Each slate goes out as one wave, so this is the finest honest grain &mdash; and the one to judge a send by.'
+    : (ax==='send'
+    ? 'Revenue attributed to the month the <b>email went out</b>. Useful once several months accumulate; with one wave a week the wave axis says more.'
+    : 'Revenue attributed to the month the <b>issue launched</b> &mdash; the right lens for production and forecasting.');
+  destroy('ovRev');
+  charts.ovRev=new Chart(document.getElementById('ovRevChart'),{
+    type:'bar',
+    data:{labels:keys.map(lab),datasets:[{label:'Revenue booked',
+      data:keys.map(k=>src[k].rev),backgroundColor:C.cat[0],...gap(2)}]},
+    options:{...barOpts('Revenue booked',v=>money(v),false),
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        label:c=>money(c.parsed.y),
+        afterLabel:c=>{const o=src[keys[c.dataIndex]];
+          return num(o.deals)+' deal'+(o.deals===1?'':'s')+(o.emails?' · '+num(o.emails)+' emails sent':'');}
+      }}}}
+  });
+
+  const per=ax==='issue'?M.wave:src, pl=ax==='issue'?dayLabel:lab;
+  const mk=Object.keys(per).filter(k=>k).sort();
+  destroy('ovPer');
+  charts.ovPer=new Chart(document.getElementById('ovPerChart'),{
+    type:'line',
+    data:{labels:mk.map(pl),datasets:[{label:'$ per email sent',
+      data:mk.map(k=>per[k].emails?per[k].rev/per[k].emails:null),
+      borderColor:C.cat[0],backgroundColor:'rgba(57,135,229,.10)',fill:true,tension:.3,
+      borderWidth:2,pointRadius:4,pointHoverRadius:7,pointBackgroundColor:C.cat[0],
+      pointBorderColor:C.card,pointBorderWidth:2,spanGaps:true}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        label:c=>money2(c.parsed.y)+' per email',
+        afterLabel:c=>{const o=per[mk[c.dataIndex]];return num(o.emails)+' emails · '+money(o.rev)+' booked';}}}},
+      scales:{y:{ticks:{callback:v=>money2(v)},title:{display:true,text:'$ per email sent'},beginAtZero:true},
+              x:{grid:{display:false}}}}
+  });
+
+  const sm=M.stageMix,stot=sm.Approved+sm.Open+sm.Dropped;
+  destroy('ovStage');
+  charts.ovStage=new Chart(document.getElementById('ovStageChart'),{
+    type:'bar',
+    data:{labels:['Approved','Open','Dropped'],
+      datasets:[{data:[sm.Approved,sm.Open,sm.Dropped],
+        backgroundColor:[C.won,C.cat[0],C.drop],...gap(2)}]},
+    options:{...barOpts('Revenue',v=>money(v),true),
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        label:c=>money(c.parsed.x)+(stot?' ('+(100*c.parsed.x/stot).toFixed(1)+'% of attributed $)':'')}}}}
+  });
+
+  const lb=M.lagBins.map((b,i)=>i===M.lagBins.length-1?'180+ d':(b[0]+'–'+b[1]+' d'));
+  destroy('ovLag');
+  charts.ovLag=new Chart(document.getElementById('ovLagChart'),{
+    type:'bar',
+    data:{labels:lb,datasets:[{data:M.lag,backgroundColor:C.cat[0],...gap(2)}]},
+    options:{...barOpts('Deals',v=>num(v),false),
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>num(c.parsed.y)+' deals'}}}}
+  });
+
+  /* insight */
+  const yy=mk.map(k=>({k,v:per[k].emails?per[k].rev/per[k].emails:null})).filter(o=>o.v!=null&&o.v>0);
+  let txt='';
+  if(yy.length>=2){
+    const best=yy.slice().sort((a,b)=>b.v-a.v)[0],worst=yy.slice().sort((a,b)=>a.v-b.v)[0];
+    const tail=yy.slice(-3),head=yy.slice(0,3);
+    const avg=a=>a.reduce((x,o)=>x+o.v,0)/a.length;
+    const dir=avg(tail)-avg(head);
+    txt=`Across ${yy.length} ${ax==='send'?'send months':'send waves'} the yield runs <b>${money2(worst.v)}</b> (${pl(worst.k)}) to `
+      +`<b>${money2(best.v)}</b> (${pl(best.k)}) per email — a `
+      +`<b>${(best.v/(worst.v||1)).toFixed(1)}×</b> spread, which is a much bigger lever than list size. `
+      +`The three most recent average ${money2(avg(tail))} vs ${money2(avg(head))} for the three earliest, `
+      +(Math.abs(dir)<0.2?'so yield is broadly flat over the period. ':(dir>0?'so yield is trending up. ':'so yield is trending down. '))
+      +`Treat the newest ${ax==='send'?'months':'waves'} as provisional — a deal can still be created up to `
+      +`${ctrl.win===0?'any time':ctrl.win+' days'} after its send, so those bars are not finished growing.`;
+  }else{
+    txt='Not enough sends in this window to compare yield. Widen the <b>Period</b> filter.';
+  }
+  document.getElementById('ovInsight').innerHTML=txt;
+}
+
+function slateRows(){
+  return Object.keys(M.slate).map(k=>{
+    const o=M.slate[k];
+    return {slate:k,emails:o.emails,rev:o.rev,deals:o.deals,people:o.people.size,
+      per:o.emails?o.rev/o.emails:0,
+      conv:o.emails?100*o.deals/o.emails:0,
+      avg:o.deals?o.rev/o.deals:0};
+  }).filter(r=>r.emails>0||r.rev>0);
+}
+function renderSlate(){
+  const rows=slateRows();
+  const byRev=rows.slice().sort((a,b)=>b.rev-a.rev);
+  const byPer=rows.slice().sort((a,b)=>b.per-a.per);
+  destroy('slRev');
+  charts.slRev=new Chart(document.getElementById('slRevChart'),{
+    type:'bar',
+    data:{labels:byRev.map(r=>r.slate),datasets:[{label:'Revenue booked',
+      data:byRev.map(r=>r.rev),backgroundColor:C.cat[0],...gap(2)}]},
+    options:{...barOpts('Revenue booked',v=>money(v),true),
+      plugins:{legend:{display:false},title:{display:true,text:'Total revenue booked',color:'#c9ccd1',font:{size:12,weight:'600'},padding:{bottom:10}},
+        tooltip:{callbacks:{label:c=>money(c.parsed.x),
+          afterLabel:c=>num(byRev[c.dataIndex].deals)+' deals · '+num(byRev[c.dataIndex].emails)+' emails'}}}}
+  });
+  destroy('slPer');
+  charts.slPer=new Chart(document.getElementById('slPerChart'),{
+    type:'bar',
+    data:{labels:byPer.map(r=>r.slate),datasets:[{label:'$ per email',
+      data:byPer.map(r=>r.per),backgroundColor:C.cat[2],...gap(2)}]},
+    options:{...barOpts('$ per email sent',v=>money2(v),true),
+      plugins:{legend:{display:false},title:{display:true,text:'Revenue per email sent',color:'#c9ccd1',font:{size:12,weight:'600'},padding:{bottom:10}},
+        tooltip:{callbacks:{label:c=>money2(c.parsed.x)+' per email',
+          afterLabel:c=>money(byPer[c.dataIndex].rev)+' ÷ '+num(byPer[c.dataIndex].emails)+' emails'}}}}
+  });
+
+  const cfg={
+    columns:[{name:'Slate',width:'128px'},
+      {name:'Emails\nsent',width:'92px',formatter:num},
+      {name:'Deals\nrun',width:'80px',formatter:num},
+      {name:'Distinct\nbuyers',width:'88px',formatter:num},
+      {name:'Revenue\nbooked',width:'118px',formatter:money},
+      {name:'$ per\nemail',width:'92px',formatter:c=>gridjs.html('<b style="color:#7dd3fc">'+money2(c)+'</b>')},
+      {name:'Conv.\nrate',width:'86px',formatter:c=>pct(c)},
+      {name:'Avg deal\nsize',width:'100px',formatter:money}],
+    data:byPer.map(r=>[r.slate,r.emails,r.deals,r.people,r.rev,r.per,r.conv,r.avg]),
+    sort:true,search:true,pagination:{limit:12}
+  };
+  mountGrid('sl','slGrid',cfg);
+
+  if(byPer.length>=2){
+    const t=byPer[0],b=byPer[byPer.length-1],topRev=byRev[0];
+    const mismatch=topRev.slate!==t.slate;
+    document.getElementById('slInsight').innerHTML=
+      `<b>${t.slate}</b> is the most efficient list at <b>${money2(t.per)}</b> per email — `
+      +`${(t.per/(b.per||1)).toFixed(1)}× <b>${b.slate}</b> at ${money2(b.per)}. `
+      +(mismatch
+        ? `<b>${topRev.slate}</b> books the most total revenue (${money(topRev.rev)}) purely on volume — `
+          +`${num(topRev.emails)} emails at ${money2(topRev.per)} each. If send capacity is the constraint, `
+          +`shifting volume from ${b.slate} toward ${t.slate} is worth roughly `
+          +`${money((t.per-b.per)*Math.min(b.emails,topRev.emails))} on the emails you are already sending.`
+        : `${topRev.slate} leads on both total revenue and yield, so it is the clear place to add volume.`);
+  }else{
+    document.getElementById('slInsight').innerHTML='Only one slate in this window — widen the <b>Period</b> filter to compare.';
+  }
+}
+
+function renderIssue(){
+  const sel=document.getElementById('isMarket');
+  const mkts=Array.from(new Set(Object.values(M.issue).map(o=>o.market).filter(Boolean))).sort();
+  const want=sel.value||'__all';
+  sel.innerHTML='<option value="__all">All markets</option>'+mkts.map(m=>`<option value="${m}">${m}</option>`).join('');
+  sel.value=mkts.includes(want)?want:'__all';
+  const mk=sel.value;
+  const topN=+document.getElementById('isTop').value;
+
+  let rows=Object.keys(M.issue).map(k=>({issue:k,...M.issue[k]}))
+    .filter(r=>mk==='__all'||r.market===mk)
+    .sort((a,b)=>b.rev-a.rev);
+  const shown=topN>0?rows.slice(0,topN):rows;
+  const dropped=rows.length-shown.length;
+
+  destroy('is');
+  charts.is=new Chart(document.getElementById('isChart'),{
+    type:'bar',
+    data:{labels:shown.map(r=>r.issue),datasets:[{label:'Revenue booked',
+      data:shown.map(r=>r.rev),backgroundColor:C.cat[0],...gap(2)}]},
+    options:{...barOpts('Revenue booked',v=>money(v),true),
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        label:c=>money(c.parsed.x),
+        afterLabel:c=>{const r=shown[c.dataIndex];
+          return num(r.deals)+' deal'+(r.deals===1?'':'s')+(r.launch?' · launched '+r.launch:'');}}}}}
+  });
+
+  const cfg={
+    columns:[{name:'Issue',width:'132px'},{name:'Market',width:'92px'},
+      {name:'Launch\ndate',width:'104px'},
+      {name:'Deals',width:'78px',formatter:num},
+      {name:'Revenue\nbooked',width:'118px',formatter:money},
+      {name:'Avg deal\nsize',width:'104px',formatter:money}],
+    data:rows.map(r=>[r.issue,r.market,r.launch||'—',r.deals,r.rev,r.deals?r.rev/r.deals:0]),
+    sort:true,search:true,pagination:{limit:14}
+  };
+  mountGrid('is','isGrid',cfg);
+
+  const tot=rows.reduce((a,r)=>a+r.rev,0);
+  const top5=rows.slice(0,5).reduce((a,r)=>a+r.rev,0);
+  const conc=rows.length>5
+    ? `The top five alone account for <b>${tot?(100*top5/tot).toFixed(0):0}%</b> of it — led by `
+    : `Led by `;
+  document.getElementById('isInsight').innerHTML=rows.length
+    ? `${num(rows.length)} issue${rows.length===1?'':'s'} carried cover wrap overruns from this campaign, worth `
+      +`<b>${money(tot)}</b>. ${conc}<b>${rows[0].issue}</b> at ${money(rows[0].rev)} across `
+      +`${num(rows[0].deals)} deal${rows[0].deals===1?'':'s'}. `
+      +(dropped>0?`${num(dropped)} further issue${dropped===1?' is':'s are'} in the table below but off the chart. `:'')
+      +(rows.length>5?`Concentration like this usually means one or two markets are doing the work; switch the market filter to check.`
+                     :`Widen the market filter to compare against the rest of the book.`)
+    : 'No issues match the current filters.';
+}
+
+function renderMonth(){
+  const keys=Object.keys(M.month).filter(k=>k).sort();
+  const slates=Array.from(new Set(RAW.deals.map(d=>d[D_SLATE]).filter(Boolean))).sort();
+  const use=slates.slice(0,8);
+  const other=slates.slice(8);
+  const ds=use.map((s,i)=>({label:s,
+    data:keys.map(k=>(M.monthSlate[k]||{})[s]||0),
+    backgroundColor:C.cat[i],...gap(2),stack:'a'}));
+  if(other.length) ds.push({label:'Other',stack:'a',...gap(2),
+    backgroundColor:'#5b6472',data:keys.map(k=>other.reduce((a,s)=>a+((M.monthSlate[k]||{})[s]||0),0))});
+  destroy('moRev');
+  charts.moRev=new Chart(document.getElementById('moRevChart'),{
+    type:'bar',data:{labels:keys.map(ymLabel),datasets:ds},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,usePointStyle:true,pointStyle:'rectRounded'}},
+        tooltip:{callbacks:{label:c=>c.dataset.label+': '+money(c.parsed.y),
+          footer:items=>'Total: '+money(items.reduce((a,i)=>a+i.parsed.y,0))}}},
+      scales:{x:{stacked:true,grid:{display:false}},
+              y:{stacked:true,ticks:{callback:v=>money(v)},title:{display:true,text:'Revenue booked'}}}}
+  });
+
+  destroy('moVol');
+  charts.moVol=new Chart(document.getElementById('moVolChart'),{
+    type:'bar',
+    data:{labels:keys.map(ymLabel),datasets:[{label:'Emails sent',
+      data:keys.map(k=>M.month[k].emails),backgroundColor:C.cat[3],...gap(2)}]},
+    options:{...barOpts('Emails sent',v=>num(v),false),
+      plugins:{legend:{display:false},title:{display:true,text:'Emails sent',color:'#c9ccd1',font:{size:12,weight:'600'},padding:{bottom:8}},
+        tooltip:{callbacks:{label:c=>num(c.parsed.y)+' emails'}}}}
+  });
+  destroy('moPer');
+  charts.moPer=new Chart(document.getElementById('moPerChart'),{
+    type:'line',
+    data:{labels:keys.map(ymLabel),datasets:[{label:'$ per email',
+      data:keys.map(k=>M.month[k].emails?M.month[k].rev/M.month[k].emails:null),
+      borderColor:C.cat[2],backgroundColor:'rgba(25,158,112,.10)',fill:true,tension:.3,
+      borderWidth:2,pointRadius:4,pointHoverRadius:7,pointBackgroundColor:C.cat[2],
+      pointBorderColor:C.card,pointBorderWidth:2,spanGaps:true}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},title:{display:true,text:'Revenue per email sent',color:'#c9ccd1',font:{size:12,weight:'600'},padding:{bottom:8}},
+        tooltip:{callbacks:{label:c=>money2(c.parsed.y)+' per email'}}},
+      scales:{y:{ticks:{callback:v=>money2(v)},beginAtZero:true},x:{grid:{display:false}}}}
+  });
+
+  const cfg={
+    columns:[{name:'Send\nmonth',width:'104px'},
+      {name:'Emails\nsent',width:'96px',formatter:num},
+      {name:'Deals\nrun',width:'84px',formatter:num},
+      {name:'Revenue\nbooked',width:'120px',formatter:money},
+      {name:'$ per\nemail',width:'96px',formatter:c=>gridjs.html('<b style="color:#7dd3fc">'+money2(c)+'</b>')},
+      {name:'Conv.\nrate',width:'88px',formatter:c=>pct(c)},
+      {name:'Avg deal\nsize',width:'104px',formatter:money}],
+    data:keys.slice().reverse().map(k=>{const o=M.month[k];
+      return [ymLabel(k),o.emails,o.deals,o.rev,o.emails?o.rev/o.emails:0,
+        o.emails?100*o.deals/o.emails:0,o.deals?o.rev/o.deals:0];}),
+    sort:true,search:false,pagination:{limit:14}
+  };
+  mountGrid('mo','moGrid',cfg);
+
+  const withVol=keys.filter(k=>M.month[k].emails>0);
+  if(withVol.length>=3){
+    const vols=withVol.map(k=>M.month[k].emails);
+    const pers=withVol.map(k=>M.month[k].emails?M.month[k].rev/M.month[k].emails:0);
+    const mv=vols.reduce((a,b)=>a+b,0)/vols.length, mp=pers.reduce((a,b)=>a+b,0)/pers.length;
+    let cov=0,sv=0,sp=0;
+    for(let i=0;i<vols.length;i++){cov+=(vols[i]-mv)*(pers[i]-mp);sv+=(vols[i]-mv)**2;sp+=(pers[i]-mp)**2;}
+    const r=(sv&&sp)?cov/Math.sqrt(sv*sp):0;
+    const word=r<-0.35?'<b>negatively</b> — the heaviest send months returned the least per email, which is the classic signature of digging deeper into a list than it can support'
+      :(r>0.35?'<b>positively</b> — bigger months also yielded more per email, so volume has not yet hit diminishing returns'
+      :'<b>barely at all</b> — yield is roughly independent of how many you send, so volume looks safe to scale within this range');
+    document.getElementById('moInsight').innerHTML=
+      `Monthly volume ranges ${num(Math.min.apply(null,vols))}–${num(Math.max.apply(null,vols))} emails, averaging `
+      +`${num(mv)}. Across these ${withVol.length} months volume and yield correlate ${word} (r = ${r.toFixed(2)}). `
+      +`Best month: <b>${ymLabel(withVol[pers.indexOf(Math.max.apply(null,pers))])}</b> at `
+      +`${money2(Math.max.apply(null,pers))} per email.`;
+  }else{
+    document.getElementById('moInsight').innerHTML='Fewer than three send months in this window — widen the <b>Period</b> filter to see the volume/yield relationship.';
+  }
+}
+
+function renderDeals(){
+  const stagePill=s=>gridjs.html(WON(s)?'<span class="pill won">'+s+'</span>'
+    :(DROPPED(s)?'<span class="pill drop">'+s+'</span>':'<span class="pill open">'+s+'</span>'));
+  const cfg={
+    columns:[{name:'Contact',width:'138px'},{name:'Sent by',width:'150px'},
+      {name:'Slate',width:'110px'},{name:'Email\nsent',width:'104px'},
+      {name:'Opp\ncreated',width:'104px'},{name:'Days to\nconvert',width:'88px',formatter:num},
+      {name:'Stage',width:'104px',formatter:stagePill},
+      {name:'Issue',width:'126px'},{name:'Market',width:'86px'},
+      {name:'CWO $',width:'96px',formatter:money},
+      {name:'Deal $',width:'96px',formatter:money}],
+    data:M.deals.slice().sort((a,b)=>(b[D_CREATED]||'').localeCompare(a[D_CREATED]||''))
+      .map(d=>[d[D_NAME]||d[D_ID],d[D_ACCT]||'—',d[D_SLATE]||'—',d[D_SEND]||'—',d[D_CREATED]||'—',
+        d[D_LAG],d[D_STAGE]||'—',d[D_ISSUE]||'—',d[D_MKT]||'—',d[D_CWO]||0,d[D_TOTAL]||d[D_CWO]||0]),
+    sort:true,search:true,pagination:{limit:20}
+  };
+  mountGrid('dl','dlGrid',cfg);
+}
+
+function mountGrid(key,elId,cfg){
+  const el=document.getElementById(elId);
+  if(grids[key]){grids[key].updateConfig(cfg).forceRender();}
+  else{grids[key]=new gridjs.Grid(cfg);grids[key].render(el);}
+}
+
+function renderAll(){
+  readControls();
+  M=compute();
+  renderKPIs();renderOverview();renderSlate();renderIssue();renderMonth();renderDeals();
+  document.getElementById('dataFoot').innerHTML=
+    'Sends: the slate sheets in the CWO Drive folder — <b>original tabs only</b>; RE: follow-ups, dedup and helper tabs excluded. '
+    +'Send dates come from the YAMM timestamp note on each Merge status cell. Deals: Salesforce opportunities carrying a '
+    +'<b>Cover Wrap Overrun</b> line, joined to recipients through OpportunityContactRole contact email, counted once and '
+    +'attributed to the most recent send to that address <i>before</i> the opportunity was created. '
+    +'<b style="color:#f5a623">Slate 4 is not yet in the folder</b>, so its markets are absent from these totals. '
+    +'YAMM overwrites its merge status on every re-send, so the sheets retain only the most recent wave — this covers '
+    +'<b>2 Jul – 6 Aug 2026</b>. '+num(RAW.deals.length)+' attributed deals, '
+    +num(RAW.sends.reduce((a,r)=>a+(+r[S_EMAILS]||0),0))+' emails.';
+}
+</script>
+<script>
+/* =============================================================================
+   CSV LOADING — parse, detect role, normalise, join
+   ========================================================================== */
+function parseCSV(text){
+  text=text.replace(/^﻿/,'');
+  const rows=[];let row=[],cur='',q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; }
+      else cur+=c;
+    }else{
+      if(c==='"') q=true;
+      else if(c===','){row.push(cur);cur='';}
+      else if(c==='\n'){row.push(cur);rows.push(row);row=[];cur='';}
+      else if(c==='\r'){/* skip */}
+      else cur+=c;
+    }
+  }
+  if(cur!==''||row.length){row.push(cur);rows.push(row);}
+  return rows.filter(r=>r.length>1||(r[0]||'').trim()!=='');
+}
+
+const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+const SYN={
+  sendDate:['senddate','datesent','sentdate','emaildate','emailsentdate','sendweek','weekof','dropdate','maildate','date','week'],
+  slate:['slate','slatename','sendslate','campaign','campaignname','list','listname','segment','batch'],
+  market:['market','marketlabel','publication','pub','magazine','edition','region'],
+  emails:['emails','emailssent','emailcount','sends','sendcount','sent','recipients','recipientcount','volume','quantity','count'],
+  email:['email','emailaddress','contactemail','recipientemail','recipient','toaddress','to','contactemailaddress'],
+  cost:['cost','sendcost','spend','emailcost','campaigncost'],
+  oppId:['opportunityid','oppid','opportunity18digitid','recordid','dealid','id'],
+  oppName:['opportunityname','opportunity','oppname','dealname','contactname','contact','fullname','name','agentname'],
+  account:['accountname','account','company','companyname','brokerage','organization','office'],
+  stage:['stage','stagename','opportunitystage','status','dealstage'],
+  created:['createddate','created','createdate','opportunitycreateddate','opencreateddate','datecreated'],
+  closeDate:['closedate','dateclosed','closed'],
+  issue:['issue','issuename','issuec','issuer','issuelabel'],
+  launch:['issuelaunchdate','launchdate','launchdatec','issuedate','printdate','issuelaunch','onsaledate'],
+  cwo:['coverwrapoverrunamount','cwoamount','cwo','coverwrapoverrun','coverwrapamount'],
+  amount:['amount','dealamount','opportunityamount','totalamount','dealtotal','totalprice','lineamount','lineitemamount','productamount','extendedprice','subtotal'],
+  product:['product','productname','product2name','lineitem','opportunityproduct','productcode','producttype']
+};
+function mapHeaders(hdr){
+  const idx={};
+  const cells=hdr.map(norm);
+  Object.keys(SYN).forEach(key=>{
+    for(const cand of SYN[key]){
+      const i=cells.indexOf(cand);
+      if(i>=0 && !Object.values(idx).includes(i)){idx[key]=i;return;}
+    }
+  });
+  return idx;
+}
+function isoDate(v){
+  if(!v) return '';
+  v=String(v).trim();
+  let m=v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m) return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+  m=v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if(m){let y=+m[3];if(y<100)y+=2000;return y+'-'+String(+m[1]).padStart(2,'0')+'-'+String(+m[2]).padStart(2,'0');}
+  const d=new Date(v);
+  return isNaN(+d)?'':d.toISOString().slice(0,10);
+}
+const money2n=v=>{const n=parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;};
+const daysBetween=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
+const CWO_RE=/cover\s*wrap\s*overrun/i;
+
+/* which file is this? */
+function detectRole(idx,hdr){
+  const hasMoney=idx.cwo!=null||idx.amount!=null;
+  const hasDeal=idx.oppId!=null||idx.stage!=null||idx.issue!=null||idx.product!=null;
+  if(hasMoney||hasDeal) return 'deals';
+  if(idx.sendDate!=null||idx.emails!=null) return 'sends';
+  return null;
+}
+
+function parseSends(rows,idx){
+  const out=[];
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i];if(!r||!r.length)continue;
+    const date=isoDate(idx.sendDate!=null?r[idx.sendDate]:'');
+    if(!date)continue;
+    out.push([date,
+      (idx.slate!=null?r[idx.slate]:'')||'Unassigned',
+      (idx.market!=null?r[idx.market]:'')||'',
+      idx.emails!=null?(money2n(r[idx.emails])||0):1,
+      idx.cost!=null?money2n(r[idx.cost]):0,
+      idx.email!=null?String(r[idx.email]||'').trim().toLowerCase():'']);
+  }
+  return out;
+}
+
+function parseDeals(rows,idx){
+  /* group line items by opportunity so a product-level export collapses correctly */
+  const byOpp={};
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i];if(!r||!r.length)continue;
+    const key=(idx.oppId!=null&&r[idx.oppId])?String(r[idx.oppId]).trim()
+      :((idx.oppName!=null?r[idx.oppName]:'')+'|'+(idx.created!=null?r[idx.created]:'')+'|'+(idx.issue!=null?r[idx.issue]:''));
+    if(!key||key==='||')continue;
+    const prod=idx.product!=null?String(r[idx.product]||''):'';
+    const amt=idx.amount!=null?money2n(r[idx.amount]):0;
+    const cwoCol=idx.cwo!=null?money2n(r[idx.cwo]):null;
+    const o=byOpp[key]=byOpp[key]||{cwo:0,total:0,rows:0,cwoSeen:false};
+    o.rows++;
+    o.id=(idx.oppId!=null?r[idx.oppId]:'')||key;
+    o.name=(idx.oppName!=null?r[idx.oppName]:'')||'';
+    o.account=(idx.account!=null?r[idx.account]:'')||'';
+    o.email=idx.email!=null?String(r[idx.email]||'').trim().toLowerCase():'';
+    o.slate=(idx.slate!=null?r[idx.slate]:'')||'';
+    o.send=idx.sendDate!=null?isoDate(r[idx.sendDate]):'';
+    o.created=idx.created!=null?isoDate(r[idx.created]):'';
+    o.close=idx.closeDate!=null?isoDate(r[idx.closeDate]):'';
+    o.stage=(idx.stage!=null?r[idx.stage]:'')||'';
+    o.issue=(idx.issue!=null?r[idx.issue]:'')||'';
+    o.launch=idx.launch!=null?isoDate(r[idx.launch]):'';
+    o.market=(idx.market!=null?r[idx.market]:'')||'';
+    if(cwoCol!=null&&cwoCol>0){o.cwo=Math.max(o.cwo,cwoCol);o.cwoSeen=true;}
+    if(idx.product!=null){
+      o.total+=amt;
+      if(CWO_RE.test(prod)){o.cwo+=amt;o.cwoSeen=true;}
+    }else{
+      o.total=Math.max(o.total,amt);
+    }
+  }
+  return Object.values(byOpp).map(o=>{
+    /* opportunity-level export with no product column: treat Amount as CWO
+       unless a dedicated CWO column said otherwise */
+    if(!o.cwoSeen) o.cwo=o.total;
+    if(!o.total) o.total=o.cwo;
+    return [o.id,o.name||o.id,o.account,o.email,o.slate,o.send,
+      o.created||o.close,o.close,o.stage,o.issue,o.launch,o.market,
+      o.cwo,o.total,null];
+  });
+}
+
+/* join deals to sends on email, last touch before creation */
+function attribute(deals,sendRows){
+  const byEmail={};
+  sendRows.forEach(r=>{const e=r[5];if(!e)return;(byEmail[e]=byEmail[e]||[]).push(r);});
+  Object.values(byEmail).forEach(a=>a.sort((x,y)=>x[0]<y[0]?-1:1));
+  let joined=0,already=0,unmatched=0;
+  deals.forEach(d=>{
+    if(d[D_SEND]){                                   /* file already carried it */
+      already++;
+    }else{
+      const a=byEmail[d[D_EMAIL]];
+      if(a&&d[D_CREATED]){
+        let best=null;
+        for(const r of a){ if(r[0]<=d[D_CREATED]) best=r; else break; }
+        if(best){d[D_SEND]=best[0]; if(!d[D_SLATE])d[D_SLATE]=best[1]; if(!d[D_MKT])d[D_MKT]=best[2]; joined++;}
+        else unmatched++;
+      }else unmatched++;
+    }
+    if(d[D_SEND]&&d[D_CREATED]) d[D_LAG]=Math.max(0,daysBetween(d[D_SEND],d[D_CREATED]));
+    if(!d[D_SLATE]) d[D_SLATE]='Unassigned';
+  });
+  return {joined,already,unmatched};
+}
+
+function ingest(files){
+  /* files: [{name, text}] */
+  let sends=null,deals=null,notes=[];
+  files.forEach(f=>{
+    const rows=parseCSV(f.text);
+    if(rows.length<2){notes.push(`<b>${f.name}</b> — no data rows.`);return;}
+    const idx=mapHeaders(rows[0]);
+    const role=detectRole(idx,rows[0]);
+    if(role==='deals'){
+      const d=parseDeals(rows,idx);
+      deals=(deals||[]).concat(d);
+      notes.push(`<b>${f.name}</b> → deals: ${num(rows.length-1)} rows collapsed to ${num(d.length)} opportunities.`);
+    }else if(role==='sends'){
+      const s=parseSends(rows,idx);
+      sends=(sends||[]).concat(s);
+      notes.push(`<b>${f.name}</b> → sends: ${num(s.length)} rows, ${num(s.reduce((a,r)=>a+r[3],0))} emails.`);
+    }else{
+      notes.push(`<b>${f.name}</b> — could not tell what this is. Needs either an amount/stage/issue column (deals) or a send-date column (sends).`);
+    }
+  });
+  if(!deals&&!sends) throw new Error('Nothing usable in those files.<br>'+notes.join('<br>'));
+
+  /* keep whichever side was not supplied this time */
+  const nextSends=sends||RAW.sends.map(r=>r.slice());
+  const nextDeals=deals||RAW.deals.map(r=>r.slice());
+  const j=attribute(nextDeals,nextSends);
+  if(deals) REAL.deals=true;
+  if(sends) REAL.sends=true;
+  if(deals&&sends) notes.push(`Attribution: ${num(j.joined)} deals matched to a send by email, `
+    +`${num(j.already)} already carried a send date, ${num(j.unmatched)} unmatched (excluded from slate/month splits).`);
+  if(REAL.deals&&!REAL.sends) notes.push('<b style="color:#f5a623">Sends are still demo data</b> — every $-per-email figure is against a made-up denominator until you load the send list.');
+  if(REAL.sends&&!REAL.deals) notes.push('<b style="color:#f5a623">Deals are still demo data</b> — revenue figures are placeholders until you load the deals export.');
+
+  RAW={sends:nextSends.map(r=>r.slice(0,5)),deals:nextDeals};
+  IS_LIVE=true;_latest=null;
+  LIVE_AT=new Date().toISOString().replace('T',' ').slice(0,16)+' UTC';
+  return notes;
+}
+
+/* ---- fetch from published CSV links ---- */
+const ls={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:v;}catch(e){return d;}},
+          set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+const ss={get(k){try{return sessionStorage.getItem(k);}catch(e){return null;}},
+          set(k,v){try{sessionStorage.setItem(k,v);return true;}catch(e){return false;}}};
+
+let BUSY=false,ERR='',OK='',PROG='';
+async function refresh(){
+  if(BUSY) return;
+  const du=(ls.get('cwo_deals_url','')||'').trim(), su=(ls.get('cwo_sends_url','')||'').trim();
+  if(!du&&!su){ openSettings('Add at least one published-CSV link, or drag a file in on the Data tab.'); return; }
+  BUSY=true;ERR='';OK='';PROG='fetching…';paint();
+  try{
+    const files=[];
+    for(const [url,label] of [[du,'deals.csv'],[su,'sends.csv']]){
+      if(!url) continue;
+      const r=await fetch(url,{redirect:'follow'});
+      if(!r.ok) throw new Error('Fetch failed for '+label+' ('+r.status+'). '
+        +'Check the sheet is published to the web as CSV and the link ends in <code>output=csv</code>.');
+      const text=await r.text();
+      if(/^\s*<(!doctype|html)/i.test(text)) throw new Error(
+        'That link returned a web page, not a CSV. In Google Sheets use <b>File → Share → Publish to web</b> '
+        +'and pick <b>Comma-separated values (.csv)</b> — a normal share link will not work.');
+      files.push({name:label,text});
+    }
+    const before=kpiSnap();
+    const notes=ingest(files);
+    renderAll();
+    MOVED=diffKpi(before,kpiSnap());
+    renderKPIs();
+    OK='Refreshed. '+notes.join(' ');
+  }catch(e){
+    ERR=String(e&&e.message||e);
+  }finally{ BUSY=false;PROG='';paint(); }
+}
+function kpiSnap(){ if(!M) return null;
+  return {revenue:M.revenue,perEmail:M.perEmail,emails:M.emails,deals:M.deals.length,
+          convRate:M.convRate,avgDeal:M.avgDeal}; }
+function diffKpi(before,after){
+  const out={};if(!before||!after)return out;
+  Object.keys(after).forEach(k=>{const d=after[k]-before[k];if(Math.abs(d)>1e-9)out[k]=d;});
+  return out;
+}
+
+/* ---- connection strip ---- */
+function barHtml(){
+  const linked=(ls.get('cwo_deals_url','')||ls.get('cwo_sends_url',''))?true:false;
+  const full=REAL.deals&&REAL.sends;
+  const state=!IS_LIVE?'<span style="color:#f5a623">&#9679; Demo data</span>'
+    :(full?'<span style="color:#22c55e">&#9679; Live</span>'
+          :'<span style="color:#f5a623">&#9679; Part demo — '+(REAL.deals?'sends':'deals')+' still placeholder</span>');
+  return '<span class="muted">'+state+
+      ' &middot; '+(BUSY&&PROG?PROG:LIVE_AT)+'</span>'+
+    '<button class="refresh ghost" id="cset">&#9881; Settings</button>'+
+    '<button class="refresh" id="crf"'+(BUSY?' disabled':'')+'>'+
+      (BUSY?'<span class="spin"></span>Refreshing&hellip;':(linked?'&#8635; Refresh from Drive':'&#128279; Link a CSV'))+
+    '</button>';
+}
+function paint(){
+  const bar=document.getElementById('sfbar');
+  if(bar){bar.className='sfbar';bar.innerHTML=barHtml();
+    const rf=document.getElementById('crf'); if(rf) rf.onclick=refresh;
+    const st=document.getElementById('cset'); if(st) st.onclick=()=>openSettings();}
+  const e=document.getElementById('errBox');
+  if(e){e.innerHTML=ERR||'';e.classList.toggle('on',!!ERR);}
+  const o=document.getElementById('okBox');
+  if(o){o.innerHTML=OK||'';o.classList.toggle('on',!!OK);}
+}
+
+/* ---- settings ---- */
+function openSettings(msg){
+  document.getElementById('setDeals').value=ls.get('cwo_deals_url','');
+  document.getElementById('setSends').value=ls.get('cwo_sends_url','');
+  document.getElementById('setMsg').innerHTML=msg||'';
+  document.getElementById('settings').style.display='flex';
+}
+function closeSettings(){document.getElementById('settings').style.display='none';}
+
+/* ---- schema tables + templates ---- */
+const SCHEMA_DEALS=[
+  ['req','Contact email','email, email address, contact email','The join key back to the send list. Skip only if the export already carries slate + send date.'],
+  ['req','Amount','amount, total price, line amount','Line-item amount on a product export, or deal amount on an opportunity export.'],
+  ['opt','Product','product, product name, product2.name','Line-item product. Lines matching “Cover Wrap Overrun” become CWO revenue; every line sums to full-deal revenue.'],
+  ['opt','Cover Wrap Overrun amount','cwo amount, cover wrap overrun','Use instead of Product if the export is already one row per opportunity with the CWO figure broken out.'],
+  ['opt','Opportunity ID','opportunity id, opp id, record id','Groups line items. Without it, contact + created date + issue is used.'],
+  ['opt','Opportunity / contact name','opportunity name, contact name, name','Shown in the Deals table.'],
+  ['opt','Account','account name, company, brokerage','Shown in the Deals table.'],
+  ['opt','Stage','stage, stage name, status','“Approved” = booked. “Dropped”/“Closed Lost” = dropped. Anything else counts as open.'],
+  ['opt','Created date','created date, opportunity created date','Drives attribution and the days-to-convert stat.'],
+  ['opt','Issue','issue, issue name','Powers the By Issue tab.'],
+  ['opt','Issue launch date','launch date, issue date, print date','Powers the issue-launch-month time axis.'],
+  ['opt','Market','market, market label, publication','Filters the By Issue tab.'],
+  ['opt','Slate','slate, campaign, segment','If present, skips the email join for that row.'],
+  ['opt','Send date','send date, date sent, email date','If present, skips the email join for that row.']
+];
+const SCHEMA_SENDS=[
+  ['req','Send date','send date, date sent, email date, week of','The date the drop went out. One row per recipient or per batch.'],
+  ['req','Slate','slate, campaign, segment, list','The split you want to compare. Blank rows land in “Unassigned”.'],
+  ['opt','Recipient email','email, email address, recipient','Per-recipient rows only. Without it, deals must carry their own slate + send date.'],
+  ['opt','Emails sent','emails sent, sends, recipients, volume','Batch rows only — the count for that row. Per-recipient rows count as 1 each.'],
+  ['opt','Market','market, publication, region','Inherited by any deal joined through this row.'],
+  ['opt','Cost','cost, spend, send cost','Reserved for cost-per-email reporting.']
+];
+function fillSchema(){
+  const row=r=>`<tr><td class="${r[0]}">${r[0]==='req'?'Required':'Optional'}</td>`
+    +`<td><b>${r[1]}</b><br><span style="color:#6b7178;font-size:11px">${r[2]}</span></td><td>${r[3]}</td></tr>`;
+  document.getElementById('schemaDeals').innerHTML=SCHEMA_DEALS.map(row).join('');
+  document.getElementById('schemaSends').innerHTML=SCHEMA_SENDS.map(row).join('');
+}
+function download(name,text){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([text],{type:'text/csv'}));
+  a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0);
+}
+const TPL_DEALS='Opportunity ID,Opportunity Name,Account Name,Email,Stage,Created Date,Issue,Issue Launch Date,Market,Product,Amount\n'
+ +'OPP-41001,Dana Whitfield,Compass,dana.whitfield@compass.com,Approved,2025-08-31,PHIL-100125,2025-10-01,PHIL,Cover Wrap Overrun,915\n'
+ +'OPP-41001,Dana Whitfield,Compass,dana.whitfield@compass.com,Approved,2025-08-31,PHIL-100125,2025-10-01,PHIL,Full-Page Ad,4255\n'
+ +'OPP-41002,Marcus Okonkwo,RE/MAX,marcus.okonkwo@gmail.com,Dropped,2025-09-14,MIA-102025,2025-10-20,MIA,Cover Wrap Overrun,1240\n';
+const TPL_SENDS='Send Date,Slate,Market,Email,Emails Sent\n'
+ +'2025-08-04,Northeast,PHIL,dana.whitfield@compass.com,1\n'
+ +'2025-08-04,Northeast,NYC,someone.else@kw.com,1\n'
+ +'2025-08-11,Southeast,MIA,marcus.okonkwo@gmail.com,1\n';
+
+/* ---- drop zone ---- */
+function wireDropZone(){
+  const dz=document.getElementById('drop'),fi=document.getElementById('fileIn');
+  const handle=async list=>{
+    const files=[];
+    for(const f of list){ files.push({name:f.name,text:await f.text()}); }
+    try{
+      const before=kpiSnap();
+      const notes=ingest(files);
+      renderAll();
+      MOVED=diffKpi(before,kpiSnap());renderKPIs();
+      ERR='';OK='Loaded. '+notes.join(' ');
+      document.getElementById('loadStatus').innerHTML=notes.join('<br>');
+    }catch(e){ ERR=String(e&&e.message||e);OK=''; }
+    paint();
+    window.scrollTo({top:0,behavior:'smooth'});
+  };
+  dz.onclick=()=>fi.click();
+  /* Snapshot the FileList into an array BEFORE clearing the input — the list is
+     live, so clearing it while handle() is awaiting f.text() would silently drop
+     every file after the first. */
+  fi.onchange=()=>{ const list=Array.from(fi.files); fi.value=''; if(list.length) handle(list); };
+  ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('hot');}));
+  ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('hot');}));
+  dz.addEventListener('drop',e=>{ const list=Array.from(e.dataTransfer.files); if(list.length) handle(list); });
+}
+
+/* =============================================================================
+   GATE + BOOT
+   ========================================================================== */
+/* ---- access guard --------------------------------------------------------
+   The password gate now lives on the index page only. Unlocking there sets
+   pali_unlock for the browser session; this page just reads that flag. With
+   no unlocked session we bounce back to the index (carrying ?next= so you
+   land back here after the password) instead of prompting a second time.
+   ------------------------------------------------------------------------ */
+function guardOk() {
+  if (ss.get('pali_unlock') === '1') return true;
+  return false;
+}
+function guardBounce() {
+  const here = location.pathname.split('/').pop() || '';
+  location.replace('./' + (here ? '?next=' + encodeURIComponent(here) : ''));
+}
+
+function enter() {
+  document.getElementById('app').style.display = '';
+  boot();
+}
+
+let BOOTED=false;
+function boot(){
+  if(BOOTED) return; BOOTED=true;
+  fillSchema();
+  ['cPeriod','cBasis','cStage','cWin','cAxis'].forEach(id=>
+    document.getElementById(id).addEventListener('change',()=>{MOVED={};renderAll();}));
+  document.getElementById('isMarket').addEventListener('change',renderIssue);
+  document.getElementById('isTop').addEventListener('change',renderIssue);
+  document.getElementById('tabs').addEventListener('click',e=>{
+    const p=e.target.dataset.p; if(!p) return;
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.p===p));
+    document.querySelectorAll('.panel').forEach(pl=>pl.classList.toggle('on',pl.dataset.p===p));
+  });
+  document.getElementById('tplDeals').onclick=()=>download('deals-template.csv',TPL_DEALS);
+  document.getElementById('tplSends').onclick=()=>download('sends-template.csv',TPL_SENDS);
+  wireDropZone();
+  renderAll();
+  paint();
+  if(ls.get('cwo_deals_url','')||ls.get('cwo_sends_url','')) refresh();
+}
+
+(function(){
+  document.getElementById('setSave').onclick=()=>{
+    ls.set('cwo_deals_url',document.getElementById('setDeals').value.trim());
+    ls.set('cwo_sends_url',document.getElementById('setSends').value.trim());
+    closeSettings();paint();
+    if(ls.get('cwo_deals_url','')||ls.get('cwo_sends_url','')) refresh();
+  };
+  document.getElementById('setCancel').onclick=closeSettings;
+  document.getElementById('settings').addEventListener('click',e=>{
+    if(e.target.id==='settings') closeSettings();
+  });
+  if(guardOk()) enter();
+  else guardBounce();
+})();
+</script>
+</body>
+</html>

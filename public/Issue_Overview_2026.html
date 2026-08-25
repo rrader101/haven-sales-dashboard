@@ -1,0 +1,660 @@
+<!doctype html>
+<!-- Issue Overview 2026 — hosted build.
+     Access is gated by the index page; live Salesforce REST refresh via PKCE OAuth (no server, no MCP bridge).
+     Modeled on PALI_Dashboard_shareable.html: same connection strip, settings modal,
+     token handling and change-highlighting behavior. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Issue Overview — 2026</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+         color: #e5e7eb; background: #0a0a0a; font-size: 13px; line-height: 1.4; }
+  .wrap { padding: 20px 22px 28px; max-width: 1400px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; color: #fafafa; }
+  .sub { color: #71717a; font-size: 12px; margin-bottom: 16px; }
+  .sub a { color: #22c55e; text-decoration: none; }
+  .sub a:hover { text-decoration: underline; }
+
+  /* ---- Salesforce connection strip (ported from PALI) ---- */
+  .sfbar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap;
+           background: #111111; border: 1px solid #27272a; border-radius: 10px; padding: 9px 14px;
+           margin-bottom: 14px; font-size: 12px; color: #71717a; }
+  .sfbar .muted { margin-right: auto; color: #71717a; }
+  .refresh { border: 0; background: #22c55e; color: #052e13; font-weight: 600; font-size: 12px;
+             padding: 7px 13px; border-radius: 7px; cursor: pointer; font-family: inherit; }
+  .refresh:hover { background: #16a34a; }
+  .refresh:disabled { background: #27272a; color: #71717a; cursor: default; }
+  .refresh.ghost { background: #27272a; color: #d4d4d8; }
+  .refresh.ghost:hover { background: #3f3f46; }
+  .spin { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,.18);
+          border-top-color: #22c55e; border-radius: 50%; animation: sp .8s linear infinite;
+          vertical-align: -2px; margin-right: 6px; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  .picker { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  .picker label { font-size: 12px; color: #d4d4d8; font-weight: 500; }
+  .picker select { font-size: 13px; padding: 7px 30px 7px 12px; border: 1px solid #27272a; border-radius: 6px;
+    background: #141414; color: #fafafa; min-width: 280px; cursor: pointer; appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat; background-position: right 8px center; }
+  .picker select:focus { outline: none; border-color: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,0.18); }
+  .picker .status { font-size: 12px; color: #a1a1aa; }
+  .picker .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+                         background: #52525b; margin-right: 6px; vertical-align: middle; }
+  .picker .status.loading .dot { background: #f59e0b; animation: pulse 1s infinite; }
+  .picker .status.ok .dot { background: #22c55e; }
+  .picker .status.err .dot { background: #ef4444; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .cards { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 18px; }
+  .card { background: #111111; border: 1px solid #27272a; border-radius: 10px; padding: 14px 16px; }
+  .card .lbl { color: #71717a; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+               margin-bottom: 8px; font-weight: 500; }
+  .card .val { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; color: #22c55e;
+               display: inline-block; padding: 0 4px; margin: 0 -4px; border-radius: 5px; }
+
+  /* values that moved on the last Salesforce refresh (ported from PALI) */
+  .chg { background: rgba(34,197,94,.12); box-shadow: inset 0 0 0 1px rgba(34,197,94,.22); }
+  .chgflash { animation: chgin 2.8s ease-out 1; }
+  @keyframes chgin { 0% { background: rgba(34,197,94,.40); } 100% { background: rgba(34,197,94,.12); } }
+  .dlt { font-size: 11px; font-weight: 600; margin-left: 6px; vertical-align: 3px; letter-spacing: 0; }
+  .dlt.up { color: #22c55e; } .dlt.dn { color: #f59e0b; }
+
+  .row { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-bottom: 18px; }
+  .panel { background: #111111; border: 1px solid #27272a; border-radius: 10px; padding: 16px; }
+  .panel h2 { font-size: 13px; font-weight: 600; margin: 0 0 12px; color: #fafafa; }
+  .panel .chart-box { position: relative; height: 240px; }
+
+  .deal-table-wrap { background: #111111; border: 1px solid #27272a; border-radius: 10px; padding: 16px; }
+  .deal-table-wrap h2 { font-size: 13px; font-weight: 600; margin: 0 0 12px; color: #fafafa; }
+
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+  .pill.won { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .pill.lost { background: rgba(239,68,68,0.15); color: #f87171; }
+  .pill.other { background: rgba(161,161,170,0.15); color: #a1a1aa; }
+
+  /* Grid.js — dark theme */
+  .gridjs-wrapper { box-shadow: none !important; border: 1px solid #27272a !important; border-radius: 6px; background: #0a0a0a !important; }
+  .gridjs-table { font-size: 12px; background: #0a0a0a !important; width: 100%; border-collapse: collapse; }
+  .gridjs-th, .gridjs-td { padding: 7px 10px !important; }
+  .gridjs-th { background: #18181b !important; color: #d4d4d8 !important; font-weight: 500 !important; border-bottom: 1px solid #27272a !important; }
+  .gridjs-td { background: #0a0a0a !important; color: #e5e7eb !important; border-bottom: 1px solid #1f1f22 !important; }
+  .gridjs-tr:hover .gridjs-td { background: #141416 !important; }
+  .gridjs-search { margin-bottom: 8px; }
+  .gridjs-search-input { width: 240px; border: 1px solid #27272a !important; background: #141414 !important; color: #fafafa !important; border-radius: 4px; outline: none; font-size: 12px !important; padding: 4px 8px !important; height: 28px !important; }
+  .gridjs-search-input::placeholder { color: #71717a; }
+  .gridjs-search-input:focus { border-color: #22c55e !important; box-shadow: 0 0 0 2px rgba(34,197,94,0.18) !important; }
+  .gridjs-pagination { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; font-size: 12px; color: #a1a1aa; }
+  .gridjs-pagination .gridjs-pages { display: inline-flex; gap: 4px; }
+  .gridjs-pagination .gridjs-pages button { background: #141414; border: 1px solid #27272a; border-radius: 4px; cursor: pointer; color: #d4d4d8; padding: 4px 9px; font-size: 12px; }
+  .gridjs-pagination .gridjs-pages button:hover { background: #1c1c1f; }
+  .gridjs-pagination .gridjs-pages button.gridjs-currentPage { background: #22c55e; color: #052e13; border-color: #22c55e; }
+  .gridjs-summary { color: #71717a; }
+  .gridjs-sort { background: transparent; border: 0; cursor: pointer; padding: 0 4px; font-size: 10px; color: #71717a; }
+
+  .footer-note { color: #52525b; font-size: 11px; margin-top: 16px; line-height: 1.6; }
+  .err-box { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.35); color: #fca5a5;
+             padding: 10px 12px; border-radius: 8px; font-size: 12px; margin-bottom: 14px; display: none; }
+  .err-box.show { display: block; }
+  .connect-hint { background: rgba(245,158,11,0.07); border: 1px solid #4a3a1c; border-left: 4px solid #f59e0b;
+                  border-radius: 8px; padding: 13px 15px; margin-bottom: 16px; font-size: 12.5px;
+                  line-height: 1.65; color: #d4d4d8; display: none; }
+  .connect-hint.show { display: block; }
+  .connect-hint b { color: #fbbf24; }
+
+
+  /* ---- settings modal (ported from PALI) ---- */
+  #settings { position: fixed; inset: 0; z-index: 110; background: rgba(0,0,0,.6); display: none;
+              align-items: center; justify-content: center; }
+  .setbox { background: #111111; border: 1px solid #27272a; border-radius: 14px; padding: 24px;
+            width: 460px; max-width: 92vw; }
+  .settitle { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 14px; }
+  #settings label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+                    color: #71717a; font-weight: 600; margin: 12px 0 5px; }
+  #settings input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #27272a;
+                    background: #0a0a0a; color: #e5e7eb; font-size: 13px; font-family: inherit; }
+  #setMsg { color: #fbbf24; font-size: 12px; min-height: 16px; margin-top: 10px; }
+  .setrow { display: flex; gap: 10px; margin-top: 14px; }
+  .setrow button { flex: 1; padding: 10px; border: 0; border-radius: 8px; background: #22c55e;
+                   color: #052e13; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .setrow button.ghost { background: #27272a; color: #d4d4d8; }
+  .setnote { font-size: 11px; color: #71717a; line-height: 1.7; margin-top: 16px;
+             border-top: 1px solid #27272a; padding-top: 12px; }
+  .setnote code { background: #0a0a0a; border: 1px solid #27272a; border-radius: 4px; padding: 1px 5px;
+                  color: #9ca3af; word-break: break-all; }
+
+  @media (max-width: 900px) {
+    .cards { grid-template-columns: repeat(3, 1fr); }
+    .row { grid-template-columns: 1fr; }
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/gridjs.umd.js" integrity="sha384-/XXDzxe4FsGiAe50i/u9pY/Vy/uX654MHB1xoc1BJNnH1WXHhqHga9g3q5tF4gj7" crossorigin="anonymous"></script>
+</head>
+<body>
+
+
+<div id="settings">
+  <div class="setbox">
+    <div class="settitle">Salesforce connection</div>
+    <label>Consumer Key (Client ID)</label>
+    <input id="setClient" type="text" placeholder="3MVG9..." spellcheck="false">
+    <label>My Domain login URL</label>
+    <input id="setLogin" type="text" placeholder="https://havenlifestyles.my.salesforce.com" spellcheck="false">
+    <div id="setMsg"></div>
+    <div class="setrow"><button id="setSave">Save</button><button id="setCancel" class="ghost">Cancel</button></div>
+    <div class="setnote">
+      In the Connected App, register this exact <b>Callback URL</b> (one per line, alongside the PALI one):<br>
+      <code>https://haven-sales-dashboard.vercel.app/Issue_Overview_2026.html</code><br><br>
+      and make sure <code>https://haven-sales-dashboard.vercel.app</code> is in Setup &rarr; CORS.<br><br>
+      This page shares its Consumer Key, login URL and session token with the PALI dashboard, so
+      connecting on either one signs you in for both.
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="app" style="display:none">
+  <h1>Issue Overview — 2026</h1>
+  <div class="sub" id="sub">Pulls live from Salesforce. Connect, then pick an Issue to load its related Deals.</div>
+
+  <div class="sfbar" id="sfbar"></div>
+
+  <div class="connect-hint" id="connectHint">
+    <b>Not connected.</b> Click <b>Connect Salesforce</b> above to sign in. You'll be sent to Salesforce,
+    approve once, and land back here with the data loaded. Nothing is stored on a server — the access
+    token lives in this tab's session storage only.
+  </div>
+
+  <div class="picker">
+    <label for="issueSel">Issue:</label>
+    <select id="issueSel" disabled><option>Not connected</option></select>
+    <span class="status" id="status"><span class="dot"></span><span class="txt">Waiting for Salesforce</span></span>
+  </div>
+
+  <div class="err-box" id="errBox"></div>
+
+  <div class="cards" id="cards">
+    <div class="card"><div class="lbl">Total deals</div><div class="val">—</div></div>
+    <div class="card"><div class="lbl">Won</div><div class="val">—</div></div>
+    <div class="card"><div class="lbl">Lost</div><div class="val">—</div></div>
+    <div class="card"><div class="lbl">Drop rate</div><div class="val">—</div></div>
+    <div class="card"><div class="lbl">Won revenue</div><div class="val">—</div></div>
+    <div class="card"><div class="lbl">Total pipeline</div><div class="val">—</div></div>
+  </div>
+
+  <div class="row">
+    <div class="panel">
+      <h2>Won vs Lost</h2>
+      <div class="chart-box"><canvas id="donut"></canvas></div>
+    </div>
+    <div class="deal-table-wrap">
+      <h2 id="dealHdr">Deal list</h2>
+      <div id="dealGrid"></div>
+    </div>
+  </div>
+
+  <div class="footer-note" id="footer">
+    Every number on this page comes straight from a Salesforce REST query made by your browser — there is no
+    cached copy and no server in between. Switching Issues re-queries; "Refresh from Salesforce" re-pulls the
+    Issue list and the selected Issue's Deals. Values that moved since the previous pull are highlighted.
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+// ===========================================================================
+// Salesforce REST live refresh (PKCE OAuth, fully client-side)
+// Ported from PALI_Dashboard_shareable.html so both dashboards behave the same.
+// Storage keys are deliberately shared with PALI: same origin, same Connected
+// App, so signing in on one page signs you in on the other.
+// ===========================================================================
+const REDIRECT_URI = 'https://haven-sales-dashboard.vercel.app/Issue_Overview_2026.html';
+const API_VER = 'v60.0';
+const SF_BASE = 'https://havenlifestyles.lightning.force.com';
+
+function sfCfg() {
+  return {
+    clientId: (localStorage.getItem('pali_sf_client') || '').trim(),
+    loginUrl: (localStorage.getItem('pali_sf_login') || 'https://havenlifestyles.my.salesforce.com')
+                .trim().replace(/\/+$/, '')
+  };
+}
+let ACCESS_TOKEN = sessionStorage.getItem('pali_sf_token')    || '';
+let INSTANCE_URL = sessionStorage.getItem('pali_sf_instance') || '';
+let BUSY = false;
+let LAST_PULL = 'never';
+let ERR = '';
+
+function b64url(buf) {
+  return btoa(String.fromCharCode.apply(null, new Uint8Array(buf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+async function sha256buf(str) { return await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)); }
+function randStr(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); return b64url(a.buffer).slice(0, n); }
+
+async function sfConnect() {
+  const cfg = sfCfg();
+  if (!cfg.clientId) { openSettings('Enter your Salesforce Consumer Key (Client ID) first.'); return; }
+  const verifier = randStr(96);
+  sessionStorage.setItem('issue_pkce', verifier);
+  const challenge = b64url(await sha256buf(verifier));
+  const u = cfg.loginUrl + '/services/oauth2/authorize?response_type=code' +
+    '&client_id=' + encodeURIComponent(cfg.clientId) +
+    '&redirect_uri=' + encodeURIComponent(REDIRECT_URI) +
+    '&scope=' + encodeURIComponent('api refresh_token') +
+    '&code_challenge=' + challenge + '&code_challenge_method=S256';
+  window.location.assign(u);
+}
+
+async function sfHandleRedirect() {
+  const q = new URLSearchParams(location.search);
+  if (q.get('error')) {
+    ERR = 'Salesforce: ' + (q.get('error_description') || q.get('error'));
+    history.replaceState({}, '', REDIRECT_URI);
+    return;
+  }
+  const code = q.get('code');
+  if (!code) return;
+  const cfg = sfCfg(), verifier = sessionStorage.getItem('issue_pkce') || '';
+  try {
+    const body = new URLSearchParams({
+      grant_type: 'authorization_code', code, client_id: cfg.clientId,
+      redirect_uri: REDIRECT_URI, code_verifier: verifier
+    });
+    const r = await fetch(cfg.loginUrl + '/services/oauth2/token', {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body
+    });
+    const j = await r.json();
+    if (!j.access_token) throw new Error(j.error_description || j.error || 'token exchange failed');
+    ACCESS_TOKEN = j.access_token;
+    INSTANCE_URL = j.instance_url;
+    sessionStorage.setItem('pali_sf_token', ACCESS_TOKEN);
+    sessionStorage.setItem('pali_sf_instance', INSTANCE_URL);
+    history.replaceState({}, '', REDIRECT_URI);
+  } catch (e) {
+    ERR = 'Salesforce sign-in failed: ' + (e.message || e);
+    history.replaceState({}, '', REDIRECT_URI);
+  }
+}
+
+async function sfQueryAll(soql) {
+  let url = INSTANCE_URL + '/services/data/' + API_VER + '/query?q=' + encodeURIComponent(soql);
+  const out = [];
+  while (url) {
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + ACCESS_TOKEN } });
+    if (r.status === 401) {
+      ACCESS_TOKEN = '';
+      sessionStorage.removeItem('pali_sf_token');
+      throw new Error('Session expired — click Connect to sign in again.');
+    }
+    if (!r.ok) throw new Error('Salesforce query failed (' + r.status + ')');
+    const j = await r.json();
+    out.push.apply(out, j.records);
+    url = j.done ? null : (INSTANCE_URL + j.nextRecordsUrl);
+  }
+  return out;
+}
+
+function sfDisconnect() {
+  ACCESS_TOKEN = ''; INSTANCE_URL = '';
+  sessionStorage.removeItem('pali_sf_token');
+  sessionStorage.removeItem('pali_sf_instance');
+  ISSUES = []; issueIndex = {}; PREV = {};
+  issueSel.innerHTML = '<option>Not connected</option>';
+  issueSel.disabled = true;
+  setStatus('', 'Waiting for Salesforce');
+  renderSfBar();
+}
+
+const _soqlStr = s => "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+
+// ---- connection strip -----------------------------------------------------
+function sfBarHtml() {
+  return '<span class="muted">' +
+      (ACCESS_TOKEN ? '<span style="color:#22c55e">&#9679; Connected</span>' : '&#9679; Not connected') +
+      ' &middot; last pull ' + LAST_PULL + '</span>' +
+    '<button class="refresh ghost" id="sfset">&#9881; Settings</button>' +
+    (ACCESS_TOKEN ? '<button class="refresh ghost" id="sfdis">Disconnect</button>' : '') +
+    '<button class="refresh" id="sfrf"' + (BUSY ? ' disabled' : '') + '>' +
+      (BUSY ? '<span class="spin"></span>Refreshing&hellip;'
+            : (ACCESS_TOKEN ? '&#8635; Refresh from Salesforce' : '&#128274; Connect Salesforce')) +
+    '</button>';
+}
+function renderSfBar() {
+  const bar = document.getElementById('sfbar');
+  bar.innerHTML = sfBarHtml();
+  document.getElementById('connectHint').classList.toggle('show', !ACCESS_TOKEN);
+  const rf = document.getElementById('sfrf');
+  if (rf) rf.onclick = () => { if (ACCESS_TOKEN) refresh(); else sfConnect(); };
+  const st = document.getElementById('sfset'); if (st) st.onclick = () => openSettings();
+  const ds = document.getElementById('sfdis'); if (ds) ds.onclick = sfDisconnect;
+}
+
+// ===========================================================================
+// Dashboard
+// ===========================================================================
+const fmtUSD = n => '$' + Math.round(n || 0).toLocaleString();
+const fmtPct = n => (n * 100).toFixed(1) + '%';
+
+const issueSel  = document.getElementById('issueSel');
+const statusEl  = document.getElementById('status');
+const statusTxt = statusEl.querySelector('.txt');
+const errBox    = document.getElementById('errBox');
+const subEl     = document.getElementById('sub');
+const dealHdr   = document.getElementById('dealHdr');
+
+let donutChart = null;
+let grid = null;
+let ISSUES = [];
+let issueIndex = {};     // Id -> { name, date }
+let PREV = {};           // Id -> previous summary, for change highlighting
+let FLASH = true;        // suppress the flash on the very first paint of an Issue
+
+function setStatus(state, txt) { statusEl.className = 'status ' + state; statusTxt.textContent = txt; }
+function showErr(msg) { errBox.textContent = msg; errBox.classList.add('show'); }
+function clearErr() { errBox.classList.remove('show'); }
+
+async function loadIssues() {
+  setStatus('loading', 'Loading 2026 Issues…');
+  const soql = "SELECT Id, Name, Launch_Date__c FROM Issue__c " +
+    "WHERE Launch_Date__c >= 2026-01-01 AND Launch_Date__c <= 2026-12-31 " +
+    "ORDER BY Launch_Date__c ASC, Name ASC";
+  const rows = await sfQueryAll(soql);
+  const keep = issueSel.value;
+  issueSel.innerHTML = '';
+  issueIndex = {};
+  for (const r of rows) {
+    const opt = document.createElement('option');
+    opt.value = r.Id;
+    opt.textContent = r.Name + '  (' + r.Launch_Date__c + ')';
+    issueSel.appendChild(opt);
+    issueIndex[r.Id] = { name: r.Name, date: r.Launch_Date__c };
+  }
+  issueSel.disabled = rows.length === 0;
+  if (keep && issueIndex[keep]) issueSel.value = keep;
+  ISSUES = rows;
+  setStatus('ok', rows.length + ' Issues loaded');
+  return rows;
+}
+
+async function loadDeals(issueId) {
+  const meta = issueIndex[issueId];
+  if (!meta) return;
+  setStatus('loading', 'Loading deals for ' + meta.name + '…');
+  clearErr();
+  const soql = "SELECT Id, Name, StageName, IsClosed, IsWon, Amount, CloseDate " +
+    "FROM Opportunity WHERE Issue__c = " + _soqlStr(issueId) + " ORDER BY CreatedDate DESC";
+  let deals;
+  try {
+    deals = await sfQueryAll(soql);
+  } catch (e) {
+    setStatus('err', 'Error loading deals');
+    showErr(String(e.message || e));
+    renderSfBar();
+    return;
+  }
+  renderAll(issueId, deals);
+  LAST_PULL = new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+  setStatus('ok', deals.length + ' deals loaded for ' + meta.name);
+  renderSfBar();
+}
+
+function summarize(deals) {
+  const s = { total: deals.length, won_count: 0, lost_count: 0, open_count: 0,
+              won_amount: 0, lost_amount: 0, total_amount: 0 };
+  for (const d of deals) {
+    const amt = +d.Amount || 0;
+    s.total_amount += amt;
+    if (d.IsWon) { s.won_count += 1; s.won_amount += amt; }
+    else if (d.IsClosed) { s.lost_count += 1; s.lost_amount += amt; }
+    else { s.open_count += 1; }
+  }
+  const closed = s.won_count + s.lost_count;
+  s.win_rate  = closed > 0 ? s.won_count / closed : 0;
+  s.drop_rate = closed > 0 ? s.lost_count / closed : 0;
+  return s;
+}
+
+// A card's value gets the PALI change treatment when it moved since the last pull.
+function cardHtml(lbl, val, cur, prev, fmtDelta) {
+  let cls = 'val', tail = '';
+  if (prev !== undefined && prev !== null && cur !== prev) {
+    cls += ' chg' + (FLASH ? ' chgflash' : '');
+    const up = cur > prev;
+    const d = fmtDelta ? fmtDelta(cur - prev) : (up ? '+' : '−') + Math.abs(cur - prev);
+    tail = '<span class="dlt ' + (up ? 'up' : 'dn') + '">' + d + '</span>';
+  }
+  return '<div class="card"><div class="lbl">' + lbl + '</div>' +
+         '<div><span class="' + cls + '">' + val + '</span>' + tail + '</div></div>';
+}
+
+function renderAll(issueId, deals) {
+  const meta = issueIndex[issueId];
+  const s = summarize(deals);
+  const p = PREV[issueId] || {};
+
+  subEl.innerHTML = '<a href="' + SF_BASE + '/lightning/r/Issue__c/' + issueId + '/view" target="_blank" rel="noopener">' +
+    meta.name + '</a> · launched ' + meta.date + ' · ' + deals.length + ' related deals · pulled ' +
+    new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+  dealHdr.textContent = 'Deal list — ' + meta.name + ' (' + deals.length + ')';
+
+  const dInt = v => (v > 0 ? '+' : '−') + Math.abs(v);
+  const dUSD = v => (v > 0 ? '+' : '−') + fmtUSD(Math.abs(v));
+  const dPct = v => (v > 0 ? '+' : '−') + Math.abs(v * 100).toFixed(1) + 'pp';
+
+  document.getElementById('cards').innerHTML = [
+    cardHtml('Total deals',    s.total,                s.total,        p.total,        dInt),
+    cardHtml('Won',            s.won_count,            s.won_count,    p.won_count,    dInt),
+    cardHtml('Lost',           s.lost_count,           s.lost_count,   p.lost_count,   dInt),
+    cardHtml('Drop rate',      fmtPct(s.drop_rate),    s.drop_rate,    p.drop_rate,    dPct),
+    cardHtml('Won revenue',    fmtUSD(s.won_amount),   s.won_amount,   p.won_amount,   dUSD),
+    cardHtml('Total pipeline', fmtUSD(s.total_amount), s.total_amount, p.total_amount, dUSD)
+  ].join('');
+
+  PREV[issueId] = s;
+  FLASH = true;
+
+  // Donut. If the CDN is blocked (corporate proxy, offline), fall back to a
+  // plain breakdown rather than taking the whole page down with it.
+  if (donutChart) { donutChart.destroy(); donutChart = null; }
+  const ctx = document.getElementById('donut');
+  const WON = '#22c55e', LOST = '#ef4444', OPEN = '#52525b';
+  const stale = document.getElementById('donutFallback');
+  if (stale) stale.remove();
+  ctx.style.display = '';
+  if (typeof Chart === 'undefined') {
+    ctx.insertAdjacentHTML('afterend', '<div id="donutFallback" style="padding:8px 0;font-size:13px">' +
+      [['Won', s.won_count, WON], ['Lost', s.lost_count, LOST], ['Open', s.open_count, OPEN]].map(r =>
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+        '<span style="width:9px;height:9px;border-radius:50%;background:' + r[2] + '"></span>' +
+        '<span style="flex:1;color:#a1a1aa">' + r[0] + '</span>' +
+        '<b style="color:#fafafa">' + r[1] + '</b></div>').join('') +
+      '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #27272a;color:#71717a;font-size:11px">' +
+      'Drop rate <b style="color:#22c55e;font-size:15px">' + fmtPct(s.drop_rate) + '</b><br>' +
+      'Chart library unavailable — check network access to cdn.jsdelivr.net.</div></div>');
+    ctx.style.display = 'none';
+  } else {
+  donutChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Won (' + s.won_count + ')', 'Lost (' + s.lost_count + ')', 'Open (' + s.open_count + ')'],
+      datasets: [{ data: [s.won_count, s.lost_count, s.open_count],
+                   backgroundColor: [WON, LOST, OPEN], borderWidth: 2, borderColor: '#111111' }]
+    },
+    options: {
+      maintainAspectRatio: false, responsive: true, cutout: '65%',
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, color: '#d4d4d8' } },
+        tooltip: { callbacks: { label: c => c.label + ': ' + c.parsed + ' deals' } }
+      }
+    },
+    plugins: [{
+      id: 'centerTxt',
+      beforeDraw(chart) {
+        const { ctx, chartArea: { width, height, top, left } } = chart;
+        ctx.save();
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = '600 24px -apple-system, sans-serif';
+        ctx.fillStyle = '#22c55e';
+        ctx.fillText(fmtPct(s.drop_rate), left + width / 2, top + height / 2 - 6);
+        ctx.font = '500 10px -apple-system, sans-serif';
+        ctx.fillStyle = '#71717a';
+        ctx.fillText('DROP RATE', left + width / 2, top + height / 2 + 14);
+        ctx.restore();
+      }
+    }]
+  });
+  }
+
+  // Deal grid
+  const host = document.getElementById('dealGrid');
+  host.innerHTML = '';
+  if (typeof gridjs === 'undefined') {
+    host.innerHTML = '<div style="font-size:11px;color:#71717a;margin-bottom:8px">' +
+        'Table library unavailable — showing a plain list.</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+      '<thead><tr>' + ['Deal', 'Stage', 'Amount', 'Close date'].map(h =>
+        '<th style="text-align:left;padding:7px 10px;background:#18181b;color:#d4d4d8;' +
+        'font-weight:500;border-bottom:1px solid #27272a">' + h + '</th>').join('') + '</tr></thead><tbody>' +
+      deals.map(d => {
+        const cls = d.IsWon ? 'won' : (d.IsClosed ? 'lost' : 'other');
+        return '<tr><td style="padding:7px 10px;border-bottom:1px solid #1f1f22">' +
+          '<a href="' + SF_BASE + '/lightning/r/Opportunity/' + d.Id + '/view" target="_blank" ' +
+          'rel="noopener" style="color:#22c55e;text-decoration:none">' + (d.Name || '') + '</a></td>' +
+          '<td style="padding:7px 10px;border-bottom:1px solid #1f1f22">' +
+          '<span class="pill ' + cls + '">' + (d.StageName || '') + '</span></td>' +
+          '<td style="padding:7px 10px;border-bottom:1px solid #1f1f22">' + fmtUSD(+d.Amount || 0) + '</td>' +
+          '<td style="padding:7px 10px;border-bottom:1px solid #1f1f22">' + (d.CloseDate || '') + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    return;
+  }
+  grid = new gridjs.Grid({
+    columns: [
+      { name: 'Deal', formatter: (cell, row) => gridjs.html(
+          '<a href="' + SF_BASE + '/lightning/r/Opportunity/' + row.cells[5].data +
+          '/view" target="_blank" rel="noopener" style="color:#22c55e;text-decoration:none">' + cell + '</a>') },
+      { name: 'Stage', formatter: (cell, row) => {
+          const cls = row.cells[4].data ? 'won' : (row.cells[6].data ? 'lost' : 'other');
+          return gridjs.html('<span class="pill ' + cls + '">' + cell + '</span>');
+        } },
+      { name: 'Amount', formatter: cell => fmtUSD(cell) },
+      { name: 'Close date' },
+      { name: 'IsWon', hidden: true },
+      { name: 'Id', hidden: true },
+      { name: 'IsClosed', hidden: true }
+    ],
+    data: deals.map(d => [d.Name || '', d.StageName || '', +d.Amount || 0, d.CloseDate || '',
+                          !!d.IsWon, d.Id, !!d.IsClosed]),
+    sort: true, search: true, pagination: { limit: 25, summary: true }
+  });
+  // Render into a brand-new node each time — Grid.js keeps internal state keyed to
+  // its container, so re-rendering into the same one can show the previous pull.
+  const fresh = document.createElement('div');
+  host.appendChild(fresh);
+  grid.render(fresh);
+}
+
+// Full refresh: re-pull the Issue list, then the selected Issue's Deals.
+async function refresh() {
+  if (BUSY) return;
+  BUSY = true; renderSfBar(); clearErr();
+  try {
+    await loadIssues();
+    if (issueSel.value) await loadDeals(issueSel.value);
+  } catch (e) {
+    setStatus('err', 'Refresh failed');
+    showErr(String(e.message || e));
+  } finally {
+    BUSY = false; renderSfBar();
+  }
+}
+
+issueSel.addEventListener('change', () => {
+  FLASH = false;                     // switching Issues isn't a "change", it's a different subject
+  if (issueSel.value) loadDeals(issueSel.value);
+});
+
+// ===========================================================================
+// Access guard + settings
+// ===========================================================================
+
+/* ---- access guard --------------------------------------------------------
+   The password gate now lives on the index page only. Unlocking there sets
+   pali_unlock for the browser session; this page just reads that flag. With
+   no unlocked session we bounce back to the index (carrying ?next= so you
+   land back here after the password) instead of prompting a second time.
+   A Salesforce OAuth return (?code= / ?error=) is let through so a
+   sign-in round-trip can never strand its token on the index page.
+   ------------------------------------------------------------------------ */
+function guardOk() {
+  if (_ssGet('pali_unlock') === '1') return true;
+  /* mid-OAuth redirect back from Salesforce — let it finish */
+  if (/[?&](code|error)=/.test(location.search)) { _ssSet('pali_unlock', '1'); return true; }
+  return false;
+}
+function guardBounce() {
+  const here = location.pathname.split('/').pop() || '';
+  location.replace('./' + (here ? '?next=' + encodeURIComponent(here) : ''));
+}
+
+function _ssGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
+function _ssSet(k, v) { try { sessionStorage.setItem(k, v); return true; } catch (e) { return false; } }
+
+function enter() {
+  document.getElementById('app').style.display = '';
+  boot();
+}
+function openSettings(msg) {
+  const cfg = sfCfg();
+  document.getElementById('setClient').value = cfg.clientId;
+  document.getElementById('setLogin').value = cfg.loginUrl;
+  document.getElementById('setMsg').textContent = msg || '';
+  document.getElementById('settings').style.display = 'flex';
+}
+function closeSettings() { document.getElementById('settings').style.display = 'none'; }
+
+let BOOTED = false;
+async function boot() {
+  if (BOOTED) return;
+  BOOTED = true;
+  await sfHandleRedirect();
+  renderSfBar();
+  if (ERR) showErr(ERR);
+  if (!ACCESS_TOKEN) { setStatus('', 'Not connected'); return; }
+  try {
+    const issues = await loadIssues();
+    if (issues.length > 0) {
+      FLASH = false;
+      if (!issueSel.value) issueSel.value = issues[0].Id;
+      await loadDeals(issueSel.value);
+    } else {
+      setStatus('err', 'No 2026 Issues found');
+    }
+  } catch (e) {
+    setStatus('err', 'Error loading Issues');
+    showErr(String(e.message || e));
+    renderSfBar();
+  }
+}
+
+// ---- wire up --------------------------------------------------------------
+document.getElementById('setSave').onclick = () => {
+  localStorage.setItem('pali_sf_client', document.getElementById('setClient').value.trim());
+  localStorage.setItem('pali_sf_login',  document.getElementById('setLogin').value.trim());
+  closeSettings();
+  renderSfBar();
+};
+document.getElementById('setCancel').onclick = closeSettings;
+
+if (guardOk()) enter();
+else guardBounce();
+})();
+</script>
+</body>
+</html>

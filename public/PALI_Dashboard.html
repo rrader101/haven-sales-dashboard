@@ -1,4 +1,4 @@
-<!-- PALI Return Rate — hosted build. Password-gated, live Salesforce REST refresh via PKCE OAuth. -->
+<!-- PALI Return Rate — hosted build. Access is gated by the index page; live Salesforce REST refresh via PKCE OAuth. -->
 <meta charset="utf-8">
 <style>
   :root { color-scheme: dark; }
@@ -167,14 +167,6 @@
   .rdlt.up { color:#22c55e; } .rdlt.dn { color:#f87171; }
   .crevs { font-size:9.5px; color:#6b7178; margin-top:3px; line-height:1.35; }
   .rstale { color:#f5c168; white-space:nowrap; cursor:help; }
-  #gate { position:fixed; inset:0; z-index:100; background:#0a0b0d; display:none; align-items:center; justify-content:center; }
-  .gatebox { background:#141518; border:1px solid #26282c; border-radius:14px; padding:32px 30px; width:320px; text-align:center; }
-  .gtitle { font-size:20px; font-weight:700; color:#fff; }
-  .gsub { font-size:13px; color:#7f858e; margin:6px 0 18px; }
-  #gate input { width:100%; padding:11px 13px; border-radius:8px; border:1px solid #34373d; background:#0f1012; color:#e7e9ea; font-size:14px; }
-  #gate button { width:100%; margin-top:12px; padding:11px; border:0; border-radius:8px; background:#22c55e; color:#0a0b0d; font-weight:700; font-size:14px; cursor:pointer; }
-  #gate button:hover { background:#16a34a; }
-  #gerr { color:#f87171; font-size:12px; min-height:16px; margin-top:10px; }
   #settings { position:fixed; inset:0; z-index:110; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; }
   .setbox { background:#141518; border:1px solid #26282c; border-radius:14px; padding:24px 24px; width:440px; max-width:92vw; }
   .settitle { font-size:16px; font-weight:700; color:#fff; margin-bottom:14px; }
@@ -231,15 +223,6 @@
 <h1 id="ttl">PALI Return Rate</h1>
 <div class="sub" id="sub">For each issue, the advertisers who ran a <b>one-time paid ad</b> in the <b>previous issue of that market</b> (and so received the PALI selling this one) &mdash; and how many <b>came into this issue</b>.</div>
 
-<div id="gate">
-  <div class="gatebox">
-    <div class="gtitle">PALI Return Rate</div>
-    <div class="gsub">Enter password to continue</div>
-    <input id="gpw" type="password" placeholder="Password" autocomplete="off" spellcheck="false">
-    <button id="gbtn">Unlock</button>
-    <div id="gerr"></div>
-  </div>
-</div>
 
 <div id="settings">
   <div class="setbox">
@@ -1464,18 +1447,30 @@ function drawTri(all, marketSet) {
   });
 }
 
-const PW_HASH = '1503a9e9c576367d623ad6b9d9c7c778265bedd923cc13fb0f5bd1c167d1d584';
-async function sha256hex(s) {
-  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-  return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('');
+
+/* ---- access guard --------------------------------------------------------
+   The password gate now lives on the index page only. Unlocking there sets
+   pali_unlock for the browser session; this page just reads that flag. With
+   no unlocked session we bounce back to the index (carrying ?next= so you
+   land back here after the password) instead of prompting a second time.
+   A Salesforce OAuth return (?code= / ?error=) is let through so a
+   sign-in round-trip can never strand its token on the index page.
+   ------------------------------------------------------------------------ */
+function guardOk() {
+  if (_ssGet('pali_unlock') === '1') return true;
+  /* mid-OAuth redirect back from Salesforce — let it finish */
+  if (/[?&](code|error)=/.test(location.search)) { _ssSet('pali_unlock', '1'); return true; }
+  return false;
 }
-async function tryUnlock() {
-  const v = document.getElementById('gpw').value;
-  if (await sha256hex(v) === PW_HASH) { sessionStorage.setItem('pali_unlock', '1'); unlock(); }
-  else { document.getElementById('gerr').textContent = 'Incorrect password.'; }
+function guardBounce() {
+  const here = location.pathname.split('/').pop() || '';
+  location.replace('./' + (here ? '?next=' + encodeURIComponent(here) : ''));
 }
-function unlock() {
-  document.getElementById('gate').style.display = 'none';
+
+function _ssGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
+function _ssSet(k, v) { try { sessionStorage.setItem(k, v); return true; } catch (e) { return false; } }
+
+function enter() {
   document.getElementById('app').style.display = '';
   boot();
 }
@@ -1490,16 +1485,13 @@ function closeSettings() { document.getElementById('settings').style.display = '
 async function boot() { await sfHandleRedirect(); render(); }
 
 (function () {
-  document.getElementById('gbtn').onclick = tryUnlock;
-  document.getElementById('gpw').addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
   document.getElementById('setSave').onclick = () => {
     localStorage.setItem('pali_sf_client', document.getElementById('setClient').value.trim());
     localStorage.setItem('pali_sf_login', (document.getElementById('setLogin').value.trim() || 'https://havenlifestyles.my.salesforce.com'));
     closeSettings(); render();
   };
   document.getElementById('setCancel').onclick = closeSettings;
-  // if we're returning from a Salesforce redirect, or already unlocked this session, skip the gate
-  if (sessionStorage.getItem('pali_unlock') === '1') unlock();
-  else document.getElementById('gate').style.display = 'flex';
+  if (guardOk()) enter();
+  else guardBounce();
 })();
 </script>
