@@ -1,10 +1,17 @@
+<!doctype html>
 <!-- PALI Return Rate — hosted build. Access is gated by the index page; live Salesforce REST refresh via PKCE OAuth. -->
+<html lang="en">
+<head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PALI Return Rate</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
-  body { margin:0; padding:22px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  body { margin:0; padding:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
          background:#0a0b0d; color:#e7e9ea; font-size:14px; }
+  /* Same centered column the other dashboards use, so the set reads as one family. */
+  .wrap { max-width:1500px; margin:0 auto; padding:22px 22px 60px; }
   h1 { font-size:22px; margin:0 0 4px; color:#fff; letter-spacing:-0.01em; font-weight:700; }
   .sub { color:#7f858e; font-size:13px; margin-bottom:18px; }
   .sub b { color:#c9ccd1; font-weight:600; }
@@ -180,12 +187,12 @@
   .setnote code { background:#0f1012; border:1px solid #26282c; border-radius:4px; padding:1px 5px; color:#9ca3af; word-break:break-all; }
 
   /* ---- tabs ---- */
-  .tabs { display:flex; gap:6px; margin-bottom:16px; border-bottom:1px solid #26282c; }
-  .tab { appearance:none; border:0; background:transparent; color:#7f858e; font-size:13px; font-weight:600;
-         padding:9px 14px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px;
-         font-family:inherit; letter-spacing:-0.01em; }
+  .tabs { display:flex; flex-wrap:wrap; gap:2px; margin-bottom:16px; border-bottom:1px solid #26282c; }
+  .tab { appearance:none; border:0; background:transparent; color:#7f858e; font-size:13.5px;
+         padding:10px 16px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px;
+         font-family:inherit; transition:color .12s; }
   .tab:hover { color:#c9ccd1; }
-  .tab.on { color:#fff; border-bottom-color:#22c55e; }
+  .tab.on { color:#22c55e; border-bottom-color:#22c55e; font-weight:700; }
 
   /* ---- conversion view ---- */
   .cvtiles { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
@@ -219,9 +226,8 @@
   .cvfrac { width:56px; color:#6b7178; font-size:10.5px; font-variant-numeric:tabular-nums; }
   @media (max-width:1100px) { .cvtiles { grid-template-columns:1fr; } .cvfrac { display:none; } }
 </style>
-
-<h1 id="ttl">PALI Return Rate</h1>
-<div class="sub" id="sub">For each issue, the advertisers who ran a <b>one-time paid ad</b> in the <b>previous issue of that market</b> (and so received the PALI selling this one) &mdash; and how many <b>came into this issue</b>.</div>
+</head>
+<body>
 
 
 <div id="settings">
@@ -239,7 +245,13 @@
   </div>
 </div>
 
-<div id="app" style="display:none"></div>
+<div class="wrap" id="app" style="display:none">
+  <h1 id="ttl">PALI Return Rate</h1>
+  <div class="sub" id="sub">For each issue, the advertisers who ran a <b>one-time paid ad</b> in the <b>previous issue of that market</b> (and so received the PALI selling this one) &mdash; and how many <b>came into this issue</b>.</div>
+  <div id="sfbar"></div>
+  <div class="tabs" id="tabbar"></div>
+  <div id="view"></div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
 <script>
@@ -1456,7 +1468,16 @@ function drawTri(all, marketSet) {
    A Salesforce OAuth return (?code= / ?error=) is let through so a
    sign-in round-trip can never strand its token on the index page.
    ------------------------------------------------------------------------ */
+/* Where to send someone who has no unlocked session. Change this one line if
+   the homepage is not served as index.html at the site root — e.g. set it to
+   'homepage.html'. */
+const HOME_PAGE = './';
+
 function guardOk() {
+  /* Opened straight off disk (file://) — there is no homepage to bounce to and
+     the folder listing is all a redirect would find, so just open the page.
+     Nothing is given away: a downloaded copy already holds its own data. */
+  if (location.protocol === 'file:') return true;
   if (_ssGet('pali_unlock') === '1') return true;
   /* mid-OAuth redirect back from Salesforce — let it finish */
   if (/[?&](code|error)=/.test(location.search)) { _ssSet('pali_unlock', '1'); return true; }
@@ -1464,7 +1485,7 @@ function guardOk() {
 }
 function guardBounce() {
   const here = location.pathname.split('/').pop() || '';
-  location.replace('./' + (here ? '?next=' + encodeURIComponent(here) : ''));
+  location.replace(HOME_PAGE + (here ? '?next=' + encodeURIComponent(here) : ''));
 }
 
 function _ssGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
@@ -1495,3 +1516,6 @@ async function boot() { await sfHandleRedirect(); render(); }
   else guardBounce();
 })();
 </script>
+
+</body>
+</html>
