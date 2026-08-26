@@ -19,6 +19,16 @@
   .sub a { color: #22c55e; text-decoration: none; }
   .sub a:hover { text-decoration: underline; }
 
+  /* ---- Return to homepage ---- */
+  .topnav { margin-bottom: 12px; }
+  .homebtn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+             background: #22c55e; color: #052e13; font-weight: 600; font-size: 12px;
+             padding: 7px 13px; border-radius: 7px; font-family: inherit; border: 0;
+             cursor: pointer; line-height: 1; }
+  .homebtn:hover { background: #16a34a; }
+  .homebtn:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(34,197,94,0.35); }
+  .homebtn .arw { font-size: 13px; line-height: 1; }
+
   /* ---- Salesforce connection strip (ported from PALI) ---- */
   .sfbar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap;
            background: #111111; border: 1px solid #27272a; border-radius: 10px; padding: 9px 14px;
@@ -158,6 +168,9 @@
 </div>
 
 <div class="wrap" id="app" style="display:none">
+  <div class="topnav">
+    <a class="homebtn" href="./"><span class="arw">&#8592;</span>Return To Homepage</a>
+  </div>
   <h1>Issue Overview — 2026</h1>
   <div class="sub" id="sub">Pulls live from Salesforce. Connect, then pick an Issue to load its related Deals.</div>
 
