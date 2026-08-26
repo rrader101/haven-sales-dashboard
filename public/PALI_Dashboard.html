@@ -1468,10 +1468,10 @@ function drawTri(all, marketSet) {
    A Salesforce OAuth return (?code= / ?error=) is let through so a
    sign-in round-trip can never strand its token on the index page.
    ------------------------------------------------------------------------ */
-/* Where to send someone who has no unlocked session. Change this one line if
-   the homepage is not served as index.html at the site root — e.g. set it to
-   'homepage.html'. */
-const HOME_PAGE = './';
+/* Where to send someone who has no unlocked session: the site homepage.
+   Root-relative so it resolves to https://haven-sales-dashboard.vercel.app/homepage.html
+   on the hosted site and still works from any subpath. */
+const HOME_PAGE = '/homepage.html';
 
 function guardOk() {
   /* Opened straight off disk (file://) — there is no homepage to bounce to and

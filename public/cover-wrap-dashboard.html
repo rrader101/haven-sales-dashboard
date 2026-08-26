@@ -54,17 +54,6 @@ h1{font-size:22px;margin:0 0 4px;color:#fff;font-weight:700;letter-spacing:-.01e
 .dlt{font-size:11px;margin-left:6px;letter-spacing:0;font-weight:600;vertical-align:middle;}
 .dlt.up{color:var(--won);}.dlt.dn{color:#f5c168;}
 
-/* ---- password gate ---- */
-#gate{position:fixed;inset:0;z-index:100;background:#0a0b0d;display:none;align-items:center;justify-content:center;}
-.gatebox{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:32px 30px;width:340px;text-align:center;}
-.gtitle{font-size:19px;font-weight:700;color:#fff;line-height:1.3;}
-.gsub{font-size:13px;color:var(--muted);margin:6px 0 18px;}
-#gate input{width:100%;padding:11px 13px;border-radius:8px;border:1px solid var(--line2);background:#0f1012;
-  color:var(--ink);font-size:14px;font-family:inherit;}
-#gate button{width:100%;margin-top:12px;padding:11px;border:0;border-radius:8px;background:var(--won);
-  color:#0a0b0d;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;}
-#gate button:hover{background:#16a34a;}
-#gerr{color:var(--drop);font-size:12px;min-height:16px;margin-top:10px;}
 
 /* ---- settings modal ---- */
 #settings{position:fixed;inset:0;z-index:110;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:20px;}
@@ -172,15 +161,6 @@ td.gridjs-td{background:transparent;border-color:var(--hair);color:#e3e6e9;font-
 </head>
 <body>
 
-<div id="gate">
-  <div class="gatebox">
-    <div class="gtitle">Cover Wrap Overrun<br>Campaign Analytics</div>
-    <div class="gsub">Enter password to continue</div>
-    <input id="gpw" type="password" placeholder="Password" autocomplete="off" spellcheck="false">
-    <button id="gbtn">Unlock</button>
-    <div id="gerr"></div>
-  </div>
-</div>
 
 <div id="settings">
   <div class="setbox">
@@ -1313,18 +1293,23 @@ function wireDropZone(){
 /* =============================================================================
    GATE + BOOT
    ========================================================================== */
-const PW_HASH='1503a9e9c576367d623ad6b9d9c7c778265bedd923cc13fb0f5bd1c167d1d584';
-async function sha256hex(s){
-  const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));
-  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+/* ---- access guard -------------------------------------------------------
+   The password gate lives on the homepage only. Unlocking there sets
+   pali_unlock for the browser session; this page just reads that flag. With
+   no unlocked session we bounce to /homepage.html (carrying ?next= so you
+   land back here after the password) instead of prompting a second time.
+   ---------------------------------------------------------------------- */
+const HOME_PAGE='/homepage.html';
+function guardOk(){
+  /* Opened straight off disk (file://) — there is no homepage to bounce to. */
+  if(location.protocol==='file:') return true;
+  return ss.get('pali_unlock')==='1';
 }
-async function tryUnlock(){
-  const v=document.getElementById('gpw').value.trim();
-  if(await sha256hex(v)===PW_HASH){ ss.set('pali_unlock','1'); unlock(); }
-  else document.getElementById('gerr').textContent='Incorrect password.';
+function guardBounce(){
+  const here=location.pathname.split('/').pop()||'';
+  location.replace(HOME_PAGE+(here?'?next='+encodeURIComponent(here):''));
 }
 function unlock(){
-  document.getElementById('gate').style.display='none';
   document.getElementById('app').style.display='';
   boot();
 }
@@ -1350,8 +1335,6 @@ function boot(){
 }
 
 (function(){
-  document.getElementById('gbtn').onclick=tryUnlock;
-  document.getElementById('gpw').addEventListener('keydown',e=>{if(e.key==='Enter')tryUnlock();});
   document.getElementById('setSave').onclick=()=>{
     ls.set('cwo_deals_url',document.getElementById('setDeals').value.trim());
     ls.set('cwo_sends_url',document.getElementById('setSends').value.trim());
@@ -1362,8 +1345,8 @@ function boot(){
   document.getElementById('settings').addEventListener('click',e=>{
     if(e.target.id==='settings') closeSettings();
   });
-  if(ss.get('pali_unlock')==='1') unlock();
-  else document.getElementById('gate').style.display='flex';
+  if(guardOk()) unlock();
+  else guardBounce();
 })();
 </script>
 </body>

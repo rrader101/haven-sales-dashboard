@@ -611,12 +611,19 @@ issueSel.addEventListener('change', () => {
 /* ---- access guard --------------------------------------------------------
    The password gate now lives on the index page only. Unlocking there sets
    pali_unlock for the browser session; this page just reads that flag. With
-   no unlocked session we bounce back to the index (carrying ?next= so you
+   no unlocked session we bounce to /homepage.html (carrying ?next= so you
    land back here after the password) instead of prompting a second time.
    A Salesforce OAuth return (?code= / ?error=) is let through so a
    sign-in round-trip can never strand its token on the index page.
    ------------------------------------------------------------------------ */
+/* Where to send someone who has no unlocked session: the site homepage.
+   Root-relative so it resolves to https://haven-sales-dashboard.vercel.app/homepage.html
+   on the hosted site and still works from any subpath. */
+const HOME_PAGE = '/homepage.html';
+
 function guardOk() {
+  /* Opened straight off disk (file://) — there is no homepage to bounce to. */
+  if (location.protocol === 'file:') return true;
   if (_ssGet('pali_unlock') === '1') return true;
   /* mid-OAuth redirect back from Salesforce — let it finish */
   if (/[?&](code|error)=/.test(location.search)) { _ssSet('pali_unlock', '1'); return true; }
@@ -624,7 +631,7 @@ function guardOk() {
 }
 function guardBounce() {
   const here = location.pathname.split('/').pop() || '';
-  location.replace('./' + (here ? '?next=' + encodeURIComponent(here) : ''));
+  location.replace(HOME_PAGE + (here ? '?next=' + encodeURIComponent(here) : ''));
 }
 
 function _ssGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
