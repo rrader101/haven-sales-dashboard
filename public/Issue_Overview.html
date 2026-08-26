@@ -149,7 +149,7 @@
     <div class="setrow"><button id="setSave">Save</button><button id="setCancel" class="ghost">Cancel</button></div>
     <div class="setnote">
       In the Connected App, register this exact <b>Callback URL</b> (one per line, alongside the PALI one):<br>
-      <code>https://haven-sales-dashboard.vercel.app/Issue_Overview_2026.html</code><br><br>
+      <code id="setRedirect"></code><br><br>
       and make sure <code>https://haven-sales-dashboard.vercel.app</code> is in Setup &rarr; CORS.<br><br>
       This page shares its Consumer Key, login URL and session token with the PALI dashboard, so
       connecting on either one signs you in for both.
@@ -214,7 +214,14 @@
 // Storage keys are deliberately shared with PALI: same origin, same Connected
 // App, so signing in on one page signs you in on the other.
 // ===========================================================================
-const REDIRECT_URI = 'https://haven-sales-dashboard.vercel.app/Issue_Overview_2026.html';
+// The Connected App's Callback URL must match this string EXACTLY.
+// Derived from where this page is actually being served, so renaming or moving
+// the file can't silently break the OAuth round-trip (that mismatch is what the
+// hardcoded Issue_Overview_2026.html value caused). The exact value to register
+// is shown in the Settings dialog.
+const REDIRECT_URI = /^https?:$/.test(location.protocol)
+  ? (location.origin + location.pathname)
+  : 'https://haven-sales-dashboard.vercel.app/Issue_Overview.html';
 const API_VER = 'v60.0';
 const SF_BASE = 'https://havenlifestyles.lightning.force.com';
 
@@ -255,8 +262,12 @@ async function sfConnect() {
 async function sfHandleRedirect() {
   const q = new URLSearchParams(location.search);
   if (q.get('error')) {
-    ERR = 'Salesforce: ' + (q.get('error_description') || q.get('error'));
-    history.replaceState({}, '', REDIRECT_URI);
+    const code = q.get('error') || '';
+    ERR = 'Salesforce: ' + (q.get('error_description') || code);
+    if (/redirect_uri/i.test(code + ' ' + (q.get('error_description') || ''))) {
+      ERR += '  \u2014 register this exact Callback URL in the Connected App: ' + REDIRECT_URI;
+    }
+    history.replaceState({}, '', location.pathname);
     return;
   }
   const code = q.get('code');
@@ -276,10 +287,10 @@ async function sfHandleRedirect() {
     INSTANCE_URL = j.instance_url;
     sessionStorage.setItem('pali_sf_token', ACCESS_TOKEN);
     sessionStorage.setItem('pali_sf_instance', INSTANCE_URL);
-    history.replaceState({}, '', REDIRECT_URI);
+    history.replaceState({}, '', location.pathname);
   } catch (e) {
     ERR = 'Salesforce sign-in failed: ' + (e.message || e);
-    history.replaceState({}, '', REDIRECT_URI);
+    history.replaceState({}, '', location.pathname);
   }
 }
 
@@ -612,6 +623,8 @@ function enter() {
 }
 function openSettings(msg) {
   const cfg = sfCfg();
+  const rd = document.getElementById('setRedirect');
+  if (rd) rd.textContent = REDIRECT_URI;
   document.getElementById('setClient').value = cfg.clientId;
   document.getElementById('setLogin').value = cfg.loginUrl;
   document.getElementById('setMsg').textContent = msg || '';
