@@ -157,6 +157,15 @@ td.gridjs-td{background:transparent;border-color:var(--hair);color:#e3e6e9;font-
 .pill.won{background:rgba(34,197,94,.14);color:#6ee7a0;}
 .pill.open{background:rgba(57,135,229,.14);color:#8ab8ee;}
 .pill.drop{background:rgba(248,113,113,.13);color:#f0a3a3;}
+
+/* ---- Return to homepage ---- */
+.topnav{margin-bottom:12px;}
+.homebtn{display:inline-flex;align-items:center;gap:6px;text-decoration:none;background:var(--won);
+  color:#0a0b0d;font-weight:600;font-size:12px;padding:7px 13px;border-radius:7px;
+  font-family:inherit;border:0;cursor:pointer;line-height:1;}
+.homebtn:hover{background:#16a34a;}
+.homebtn:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(34,197,94,.35);}
+.homebtn .arw{font-size:13px;line-height:1;}
 </style>
 </head>
 <body>
@@ -191,6 +200,9 @@ td.gridjs-td{background:transparent;border-color:var(--hair);color:#e3e6e9;font-
 </div>
 
 <div class="wrap" id="app" style="display:none">
+  <div class="topnav">
+    <a class="homebtn" href="/homepage.html"><span class="arw">&#8592;</span>Return To Homepage</a>
+  </div>
   <h1>Cover Wrap Overrun &mdash; No-Listing Email Campaign</h1>
   <div class="sub">Agents with <b>no active listing</b> get a weekly email pitching a cover wrap of themselves or their
     brokerage. This tracks which recipients went on to run a <b>Cover Wrap Overrun</b> deal, and what each email was worth.
