@@ -1,0 +1,1779 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Billing Analytics</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/gridjs.umd.js" integrity="sha384-/XXDzxe4FsGiAe50i/u9pY/Vy/uX654MHB1xoc1BJNnH1WXHhqHga9g3q5tF4gj7" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/theme/mermaid.min.css" integrity="sha384-jZvDSsmGB9oGGT/4l9bHXGoAv1OxvG/cFmSo0dZaSqmBgvQTKDBFAMftlXTmMbNW" crossorigin="anonymous">
+<style>
+:root{color-scheme:dark;
+ --bg:#0a0b0d;--card:#141518;--card2:#17181b;--card3:#1b1d21;
+ --ink:#e7e9ea;--ink2:#d4d7db;--ink3:#c9ccd1;--muted:#7f858e;--muted2:#6b7178;--faint:#4a4e55;
+ --line:#26282c;--line2:#34373d;--hair:#1f2124;
+ --drop:#f87171;--won:#22c55e;--accent:#3b82f6;--amber:#f5a623;--violet:#a78bfa;--grey:#5b6472;--teal:#2dd4bf;--pink:#f472b6;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+.wrap{max-width:1500px;margin:0 auto;padding:22px 22px 60px;}
+h1{font-size:22px;margin:0 0 4px;color:#fff;font-weight:700;letter-spacing:-.01em;}
+.sub{color:var(--muted);font-size:13px;margin-bottom:16px;}
+.sub b{color:var(--ink3);font-weight:600;}
+
+/* ---- Salesforce connection strip (matches the PALI / drop-rate dashboards) ---- */
+.sfbar{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 14px;margin-bottom:14px;
+  font-size:12px;color:var(--muted);}
+.sfbar .muted{color:#6b7178;margin-right:auto;}
+.refresh{border:0;background:var(--won);color:#0a0b0d;font-weight:600;font-size:12px;
+  padding:7px 13px;border-radius:7px;cursor:pointer;font-family:inherit;}
+.refresh:hover:not(:disabled){background:#16a34a;}
+.refresh:disabled{background:#3a3d42;color:#8a9099;cursor:default;}
+.refresh.ghost{background:#26282c;color:#c9ccd1;}
+.refresh.ghost:hover{background:#31343a;}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.18);border-top-color:var(--won);
+  border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:6px;}
+@keyframes sp{to{transform:rotate(360deg);}}
+.err{display:none;padding:11px 14px;background:rgba(220,38,38,.1);border:1px solid #5a2222;border-radius:8px;
+  color:#f87171;font-size:12px;margin-bottom:16px;line-height:1.6;}
+.err.on{display:block;}
+.err b{color:#fca5a5;}
+.err code{background:#241a1a;padding:1px 5px;border-radius:4px;font-size:11.5px;color:#f0c9c9;}
+
+/* ---- values that moved on the last Salesforce refresh ---- */
+.chg{background:rgba(34,197,94,.10)!important;box-shadow:inset 0 0 0 1px rgba(34,197,94,.20);border-radius:5px;}
+.dlt{font-size:11px;margin-left:6px;letter-spacing:0;font-weight:600;vertical-align:middle;}
+.dlt.up{color:var(--won);}.dlt.dn{color:#f5c168;}
+
+/* ---- settings modal ---- */
+#settings{position:fixed;inset:0;z-index:110;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;}
+.setbox{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px;width:440px;max-width:92vw;}
+.settitle{font-size:16px;font-weight:700;color:#fff;margin-bottom:14px;}
+#settings label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+  font-weight:600;margin:12px 0 5px;}
+#settings input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line2);background:#0f1012;
+  color:var(--ink);font-size:13px;font-family:inherit;}
+#setMsg{color:#f5c168;font-size:12px;min-height:16px;margin-top:10px;}
+.setrow{display:flex;gap:10px;margin-top:14px;}
+.setrow button{flex:1;padding:10px;border:0;border-radius:8px;background:var(--won);color:#0a0b0d;
+  font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;}
+.setrow button.ghost{background:#26282c;color:var(--ink3);}
+.setnote{font-size:11px;color:var(--muted2);line-height:1.6;margin-top:16px;border-top:1px solid var(--line);padding-top:12px;}
+.setnote code{background:#0f1012;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:#9ca3af;word-break:break-all;}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));background:var(--card);
+  border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:16px;}
+.kpi{padding:16px 18px;border-right:1px solid var(--line);}
+.kpi:last-child{border-right:0;}
+.kpi .l{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;}
+.kpi .v{font-size:30px;font-weight:700;margin:6px 0 3px;letter-spacing:-.02em;color:var(--ink);}
+.kpi .ksub{font-size:11px;color:var(--muted2);line-height:1.4;}
+.kpi.big{background:var(--card3);}
+.kpi.big .v{color:var(--amber);}
+.kpi.good .v{color:var(--won);}
+.kpi.bad .v{color:var(--drop);}
+
+.kpiscope{font-size:12px;color:var(--muted);line-height:1.65;margin:0 0 16px;padding:14px 16px;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;}
+.kpiscope b{color:var(--ink3);}
+
+.tabs{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--line);}
+.tab{padding:10px 14px;border:none;background:none;color:var(--muted);font-size:13.5px;cursor:pointer;
+  border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .12s;font-family:inherit;}
+.tab:hover{color:var(--ink3);}
+.tab.on{color:var(--won);border-bottom-color:var(--won);font-weight:700;}
+.panel{display:none;}.panel.on{display:block;}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px;}
+.card h2{font-size:14px;margin:0 0 3px;font-weight:600;color:var(--ink);}
+.card .note{color:var(--muted);font-size:12px;margin:0 0 14px;line-height:1.55;}
+.card .note b{color:var(--ink3);}
+.chartbox{position:relative;height:300px;}
+.chartbox.sm{height:240px;}.chartbox.tall{height:520px;}
+
+.insight{background:rgba(59,130,246,.08);border:1px solid #24405f;border-left:4px solid var(--accent);
+  border-radius:8px;padding:13px 15px;font-size:13px;line-height:1.6;color:#b9c6d8;margin-top:14px;}
+.insight b{color:#93c5fd;}
+.warnbox{background:rgba(245,166,35,.09);border:1px solid #5c4620;border-left:4px solid var(--amber);
+  border-radius:8px;padding:13px 15px;font-size:13px;line-height:1.6;color:#dcc9a8;margin-bottom:16px;}
+.warnbox b{color:#f5c168;}
+.foot{color:var(--muted2);font-size:11.5px;line-height:1.6;margin-top:8px;}
+
+.controls{display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:var(--card2);
+  border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:14px;}
+label{font-size:11px;color:var(--ink3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
+select{border:1px solid var(--line2);border-radius:7px;padding:6px 10px;font-size:12.5px;
+  background:var(--card3);color:var(--ink2);cursor:pointer;font-family:inherit;}
+select:focus{outline:none;border-color:var(--won);}
+
+/* ---- Grid.js dark theme ---- */
+.gridjs-container{color:var(--ink2);padding:0;}
+.gridjs-wrapper{overflow-x:auto;box-shadow:none;border:1px solid var(--line);border-radius:8px;background:var(--card);}
+table.gridjs-table{min-width:760px;width:100%!important;background:var(--card);}
+th.gridjs-th{vertical-align:bottom;background:var(--card3);border-color:var(--line);color:var(--muted);
+  text-transform:uppercase;letter-spacing:.04em;font-weight:700;}
+th.gridjs-th .gridjs-th-content{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25;font-size:10.5px;}
+th.gridjs-th-sort:hover,th.gridjs-th-sort:focus{background:#22242a;}
+td.gridjs-td,th.gridjs-th{padding:8px 10px;}
+td.gridjs-td{background:transparent;border-color:var(--hair);color:var(--ink2);font-size:12.5px;}
+.gridjs-tr:hover td.gridjs-td{background:var(--card3);}
+.gridjs-head{background:transparent;padding:0 0 10px;}
+.gridjs-search input.gridjs-input{background:var(--card3);border:1px solid var(--line2);color:var(--ink2);border-radius:7px;}
+.gridjs-search input.gridjs-input::placeholder{color:var(--faint);}
+.gridjs-search input.gridjs-input:focus{box-shadow:none;border-color:var(--won);}
+.gridjs-footer{background:var(--card);border-color:var(--line);box-shadow:none;color:var(--muted);}
+.gridjs-summary{color:var(--muted);}
+.gridjs-pagination .gridjs-pages button{background:var(--card2);border:1px solid var(--line2);color:var(--muted);}
+.gridjs-pagination .gridjs-pages button:hover:not(:disabled){background:var(--card3);color:var(--ink2);}
+.gridjs-pagination .gridjs-pages button:disabled{background:var(--card);color:var(--faint);}
+.gridjs-pagination .gridjs-pages button.gridjs-currentPage{background:var(--won);color:var(--bg);font-weight:700;border-color:var(--won);}
+.gridjs-sort{filter:invert(.68);}
+
+/* ---- Return to homepage ---- */
+.topnav{margin-bottom:12px;}
+.homebtn{display:inline-flex;align-items:center;gap:6px;text-decoration:none;background:var(--won);
+  color:#0a0b0d;font-weight:600;font-size:12px;padding:7px 13px;border-radius:7px;
+  font-family:inherit;border:0;cursor:pointer;line-height:1;}
+.homebtn:hover{background:#16a34a;}
+.homebtn:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(34,197,94,.35);}
+.homebtn .arw{font-size:13px;line-height:1;}
+</style>
+</head>
+<body>
+
+<div id="settings">
+  <div class="setbox">
+    <div class="settitle">Salesforce connection</div>
+    <label>Consumer Key (Client ID)</label>
+    <input id="setClient" type="text" placeholder="3MVG9..." spellcheck="false">
+    <label>My Domain login URL</label>
+    <input id="setLogin" type="text" placeholder="https://havenlifestyles.my.salesforce.com" spellcheck="false">
+    <div id="setMsg"></div>
+    <div class="setrow"><button id="setSave">Save</button><button id="setCancel" class="ghost">Cancel</button></div>
+    <div class="setnote">Shares the Consumer Key with the PALI and Drop-Rate dashboards on this domain &mdash; set it in any one.
+      In the Connected App, register this exact <b>Callback URL</b> alongside the others:<br>
+      <code>https://haven-sales-dashboard.vercel.app/Billing_Overview.html</code><br>
+      and make sure <code>https://haven-sales-dashboard.vercel.app</code> is in Setup &rarr; CORS.</div>
+  </div>
+</div>
+
+<div class="wrap" id="app" style="display:none">
+  <div class="topnav">
+    <a class="homebtn" href="/homepage.html"><span class="arw">&#8592;</span>Return To Homepage</a>
+  </div>
+  <h1>Billing Analytics</h1>
+  <div class="sub">Invoicing, collections and realization across Haven publications &mdash; <b>what we billed, what came in, and what leaked</b>.</div>
+
+  <div id="sfbar"></div>
+  <div class="err" id="errBox"></div>
+
+  <div class="kpis" id="kpis"></div>
+  <div class="kpiscope" id="kpiScope"></div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-p="invoices">Invoices</button>
+    <button class="tab" data-p="outstanding">Outstanding</button>
+    <button class="tab" data-p="payments">Payments</button>
+    <button class="tab" data-p="realization">Realization by Issue</button>
+    <button class="tab" data-p="products">Products</button>
+    <button class="tab" data-p="extra">Extra Copies</button>
+    <button class="tab" data-p="stop">Stop Invoice</button>
+    <button class="tab" data-p="refunds">Refunds</button>
+    <button class="tab" data-p="subs">Subscriptions</button>
+  </div>
+
+  <!-- ============================ INVOICES ============================ -->
+  <div class="panel on" data-p="invoices">
+    <div class="kpis" id="invKpis"></div>
+    <div class="card">
+      <h2>Xero invoices by stage</h2>
+      <p class="note">Every invoice ever written to <b>Xero_Invoice__c</b>, by its current stage. <b>Total</b> = deals total plus credits applied (credits are negative), so it is the amount actually owed on the invoice.</p>
+      <div class="chartbox"><canvas id="stageChart"></canvas></div>
+      <div id="stageGrid" style="margin-top:16px"></div>
+    </div>
+    <div class="card">
+      <h2>Invoices written per month</h2>
+      <p class="note">Invoices by the month they were <b>created</b> in Salesforce, split by where they ended up. The bulk of October 2025 is the initial Xero backfill, not a month of real invoicing &mdash; read the months after that as the live run-rate.</p>
+      <div class="controls">
+        <label>Measure</label>
+        <select id="trendMetric">
+          <option value="c">Invoice count</option>
+          <option value="t">Invoice value ($)</option>
+        </select>
+      </div>
+      <div class="chartbox"><canvas id="trendChart"></canvas></div>
+      <div class="insight" id="invInsight"></div>
+    </div>
+    <div class="card">
+      <h2>Voided invoices over time</h2>
+      <p class="note">Void rate = voided &divide; (voided + awaiting payment + paid + authorised) for invoices created that month. A void undoes an invoice entirely, so a rising line means billing is being re-cut rather than collected.</p>
+      <div class="chartbox"><canvas id="voidChart"></canvas></div>
+      <div class="insight" id="voidInsight"></div>
+    </div>
+  </div>
+
+  <!-- ============================ OUTSTANDING ============================ -->
+  <div class="panel" data-p="outstanding">
+    <div class="kpis" id="outKpis"></div>
+    <div class="card">
+      <h2>Outstanding invoice aging</h2>
+      <p class="note">Open invoices (<b>Awaiting Payment</b>, <b>Authorised</b>, <b>Payment Failed</b>, <b>Needs Review</b>) bucketed by how far past their <b>Due Date</b> they are as of today. "Not yet due" is money still inside terms.</p>
+      <div class="chartbox"><canvas id="ageChart"></canvas></div>
+      <div id="ageGrid" style="margin-top:16px"></div>
+      <div class="insight" id="ageInsight"></div>
+    </div>
+    <div class="card">
+      <h2>Outstanding by market</h2>
+      <p class="note">Open invoice value by the market stamped on the invoice. <b>Market is only filled in on the newer Xero records</b> &mdash; the backfilled batch carries none, so it lands in "Unassigned". Treat this as a view of recent invoicing, not the full book.</p>
+      <div class="chartbox tall"><canvas id="outMktChart"></canvas></div>
+      <div id="outMktGrid" style="margin-top:16px"></div>
+    </div>
+  </div>
+
+  <!-- ============================ PAYMENTS ============================ -->
+  <div class="panel" data-p="payments">
+    <div class="kpis" id="payKpis"></div>
+    <div class="card">
+      <h2>Invoices paid, by month written</h2>
+      <p class="note">Xero invoices now sitting in <b>Paid</b>, grouped by the month the invoice was created. Salesforce does not store a payment date on the Xero record, so this shows which cohorts of invoicing have converted &mdash; not the day cash landed.</p>
+      <div class="chartbox"><canvas id="paidChart"></canvas></div>
+      <div class="insight" id="payInsight"></div>
+    </div>
+    <div class="card">
+      <h2>Deal-level dollars collected, slate by slate</h2>
+      <p class="note">Rolling up <b>Paid Amount</b> on approved deals by the slate their issue launched in &mdash; the closest thing to a cash-in curve the org keeps. The green bars start partway along on purpose: <b>Paid Amount was not populated before Haven moved billing onto the Xero/Stripe sync</b>, so earlier slates are blank rather than zero.</p>
+      <div class="chartbox"><canvas id="collectChart"></canvas></div>
+      <div class="insight" id="collectInsight"></div>
+    </div>
+  </div>
+
+  <!-- ============================ REALIZATION ============================ -->
+  <div class="panel" data-p="realization">
+    <div class="kpis" id="realKpis"></div>
+    <div class="card">
+      <h2>Booked vs invoiced vs collected, per slate</h2>
+      <p class="note">For every approved deal on a slate: <b>Booked</b> is deal Amount, <b>Invoiced</b> is Invoiced Amount, <b>Collected</b> is Paid Amount. The gap between booked and collected is the leakage &mdash; discounts, stop-invoice deals, write-offs and money still in flight. Two things to read past: the green series only begins where <b>Paid Amount started being written</b>, and the last few slates have not finished collecting.</p>
+      <div class="chartbox"><canvas id="realChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Realization rate over time</h2>
+      <p class="note"><b>Invoiced rate</b> = invoiced &divide; booked. <b>Collection rate</b> = collected &divide; booked. Both are per-slate. The invoiced line runs the full window; the collection line starts at the billing-system cutover. Slates inside the last ~120 days are still maturing, so the falling right edge is expected, not a warning.</p>
+      <div class="chartbox"><canvas id="rateChart"></canvas></div>
+      <div class="insight" id="realInsight"></div>
+    </div>
+    <div class="card">
+      <h2>Realization by publication</h2>
+      <p class="note">Last 12 months of approved deals, grouped by the issue's market label. Sorted by collection rate &mdash; the bottom of this table is where booked revenue is least likely to turn into cash.</p>
+      <div class="chartbox tall"><canvas id="realMktChart"></canvas></div>
+      <div id="realMktGrid" style="margin-top:16px"></div>
+    </div>
+  </div>
+
+  <!-- ============================ PRODUCTS ============================ -->
+  <div class="panel" data-p="products">
+    <div class="card">
+      <h2>Revenue per product, per month</h2>
+      <p class="note">Line-item revenue on approved deals, grouped by the month their issue launched. Products priced at $0 (identifiers like Camera-Ready, Re-Run, Premium Placement) carry volume but no revenue &mdash; switch the measure to see that split.</p>
+      <div class="controls">
+        <label>Measure</label>
+        <select id="prodMetric">
+          <option value="t">Revenue ($)</option>
+          <option value="c">Line items</option>
+        </select>
+        <label>Show</label>
+        <select id="prodTop">
+          <option value="8">Top 8 products</option>
+          <option value="12">Top 12 products</option>
+          <option value="6">Top 6 products</option>
+        </select>
+      </div>
+      <div class="chartbox tall"><canvas id="prodChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Product revenue, period over period</h2>
+      <p class="note">Last 12 months vs the 12 before, by product. <b>Change</b> is the dollar swing; use it to see which units are actually carrying the book and which have quietly gone to zero.</p>
+      <div id="prodGrid"></div>
+      <div class="insight" id="prodInsight"></div>
+    </div>
+  </div>
+
+  <!-- ============================ EXTRA COPIES ============================ -->
+  <div class="panel" data-p="extra">
+    <div class="kpis" id="extraKpis"></div>
+    <div class="card">
+      <h2>Extra copies billed, slate by slate</h2>
+      <p class="note">All line items whose product name contains <b>Extra Copies</b>, on approved deals. Copies and dollars are plotted together because they have decoupled: volume is up sharply while revenue per copy stays near zero.</p>
+      <div class="chartbox"><canvas id="extraChart"></canvas></div>
+      <div class="insight" id="extraInsight"></div>
+    </div>
+    <div class="card">
+      <h2>By product tier and by market</h2>
+      <p class="note">The numbered tiers (<b>5/10/15/30 Extra Copies</b>) are the retired products; the generic <b>Extra Copies</b> and <b>Extra Copies (Cover Wrap Overrun)</b> lines are what is used now. Market table covers the last 12 months.</p>
+      <div id="extraProdGrid" style="margin-bottom:18px"></div>
+      <div id="extraMktGrid"></div>
+    </div>
+  </div>
+
+  <!-- ============================ STOP INVOICE ============================ -->
+  <div class="panel" data-p="stop">
+    <div class="kpis" id="stopKpis"></div>
+    <div class="card">
+      <h2>Deals marked "Stop Invoice", per slate</h2>
+      <p class="note">The <b>Prepaid__c</b> field (labelled <b>Stop Invoice</b>) set to Yes on an approved deal &mdash; billing is deliberately suppressed, usually because the deal is covered by a subscription or was paid up front. Shown as a count and as a share of all approved deals on that slate. The last point or two drop sharply because those slates are still being sold and flagged, not because behaviour changed.</p>
+      <div class="controls">
+        <label>Measure</label>
+        <select id="stopMetric">
+          <option value="pct">Share of approved deals (%)</option>
+          <option value="c">Deal count</option>
+          <option value="a">Suppressed value ($)</option>
+        </select>
+      </div>
+      <div class="chartbox"><canvas id="stopChart"></canvas></div>
+      <div class="insight" id="stopInsight"></div>
+    </div>
+    <div class="card">
+      <h2>Stop Invoice by publication</h2>
+      <p class="note">Last 12 months. A market well above the house average is either subscription-heavy or has a rep suppressing invoices that should be going out &mdash; worth a spot check either way.</p>
+      <div class="chartbox tall"><canvas id="stopMktChart"></canvas></div>
+      <div id="stopMktGrid" style="margin-top:16px"></div>
+    </div>
+  </div>
+
+  <!-- ============================ REFUNDS ============================ -->
+  <div class="panel" data-p="refunds">
+    <div class="warnbox" id="refundWarn"></div>
+    <div class="kpis" id="refKpis"></div>
+    <div class="card">
+      <h2>Refunds over time</h2>
+      <p class="note">Refunded Stripe invoices by the date Stripe created the original invoice. Switch between weekly and monthly buckets.</p>
+      <div class="controls">
+        <label>Bucket</label>
+        <select id="refBucket">
+          <option value="m">By month</option>
+          <option value="w">By week</option>
+        </select>
+        <label>Measure</label>
+        <select id="refMetric">
+          <option value="a">Refunded ($)</option>
+          <option value="c">Refund count</option>
+        </select>
+      </div>
+      <div class="chartbox"><canvas id="refChart"></canvas></div>
+      <div class="insight" id="refInsight"></div>
+    </div>
+    <div class="card">
+      <h2>Refunds by originating slate</h2>
+      <p class="note">Each refunded invoice traced back through its agreement to that agreement's first deal, and then to that deal's issue launch date. It attributes the refund to where the relationship <b>started</b>, not necessarily the issue being refunded &mdash; useful for spotting bad cohorts, not for per-issue accounting.</p>
+      <div class="chartbox"><canvas id="refSlateChart"></canvas></div>
+      <div id="refGrid" style="margin-top:16px"></div>
+    </div>
+  </div>
+
+  <!-- ============================ SUBSCRIPTIONS ============================ -->
+  <div class="panel" data-p="subs">
+    <div class="kpis" id="subKpis"></div>
+    <div class="card">
+      <h2>Stripe subscriptions by status</h2>
+      <p class="note">Live subscription records. <b>Monthly price</b> sums the recurring price on each subscription, so the Active row is the closest thing to current MRR in the org.</p>
+      <div class="chartbox"><canvas id="subChart"></canvas></div>
+      <div id="subGrid" style="margin-top:16px"></div>
+    </div>
+    <div class="card">
+      <h2>Collections queue</h2>
+      <p class="note">Agreements by <b>Collections Status</b>. Value is the agreement's total value; collected is total paid against it. Agreements with no collections status set are excluded from the chart but shown in the table.</p>
+      <div class="chartbox"><canvas id="collStatusChart"></canvas></div>
+      <div id="collGrid" style="margin-top:16px"></div>
+      <div class="insight" id="subInsight"></div>
+    </div>
+  </div>
+
+  <div class="foot" id="dataFoot"></div>
+</div>
+
+<script>
+/* ===========================================================================
+   SNAPSHOT — pulled from Salesforce 2026-08-27. The page renders this
+   immediately so it is never blank; "Refresh from Salesforce" replaces every
+   array below with live aggregate results and re-renders in place.
+   ======================================================================== */
+var SNAPSHOT = {
+live:false, generated:"2026-08-27",
+
+/* --- Xero invoices --------------------------------------------------------
+   [stage, count, total$, dealsTotal$, credits$]   total = deals + credits   */
+xeroStages:[["Unset",86,29588.46,29588.46,0],["Voided",420,178288.97,238759.51,-60470.54],["Authorised",9,5387.5,5957.5,-570],["Awaiting Payment",510,369819.83,628926.43,-259106.61],["Paid",719,376980.91,416721.76,-39740.84],["Draft",1,0,0,0]],
+
+/* [year, month, stage, count, total$] — month the invoice record was created */
+xeroTrend:[[2026,8,"Voided",1,75],[2026,6,"Paid",6,6087.5],[2026,3,"Awaiting Payment",49,37268.98],[2026,3,"Paid",19,14867],[2026,6,"Awaiting Payment",27,19979.33],[2025,10,"Draft",1,0],[2026,5,"Awaiting Payment",14,9449.08],[2025,12,"Voided",8,6640],[2025,10,"Awaiting Payment",45,24603.34],[2026,1,"Awaiting Payment",13,9355.61],[2026,4,"Awaiting Payment",64,53026.79],[2025,11,"Paid",36,24201.65],[2026,1,"Paid",8,7216.39],[2026,4,"Paid",21,14058],[2025,11,"Awaiting Payment",126,95636.6],[2026,5,"Paid",7,2535],[2026,2,"Voided",23,18183.08],[2025,10,"Paid",565,257209.11],[2026,5,"Voided",5,3930],[2026,2,"Paid",29,33920.95],[2025,12,"Awaiting Payment",59,45035.45],[2025,10,"Voided",337,121632.98],[2025,11,"Authorised",5,2855],[2026,1,"Voided",1,1312.5],[2026,4,"Voided",5,2487.9],[2025,10,"Authorised",3,2390],[2025,11,"Voided",31,18155.02],[2026,2,"Awaiting Payment",80,54201.25],[2025,12,"Paid",21,9865.31],[2025,10,"Unset",86,29588.46],[2026,8,"Awaiting Payment",13,9348.62],[2026,3,"Voided",8,4162.49],[2026,6,"Authorised",1,142.5],[2026,7,"Awaiting Payment",20,11914.77],[2026,7,"Paid",5,5955],[2026,6,"Voided",1,1710],[2026,8,"Paid",2,1065]],
+
+/* [market, stage, count, total$] */
+xeroMarket:[["WI","Paid",1,585],["BOS","Voided",2,1745],["HI","Awaiting Payment",8,5480],["LV","Awaiting Payment",7,2532.5],["MIA","Voided",4,2787],["PHX","Paid",3,2322.5],["UPS","Awaiting Payment",7,4327.5],["NE","Awaiting Payment",8,3352.5],["DFW","Awaiting Payment",13,7747.5],["TOR","Awaiting Payment",22,12167.26],["Unassigned","Unset",86,29588.46],["NC","Paid",1,1637.5],["MN","Paid",1,195],["DET","Voided",3,3140],["MW","Awaiting Payment",7,3782.5],["NE","Paid",2,4768],["NC","Awaiting Payment",12,7645],["MN","Awaiting Payment",3,2400],["MW","Paid",1,700],["WI","Awaiting Payment",2,2755],["AL/MS","Awaiting Payment",8,2902.5],["ATX/SA","Voided",6,4197.5],["LV","Paid",1,1650],["SEA","Awaiting Payment",11,8712.5],["PHX","Awaiting Payment",16,10510.83],["OH/IN","Voided",1,195],["UPS","Paid",2,277.5],["TB","Voided",2,795],["OC/SD","Awaiting Payment",5,3060],["CA","Awaiting Payment",10,9729.2],["VA","Awaiting Payment",7,10290],["CGY","Paid",1,0],["PHIL","Awaiting Payment",7,5221.5],["MTNW","Awaiting Payment",9,5963],["CO","Awaiting Payment",6,3877.5],["SF","Awaiting Payment",5,5945],["DC","Voided",3,2210],["FLP","Paid",2,1010],["Unassigned","Voided",345,130048.38],["SW","Paid",1,1312.5],["LA","Awaiting Payment",12,9228.32],["NYC","Paid",1,150],["SC","Awaiting Payment",6,2970],["SF","Paid",1,520],["CO","Paid",2,2895],["PTL","Awaiting Payment",5,8292.5],["FLP","Awaiting Payment",19,13107.5],["NJ","Awaiting Payment",7,3177.5],["SW","Awaiting Payment",3,1280],["NYC","Awaiting Payment",8,10090],["CGY","Awaiting Payment",6,1832.54],["DEN","Awaiting Payment",3,1447.5],["PHIL","Paid",1,395],["MTNW","Paid",1,1755],["HOU","Awaiting Payment",9,5497.5],["ATL","Awaiting Payment",8,6385],["Unassigned","Authorised",8,5245],["TB","Awaiting Payment",18,11027.5],["OC/SD","Voided",1,97.5],["CA","Voided",2,760],["VA","Voided",1,195],["MTNW","Voided",1,705],["PHIL","Voided",2,840],["CO","Voided",2,1145],["SF","Voided",4,2447.5],["PB","Paid",2,1420],["DC","Awaiting Payment",7,3537.5],["LA","Voided",7,4990.02],["Unassigned","Awaiting Payment",146,111436.38],["SC","Voided",3,3402.5],["PB","Awaiting Payment",8,6965],["PTL","Voided",2,472.5],["TN","Awaiting Payment",11,5767.5],["FLP","Voided",1,1710],["NJ","Voided",2,1597.5],["NYC","Voided",1,75],["Unassigned","Paid",684,345462.12],["SW","Voided",2,1045],["TB","Paid",1,375],["SF","Authorised",1,142.5],["CHI","Awaiting Payment",5,2537.5],["DEN","Voided",2,1622.5],["HOU","Voided",3,725],["ATL","Voided",1,585],["BOS","Awaiting Payment",10,6115],["HI","Voided",3,4050],["VC","Paid",2,2603.3],["ATX/SA","Paid",2,737.5],["LV","Voided",1,390],["MIA","Awaiting Payment",15,14532.5],["OH/IN","Paid",1,1462.5],["DFW","Voided",1,500],["TOR","Voided",5,2057.57],["DET","Awaiting Payment",5,1957.5],["LOU/AR","Paid",2,652.5],["NC","Voided",4,2563.5],["Unassigned","Draft",1,0],["DET","Paid",1,1515],["LOU/AR","Awaiting Payment",14,11472.5],["BOS","Paid",1,2340],["VC","Awaiting Payment",3,5133.3],["ATX/SA","Awaiting Payment",5,5362.5],["SEA","Voided",2,770],["PHX","Voided",1,425],["MIA","Paid",1,240],["OH/IN","Awaiting Payment",4,2265]],
+
+/* open invoices only: [dueDate, count, total$] */
+xeroDue:[["2026-04-01",3,5435],["2026-09-02",2,1462.5],["2025-12-10",14,10425],["2025-10-10",1,380],["2024-11-18",1,1312.5],["2026-12-18",1,1500],["2026-03-23",5,3815],["2026-03-13",6,2061.99],["2026-08-20",1,595],["2026-05-05",5,3266.25],["2026-06-01",1,230],["2024-06-26",1,350],["2026-07-19",1,153.3],["2026-03-16",2,587.5],["2025-10-17",4,4312.5],["2025-12-09",3,990],["2026-04-16",1,142.5],["2026-04-08",2,580.84],["2026-01-13",2,1395],["2026-07-06",1,210],["2026-04-19",3,1483.3],["2026-04-20",10,7392.5],["2025-12-29",1,95],["2026-02-25",3,460],["2026-03-30",1,200],["2025-10-24",1,1805],["2026-06-03",1,315],["2025-11-28",5,1140],["2026-03-19",1,153.3],["2025-12-08",1,525],["2026-07-15",2,797.5],["2026-03-03",3,427.5],["2025-09-19",1,525],["2026-01-02",1,4282.06],["2025-12-01",1,750],["2026-03-12",4,3027.5],["2025-11-27",19,6754.54],["2025-12-22",2,2340],["2026-04-29",5,5445],["2026-08-29",1,1758],["2026-02-20",2,545],["2025-12-03",2,2775],["2026-06-10",1,525],["2025-11-13",1,100],["2025-11-26",17,9104.56],["2026-05-14",1,195],["2026-11-19",1,153.3],["2025-11-05",1,285],["2026-03-14",1,1242],["2026-04-28",12,14287.69],["2026-05-11",2,920],["2026-04-22",5,5857.5],["2025-10-31",1,195],["2026-03-09",1,395],["2025-12-19",5,3490],["2026-06-11",2,400],["2026-04-13",2,538],["2025-02-06",2,2345],["2026-03-10",1,175],["2026-03-05",34,25949.67],["2026-02-09",4,4035],["2026-03-04",2,2857.5],["2026-02-05",1,410.61],["2026-05-25",1,840],["2026-07-28",1,2145],["2026-05-08",1,2340],["2026-04-07",4,3587.5],["2026-03-18",8,2980.64],["2026-02-18",2,1922.5],["2026-01-10",1,1800],["2026-05-19",1,153.3],["2026-05-21",1,585],["2026-10-19",1,153.3],["2025-11-30",1,300],["2024-11-20",1,570],["2025-02-03",1,300],["2026-02-24",1,675],["2026-02-27",3,1216.85],["2025-11-20",11,4090],["2026-12-19",1,153.3],["2025-11-24",18,19022.5],["2025-10-07",1,950],["2026-04-15",5,6785],["2025-10-08",1,322.5],["2026-06-18",1,364.99],["2025-12-30",1,300],["2026-08-17",3,1595],["2026-03-26",2,1594.34],["2026-05-20",1,300],["2026-06-15",2,1075],["2026-05-18",1,90],["2026-02-01",1,790],["2025-10-28",6,2935],["2025-12-02",1,690],["2026-02-19",1,200],["2025-10-30",1,300],["2026-04-02",1,1560],["2026-06-22",5,4350],["2026-07-14",7,2068.09],["2026-08-03",1,1050],["2026-02-16",3,658.84],["2026-01-06",1,85],["2025-11-21",8,2505],["2025-12-28",1,130],["2026-06-04",1,1601.58],["2026-03-06",1,200],["2026-08-19",1,153.3],["2026-08-06",1,70],["2026-07-27",3,977.5],["2025-12-16",2,3277.5],["2026-02-02",1,190],["2026-03-31",1,1267.5],["2025-09-16",1,450],["2025-11-12",1,1560],["2025-10-01",2,675],["2026-08-18",1,2150],["2026-07-01",1,230],["2025-11-03",1,300],["2026-06-02",3,1792.5],["2025-08-13",1,780],["2026-09-01",2,2017.5],["2025-10-29",16,5598.84],["2026-06-09",2,3787.5],["2025-11-18",5,7100],["2026-06-30",2,1487.5],["2026-02-12",7,8466.39],["2026-06-25",1,1500],["2026-05-13",1,700],["2026-07-17",2,788.69],["2026-08-01",1,230],["2026-05-01",1,230],["2025-12-18",12,12368.19],["2026-01-30",1,585],["2026-06-14",1,195],["2026-06-19",1,153.3],["2025-12-12",2,825],["2026-06-16",2,701.84],["2026-04-06",1,2047.5],["2026-02-26",2,305],["2026-06-23",1,142.5],["2026-04-14",5,4210],["2025-11-19",13,11470],["2025-11-17",16,22580],["2026-06-12",2,2000],["2026-02-17",5,3700.5],["2026-02-13",2,388],["2026-09-19",1,153.3],["2026-07-31",1,875],["2026-05-22",2,280],["2025-11-25",13,8685],["2026-06-08",5,2077.5],["2026-07-29",1,230],["2024-10-14",1,3475],["2026-05-07",1,185],["2026-03-24",2,2025],["2026-08-10",3,1146.12],["2026-11-02",1,292],["2025-12-25",3,2209.75],["2026-01-21",1,295],["2026-08-26",2,612.5],["2025-12-15",3,2565],["2026-03-11",2,1020],["2026-02-06",4,3440],["2025-10-22",1,1140],["2026-03-17",7,6052.5]],
+
+/* --- deal-level realization -----------------------------------------------
+   approved deals only.  slates: [launchDate, dealCount, booked$, invoiced$, collected$] */
+slates:[["2026-03-09",554,168858.16,117311,111410],["2026-04-13",643,202136.34,120263.34,111674.5],["2025-11-17",455,127501.69,67931.99,63211.05],["2025-02-10",550,137284.31,79570.22,350],["2025-07-28",674,181122.35,105940.35,6519.34],["2025-07-21",602,162594.83,102463,4858.5],["2025-04-21",657,178024.03,108755.93,960.73],["2025-10-06",645,173629.78,104787.98,97144.18],["2026-01-12",524,140666.25,80177.24,67468.9],["2026-02-09",535,156894.03,99908.28,96582.79],["2025-09-29",649,186422.24,108925.5,92630.5],["2026-07-13",486,148440,96380,74190],["2025-10-13",570,170777.83,108920,102495],["2025-01-01",1,247.5,247.5,0],["2025-08-25",640,170199.21,101137.68,20341.83],["2026-07-20",508,154858.49,94690.5,72100],["2026-06-08",660,201600.49,133567,122802],["2026-05-25",689,216282.99,136367.99,125847.99],["2025-05-12",739,214602.75,128291.5,1185],["2024-10-14",732,201953.22,132129.49,0],["2025-01-20",521,129022.99,78857,290],["2025-05-26",734,204997.99,135624.5,1060],["2024-10-07",731,201179.45,137152.72,0],["2026-08-10",81,26200.29,24070.67,17347.15],["2024-11-04",623,158313.63,97094.86,1766.33],["2024-12-02",534,138775.99,89173.82,0],["2025-02-03",525,136980.33,87460,250],["2024-12-09",490,124440.99,76595,95],["2026-01-05",401,114989.34,67707.5,60827.5],["2025-07-14",682,183584.63,107728.19,6844.83],["2025-12-15",428,124930.5,64192.5,56102.5],["2025-11-24",425,119092.83,67547.5,65102.5],["2025-10-20",650,178024.53,104491.39,97488.89],["2025-06-16",691,183284.4,115039.64,2303.34],["2025-03-03",585,161801.49,102017,835],["2025-05-05",670,181063.1,112948.52,781.99],["2025-08-11",663,189108.83,123662,9627],["2025-01-13",563,140323.41,85828.33,250],["2026-08-17",59,17200,14935,7230],["2025-01-27",579,144229.66,85953.39,0],["2024-09-02",702,200894,134477.5,1095],["2026-06-15",557,168581.15,115203.5,99723.14],["2026-05-18",604,181927.57,123633.26,112412.83],["2025-06-30",638,185028.33,118041.5,2590],["2024-09-09",705,193242.64,135678,195],["2025-05-19",642,187901.59,122966,785],["2024-11-18",567,137286.75,81588.28,1997.5],["2024-10-28",599,160189.99,107392,645],["2026-06-22",555,180722,130285,111157.5],["2026-03-23",579,178940.99,121584.54,113733.05],["2025-09-08",663,170437.78,96079.45,49649.78],["2025-08-18",655,182801.99,108165.5,14233.5],["2026-08-03",252,73467.5,56155,40287.5],["2025-02-17",743,200969.65,129040.9,395],["2024-12-30",564,143363.75,83908.85,0],["2026-06-01",585,185685,133060,122797.5],["2026-02-16",532,163644,112212.5,106827.5],["2026-02-23",565,160778.73,98040.17,89110.34],["2026-03-16",600,185970.99,118457.5,112182.5],["2024-12-23",480,121864.67,71824.34,590],["2025-10-27",682,206775.25,114096.5,104854],["2026-07-27",319,87315.61,50562.42,32132.2],["2026-02-02",611,174754.49,108546,103238.5],["2025-06-02",699,189335.77,119991.49,2390.49],["2026-01-26",483,133693.66,76001.5,72411.5],["2025-04-28",542,147213.97,89186.5,95],["2026-08-24",15,4462.5,3690,1635],["2025-09-22",603,171299.83,104510.5,73825.5],["2026-07-06",618,200805.75,121156,92141],["2026-05-04",583,174559.67,118636.62,107753.17],["2026-04-20",559,175950.18,123585,114110],["2025-12-29",479,132875.42,74945.65,60086.08],["2025-03-10",619,166230.75,101517.01,350],["2024-09-23",739,202283.44,141949.04,778.49],["2024-11-25",650,174001,103379,545],["2025-06-09",619,169744.83,107332.5,2837.5],["2024-09-30",638,179769.32,125803.32,0],["2026-03-30",542,167890,116555.5,111263],["2025-09-01",552,149446.22,86047.5,25793],["2025-11-03",549,160961.83,95221,86653],["2025-03-17",522,138613.81,85353,297],["2025-12-08",603,183246,97509,86101.5],["2025-04-14",619,170575.49,104327,685],["2026-09-14",1,0,0,0],["2025-08-04",690,197704.25,107062.5,5975],["2025-12-01",510,141387.13,77714.4,72486.22],["2025-11-10",541,154449.74,81100,77900],["2025-03-24",593,160614.54,95497.35,450],["2026-01-19",706,202881.5,115612,106779.5],["2025-12-22",484,139132.24,69437.5,60447.5],["2025-04-07",620,169632.33,105513.5,745],["2025-02-24",629,165498.84,103905,0],["2026-08-31",2,435,0,0],["2026-04-27",667,207835.49,136797,126014.5],["2025-03-31",709,205435.25,121461.5,1087.5],["2026-04-06",592,172884.04,113706.38,97613.23],["2024-10-21",637,174201.47,122011.5,295],["2024-09-16",709,190389.99,132244.5,895],["2025-09-15",709,197852.75,103751,61271],["2026-09-07",2,292.5,0,0],["2024-12-16",528,133850.84,73471.86,827.24],["2025-06-23",708,197639.25,103383,2805],["2025-07-07",663,184130.49,113534.5,3555],["2024-11-11",549,144563,95422.5,885],["2025-01-06",698,197875.15,121068.5,492.5],["2026-05-11",529,164329,113364.5,107577],["2026-09-21",1,225,0,0],["2026-06-29",519,154456.7,101647.33,85905.64],["2026-03-02",692,206898.25,122263,115680]],
+
+/* last 12 months: [market, dealCount, booked$, invoiced$, collected$] */
+markets:[["TOR",1452,358284.09,194179.64,158058.99],["PHIL",603,175842.5,108265,78240],["NC",1024,304905.5,186094,151811.5],["DET",571,176470,122025,107310],["CHI",390,114083,80500,68915],["DC",820,252383.13,182692.5,148415],["NE",880,260789.74,151263.99,119924.49],["TN",789,232146.5,144719,108959],["DEN",454,133010,83745,70972.5],["LA",968,315734,210009,176724],["TEST",2,450,0,0],["PB",1024,309411.34,179659.34,141248],["SF",763,219961,137920,104110],["HOU",504,151925,81917.5,67832.5],["CA",812,238147,138908.5,120273.5],["SW",180,50562.5,24035,18130],["LOU/AR",441,116265,74390,63995],["OC/SD",411,138241.49,91096,72596],["MIA",1037,293217.5,198678.3,165784.8],["AL/MS",333,101840.5,69153,55413],["WI",300,96800,55660,43102.5],["ATL",787,232812,140112,113404.5],["TB",1339,393878.5,233242,175673.5],["MTNW",1044,310758.22,184214,157291.5],["PHX",1004,318553.5,184676,152311],["LV",442,135873.5,76501,59536],["BOS",643,197778,148608,112976],["DFW",1000,280096,188876,147950],["UPS",509,144916.53,87166.5,66899],["MN",313,93462.5,68385,58605],["CO",821,246500.41,147186,123656.5],["SC",617,183076.5,111814,87504],["CGY",244,63555.52,44678.23,34739.34],["MW",557,161401.5,111177.5,95475],["FLP",1067,309403.5,175639.5,150224.5],["VA",590,182126,121291.5,96665.5],["VC",727,184285.47,106104.26,92956.86],["NJ",479,132438,95208,75695],["NYC",608,176220.01,124687.51,94469.51],["PTL",716,210810.82,109145,90782.5],["HI",619,186871.5,95374,72491.5],["SEA",1145,336603.75,197355,161645],["ATX/SA",840,254482.99,140539,108999],["OH/IN",386,109197,76479.5,61620]],
+
+/* Stop Invoice (Prepaid__c = Yes) on approved deals: [launchDate, count, suppressed$] */
+stopSlate:[["2025-07-28",303,72770.73],["2025-07-21",277,59044.33],["2025-10-06",284,64452.74],["2025-04-21",299,66247.85],["2026-01-12",227,56598.3],["2026-02-09",219,50807.57],["2025-09-29",311,73621.24],["2026-07-13",191,47830],["2025-10-13",253,58726.33],["2025-08-25",303,67298.26],["2026-07-20",230,55885.49],["2026-06-08",250,60385.99],["2026-05-25",288,74430.5],["2025-05-12",345,85723.75],["2025-01-20",258,51313.49],["2024-10-14",290,71043.73],["2025-05-26",311,68963.49],["2024-10-07",286,65402.23],["2026-08-10",7,1699.62],["2024-11-04",284,62518.28],["2024-12-02",243,49605.51],["2025-02-03",234,49649.83],["2024-12-09",220,49363.49],["2026-01-05",186,43706.84],["2025-07-14",312,73198.89],["2025-12-15",227,59718],["2025-11-24",216,51307.83],["2025-10-20",297,72077.02],["2025-06-16",292,65522.24],["2025-03-03",248,59676.99],["2025-05-05",298,65051.59],["2025-08-11",270,64104.33],["2025-01-13",264,54084.58],["2026-08-17",11,2122.5],["2025-01-27",273,56651.15],["2024-09-02",273,69766.5],["2026-06-15",222,52914.31],["2026-05-18",226,52935.1],["2025-06-30",282,67029.33],["2024-09-09",237,59584.64],["2025-05-19",281,65515.59],["2024-11-18",283,58946.32],["2024-10-28",242,54697.99],["2026-06-22",209,47982],["2026-03-23",213,48197.01],["2025-09-08",303,71121.27],["2025-08-18",310,70907.99],["2026-08-03",77,16872.5],["2025-02-17",320,73453.75],["2024-12-30",257,58552.4],["2026-06-01",197,47702.5],["2026-02-16",192,43639],["2026-02-23",219,54283.81],["2026-03-16",242,59385.99],["2024-12-23",229,48645.33],["2025-10-27",338,87239.25],["2026-07-27",153,33540.73],["2026-02-02",252,59463.49],["2025-06-02",315,69859.37],["2026-01-26",205,51062.16],["2025-04-28",258,57882.47],["2026-08-24",3,772.5],["2025-09-22",280,67841.83],["2026-07-06",290,74244.25],["2026-05-04",221,51746.68],["2026-04-20",194,46364.18],["2025-12-29",232,55354.38],["2025-03-10",283,65584.33],["2024-09-23",277,63832.33],["2024-11-25",297,70879.5],["2025-06-09",270,61136.83],["2024-09-30",227,54593.5],["2026-03-30",192,43904],["2025-09-01",277,62801.22],["2025-11-03",266,65666.83],["2025-03-17",251,53320.31],["2025-12-08",321,82827],["2025-04-14",291,65873.49],["2025-12-01",250,59122.86],["2025-08-04",348,87561.75],["2025-11-10",295,70757.25],["2025-03-24",268,62304.07],["2026-01-19",309,80519.5],["2025-12-22",278,68209.74],["2025-04-07",279,63206.33],["2025-02-24",254,59623.84],["2026-08-31",2,435],["2026-04-27",263,66148.49],["2025-03-31",326,80326.25],["2026-04-06",244,55480.05],["2024-10-21",233,54074.97],["2024-09-16",263,59462.49],["2025-09-15",359,90379.25],["2026-09-07",1,292.5],["2024-12-16",274,59772.29],["2025-06-23",369,92509.25],["2025-07-07",305,68555.99],["2024-11-11",232,50292.5],["2025-01-06",306,75070.82],["2026-05-11",205,46719.5],["2026-09-21",1,225],["2026-06-29",227,48960.95],["2026-03-02",292,73405.25],["2026-03-09",191,47138.16],["2026-04-13",284,73051.5],["2025-11-17",239,57826],["2025-02-10",264,57031.43]],
+
+/* last 12 months: [market, count, suppressed$] */
+stopMarket:[["PHIL",275,63930],["TOR",701,153400.75],["NC",466,110606],["CHI",144,32603],["DET",226,48590],["DC",281,64298.13],["NE",397,99630.75],["TN",332,80470],["DEN",200,44057.5],["LA",383,99189],["SF",334,77932.5],["HOU",243,63687.5],["PB",439,118084.5],["SW",101,24795],["CA",374,92107.5],["LOU/AR",214,39830],["OC/SD",176,45185.49],["AL/MS",125,31587.5],["MIA",357,89369],["WI",134,39732.5],["ATL",368,88080],["TB",620,151006.5],["MTNW",484,119268.22],["PHX",458,123275],["LV",211,56730],["BOS",186,43810],["DFW",406,87822.5],["UPS",234,54307.24],["MN",113,23575],["CO",366,91491.42],["SC",287,68430],["CGY",83,16355.21],["MW",226,45516.5],["VA",221,58384],["FLP",509,123069],["VC",331,73721.03],["NJ",181,35087],["NYC",225,48717.5],["PTL",379,95183.32],["HI",339,88329],["SEA",522,127818.75],["ATX/SA",411,110048.99],["OH/IN",130,30662.5]],
+
+/* --- products: [year, month, productName, lineItems, qty, revenue$] (issue launch month) --- */
+products:[[2025,5,"Inside FC Page",5,5,3091],[2024,9,"10 Extra Copies",49,50,10],[2025,10,"30 Extra Copies",1,1,0],[2026,3,"Extra Copies (Cover Wrap Overrun)",11,620,660],[2025,7,"30 Extra Copies",32,32,30],[2024,11,"Inside FC Spread",7,8,3730],[2024,10,"40 Extra Copies",1,1,0],[2025,12,"TTF",21,21,0],[2025,2,"Banner Ad",2,2,0],[2025,2,"Back-Cover",13,13,6418],[2025,2,"Design Fee",1,1,130],[2026,2,"Camera-Ready Ad (CR)",86,86,0],[2026,6,"Inside BC Spread",1,1,295],[2025,5,"Two-Page Spread",828,852,272056],[2025,4,"30 Extra Copies",21,21,0],[2026,2,"Extra Copies",152,2935,1257],[2025,9,"Front-Cover",35,35,40283],[2025,9,"Re-Run Previous Ad",132,132,293],[2025,10,"Premium Placement (First 10 Pages)",16,16,0],[2025,7,"Haven of the Day",3,3,195],[2026,1,"Two-Page Spread",584,612,187072],[2025,10,"Haven of the Day",7,7,95],[2026,5,"Enhanced Digital Exposure (Premium)",5,5,2475],[2025,7,"Premium Placement (First 10 Pages)",18,18,150],[2025,11,"Digital Feature",2,2,205],[2024,10,"Half-Page Ad",251,251,36517],[2025,8,"Two-Page Spread",710,729,217400],[2025,9,"Center Spread",1,1,500],[2025,11,"Premium Placement (First 20 Pages)",43,43,200],[2026,7,"Half-Page Ad",175,175,29128],[2024,9,"Listing Article",1,1,75],[2025,3,"15 Extra Copies",51,51,0],[2025,8,"Inside FC Page",7,7,3886],[2025,6,"Banner Ad",1,1,0],[2025,6,"Back-Cover",32,32,17212],[2026,4,"Half-Page Ad",234,234,37252],[2024,12,"Collab Sponsored Article (Sophie)",3,5,875],[2024,12,"1/6 Page Ad",55,55,4861],[2026,6,"Camera-Ready Ad (CR)",90,90,0],[2025,4,"Haven of the Day",1,1,75],[2026,1,"Inside FC Page",3,3,1721],[2026,2,"Inside BC Spread",2,2,668],[2026,3,"Haven Internal Editorial",39,67,0],[2024,9,"Re-Run Current Ad",300,302,7393],[2025,4,"Premium Placement (First 10 Pages)",17,17,0],[2025,11,"Enhanced Digital Exposure",50,50,4827],[2026,6,"Extra Copies",179,3973,3040],[2025,9,"Inside BC Spread",3,3,963],[2026,3,"1/6 Page Ad",43,43,3517],[2025,2,"Re-Run Current Ad",223,222,443],[2026,8,"Haven of the Day",1,1,95],[2026,1,"Half-Page Ad",199,199,30148],[2025,12,"15 Extra Copies",9,9,0],[2025,9,"Social Media Post",1,2,0],[2026,4,"Inside FC Page",2,2,1200],[2026,7,"Two-Page Spread",472,480,157152],[2025,1,"Premium Placement (First 10 Pages)",10,10,70],[2024,12,"Haven Internal Editorial",50,88,0],[2025,6,"Inside BC Page",3,3,1800],[2025,11,"1/4 Page Ad",2,2,75],[2025,8,"Half-Page Ad",269,270,40171],[2024,10,"Two-Page Spread",896,921,280994],[2026,7,"Inside FC Page",4,4,2295],[2026,4,"Two-Page Spread",624,638,200918],[2024,10,"Inside FC Page",1,1,596],[2026,5,"30 Extra Copies",1,1,0],[2025,5,"40 Extra Copies",2,2,0],[2026,2,"Front-Cover",27,27,30158],[2026,2,"Re-Run Previous Ad",89,90,643],[2025,6,"10 Extra Copies",50,54,0],[2025,6,"Re-Run Current Ad",236,236,765],[2025,9,"Extra Copies",67,1525,50],[2024,9,"Banner Ad",2,2,218],[2025,8,"40 Extra Copies",5,5,0],[2024,9,"Back-Cover",22,22,12116],[2025,1,"30 Extra Copies",22,22,0],[2025,9,"Camera-Ready Ad (CR)",144,144,188],[2024,9,"Design Fee",1,1,25],[2025,11,"Full-Page Ad",1057,1076,280635],[2026,5,"Haven of the Day",4,4,340],[2024,11,"50 Extra Copies",9,9,103],[2026,5,"Premium Placement (First 10 Pages)",12,12,0],[2026,6,"Re-Run Previous Ad",99,100,643],[2026,6,"Front-Cover",33,33,42231],[2025,2,"10 Extra Copies",30,31,0],[2025,5,"Half-Page Ad",304,304,46637],[2025,11,"Inside FC Spread",6,6,3706],[2025,7,"40 Extra Copies",7,7,0],[2025,5,"15 Extra Copies",47,47,30],[2026,4,"TTF",14,14,0],[2024,9,"Inside FC Spread",16,17,9286],[2026,2,"Full-Page Ad",1239,1260,320063],[2026,5,"Inside FC Page",3,3,1412],[2024,10,"30 Extra Copies",22,23,0],[2025,9,"10 Extra Copies",20,23,10],[2025,2,"50 Extra Copies",4,4,150],[2026,5,"Haven Internal Editorial",32,40,0],[2025,6,"Inside BC Spread",2,2,670],[2026,5,"Two-Page Spread",613,629,198302],[2024,12,"30 Extra Copies",24,24,30],[2025,12,"40 Extra Copies",1,1,0],[2025,4,"40 Extra Copies",14,14,0],[2025,9,"Inside BC Page",4,4,1988],[2026,7,"TTF",11,11,0],[2026,2,"Back-Cover",23,23,13100],[2025,2,"Camera-Ready Ad (CR)",142,143,810],[2025,11,"Front-Cover",28,28,27811],[2025,10,"Half-Page Ad",281,282,43058],[2025,11,"Re-Run Previous Ad",94,95,350],[2026,8,"Two-Page Spread",71,72,26463],[2024,11,"Premium Placement (First 20 Pages)",33,33,800],[2025,10,"1/6 Page Ad",55,57,4793],[2024,9,"Center Spread",1,1,500],[2025,7,"Collab Sponsored Article (Sophie)",4,4,150],[2025,7,"1/6 Page Ad",98,98,8638],[2025,7,"Half-Page Ad",309,310,47100],[2025,9,"Digital Feature",5,5,635],[2025,9,"Cover Wrap Overrun",1,1,350],[2024,9,"Re-Run Previous Ad",109,111,3075],[2024,10,"Premium Placement (First 10 Pages)",11,11,0],[2026,6,"Full-Page Ad",1540,1562,393722],[2024,9,"Front-Cover",39,39,40623],[2026,7,"Haven of the Day",1,1,150],[2025,1,"Two-Page Spread",802,824,248756],[2025,9,"Premium Placement (First 20 Pages)",60,60,300],[2024,10,"Haven of the Day",1,1,0],[2025,6,"50 Extra Copies",15,18,351],[2025,3,"Two-Page Spread",960,985,302196],[2026,7,"Premium Placement (First 10 Pages)",5,5,0],[2024,11,"Digital Feature",7,7,1245],[2024,12,"Haven of the Day",1,1,195],[2025,1,"Inside FC Page",2,2,563],[2026,4,"Haven of the Day",2,2,290],[2025,2,"Inside BC Spread",3,3,770],[2025,3,"Haven Internal Editorial",40,47,0],[2025,9,"Re-Run Current Ad",182,182,143],[2024,12,"Premium Placement (First 10 Pages)",10,10,0],[2025,1,"Haven Internal Editorial",32,59,0],[2026,4,"Premium Placement (First 10 Pages)",19,19,0],[2026,5,"Extra Copies (Cover Wrap Overrun)",9,1056,3123],[2025,8,"15 Extra Copies",49,49,15],[2025,3,"Inside FC Page",1,1,596],[2024,11,"Re-Run Current Ad",271,272,3668],[2025,4,"Half-Page Ad",283,283,42456],[2026,1,"15 Extra Copies",5,5,0],[2026,6,"Back-Cover",23,23,12812],[2025,12,"Half-Page Ad",254,254,37986],[2025,9,"Enhanced Digital Exposure",1,1,95],[2025,12,"1/6 Page Ad",50,51,4311],[2025,12,"Collab Sponsored Article (Sophie)",1,1,125],[2025,6,"Camera-Ready Ad (CR)",169,169,565],[2025,4,"1/6 Page Ad",78,78,7094],[2025,4,"Collab Sponsored Article (Sophie)",3,3,553],[2025,4,"Inside FC Page",3,3,1950],[2026,1,"Haven of the Day",4,4,0],[2025,7,"Two-Page Spread",678,691,210280],[2025,11,"Inside BC Spread",2,2,588],[2025,12,"Inside FC Page",5,5,2921],[2026,3,"Premium Placement (First 10 Pages)",16,16,0],[2025,4,"Haven Internal Editorial",47,69,0],[2026,1,"Premium Placement (First 10 Pages)",14,14,0],[2025,12,"Haven Internal Editorial",41,66,0],[2026,2,"Enhanced Digital Exposure",56,57,5217],[2026,6,"Inside BC Page",1,1,188],[2026,8,"1/6 Page Ad",13,13,1470],[2025,10,"Two-Page Spread",663,690,211749],[2026,3,"Haven of the Day",6,6,795],[2026,8,"Half-Page Ad",41,42,6918],[2024,9,"Inside BC Spread",1,1,295],[2025,3,"1/6 Page Ad",92,94,8175],[2025,3,"Collab Sponsored Article (Sophie)",2,2,165],[2025,3,"Half-Page Ad",359,359,54506],[2025,8,"Haven of the Day",3,3,195],[2026,2,"Re-Run Current Ad",95,95,0],[2025,1,"Half-Page Ad",256,256,38458],[2024,12,"15 Extra Copies",20,20,0],[2024,10,"Editorial Page",1,1,150],[2025,9,"1/4 Page Ad",6,6,75],[2024,9,"Social Media Post",2,2,245],[2025,8,"Premium Placement (First 10 Pages)",19,19,0],[2025,1,"1/6 Page Ad",60,60,5323],[2025,5,"TTF",1,1,0],[2024,10,"15 Extra Copies",40,40,0],[2025,2,"Front-Cover",29,29,28457],[2025,2,"Re-Run Previous Ad",98,98,480],[2025,6,"Inside FC Spread",14,15,7683],[2026,2,"Premium Placement (First 20 Pages)",46,46,100],[2025,10,"Haven Internal Editorial",49,94,0],[2025,7,"Inside FC Page",7,7,4161],[2025,12,"Two-Page Spread",715,741,223566],[2025,4,"Two-Page Spread",673,684,204611],[2025,10,"Inside FC Page",4,4,1990],[2025,7,"Haven Internal Editorial",41,72,0],[2026,2,"Digital Feature",8,8,1150],[2025,5,"30 Extra Copies",28,28,0],[2026,2,"Cover Wrap Overrun",98,98,47275],[2026,2,"Inside BC Page",1,1,188],[2026,6,"Enhanced Digital Exposure",9,9,475],[2025,9,"Back-Cover",22,22,10919],[2025,11,"Extra Copies",130,2385,150],[2026,1,"30 Extra Copies",3,3,0],[2026,9,"Camera-Ready Ad (CR)",1,1,0],[2024,9,"Camera-Ready Ad (CR)",189,198,7387],[2025,1,"40 Extra Copies",6,6,40],[2026,6,"Re-Run Current Ad",113,113,0],[2024,11,"Back-Cover",9,9,6357],[2025,8,"30 Extra Copies",29,29,60],[2025,11,"Camera-Ready Ad (CR)",98,98,0],[2025,3,"40 Extra Copies",14,15,0],[2025,2,"Inside FC Spread",8,8,4631],[2025,6,"Re-Run Previous Ad",92,92,293],[2025,9,"5 Extra Copies",21,25,5],[2026,3,"TTF",21,21,0],[2025,6,"Front-Cover",37,37,36135],[2025,9,"Full-Page Ad",1806,1839,466066],[2026,6,"Premium Placement (First 20 Pages)",30,30,0],[2026,2,"10 Extra Copies",3,3,0],[2024,9,"50 Extra Copies",6,8,240],[2026,5,"Half-Page Ad",224,224,35437],[2026,1,"TTF",14,14,0],[2026,5,"1/6 Page Ad",59,60,5473],[2026,5,"Collab Sponsored Article (Sophie)",1,1,195],[2024,11,"Full-Page Ad",1286,1306,306063],[2024,11,"5 Extra Copies",17,17,0],[2025,5,"Haven of the Day",4,4,585],[2025,6,"Center Spread",1,1,288],[2025,8,"TTF",14,14,0],[2025,5,"Premium Placement (First 10 Pages)",18,18,0],[2026,6,"Cover Wrap Overrun",314,314,148581],[2026,7,"Enhanced Digital Exposure (Premium)",2,2,990],[2026,6,"Digital Feature",2,2,395],[2026,6,"Extra Copies (Cover Wrap Overrun)",5,112,336],[2025,12,"Digital Feature",7,7,1215],[2025,4,"Digital Feature",4,5,640],[2025,12,"Cover Wrap Overrun",79,79,37744],[2025,10,"Enhanced Digital Exposure",31,31,2945],[2026,2,"Two-Page Spread",589,605,185254],[2024,12,"Center Spread",1,1,495],[2026,5,"Back-Cover",19,19,10303],[2025,5,"Camera-Ready Ad (CR)",133,133,188],[2025,10,"Re-Run Current Ad",166,166,585],[2024,12,"Re-Run Previous Ad",112,114,1505],[2025,2,"Editorial Page",30,30,0],[2026,4,"Re-Run Previous Ad",102,103,643],[2024,12,"Front-Cover",35,35,30976],[2025,7,"Re-Run Current Ad",197,197,908],[2026,4,"Front-Cover",28,28,33453],[2025,4,"Premium Placement (First 20 Pages)",40,40,300],[2025,12,"Premium Placement (First 20 Pages)",55,55,300],[2024,10,"Re-Run Previous Ad",109,111,2773],[2024,9,"Premium Placement (First 10 Pages)",11,11,0],[2024,11,"Half-Page Ad",254,254,37007],[2025,8,"Social Media Post",1,1,95],[2024,10,"Front-Cover",33,33,31241],[2025,2,"15 Extra Copies",36,36,15],[2024,11,"1/6 Page Ad",76,77,7060],[2024,11,"Collab Sponsored Article (Sophie)",2,2,300],[2025,10,"Premium Placement (First 20 Pages)",59,59,295],[2024,9,"Haven of the Day",2,2,0],[2025,7,"Premium Placement (First 20 Pages)",53,53,200],[2025,8,"Inside BC Spread",1,1,295],[2025,12,"Re-Run Current Ad",155,155,0],[2026,7,"Re-Run Previous Ad",92,93,350],[2025,4,"Re-Run Current Ad",176,176,1100],[2026,7,"Front-Cover",11,11,13160],[2025,7,"Cover Wrap Overrun",1,1,495],[2025,5,"50 Extra Copies",15,15,0],[2025,9,"Half-Page Ad",318,318,48553],[2025,7,"Digital Feature",4,5,825],[2025,11,"Premium Placement (First 10 Pages)",16,16,100],[2025,12,"Enhanced Digital Exposure",64,64,5864],[2026,2,"Haven Internal Editorial",28,44,0],[2025,9,"1/6 Page Ad",106,107,9491],[2026,3,"Inside BC Spread",3,3,1113],[2024,10,"Center Spread",3,3,1082],[2026,1,"Inside BC Spread",3,3,963],[2026,3,"Social Media Post",1,1,95],[2025,11,"Haven of the Day",4,4,95],[2026,2,"Inside FC Page",3,3,1601],[2026,5,"Full-Page Ad",1274,1291,332250],[2026,7,"Center Spread",1,1,395],[2025,3,"1/4 Page Ad",2,2,150],[2025,4,"Listing Article",1,1,75],[2025,10,"Digital Feature",9,9,1155],[2025,10,"Cover Wrap Overrun",30,30,14305],[2026,1,"50 Extra Copies",1,1,0],[2026,2,"Extra Copies (Cover Wrap Overrun)",7,367,700],[2025,3,"Full-Page Ad",1574,1603,407594],[2025,3,"5 Extra Copies",31,35,0],[2025,5,"Social Media Post",2,2,145],[2025,7,"Inside BC Page",1,1,188],[2025,1,"Full-Page Ad",1219,1246,281166],[2025,10,"Inside BC Page",4,4,2125],[2025,1,"5 Extra Copies",21,25,0],[2025,5,"Inside BC Spread",2,2,375],[2026,6,"Two-Page Spread",705,732,226924],[2025,8,"50 Extra Copies",10,10,0],[2025,11,"TTF",10,10,0],[2024,12,"Inside FC Spread",4,4,3038],[2025,6,"Editorial Page",1,1,150],[2026,4,"Inside FC Spread",9,9,4589],[2025,4,"10 Extra Copies",31,32,0],[2026,8,"Full-Page Ad",273,277,80840],[2025,12,"10 Extra Copies",5,5,0],[2025,1,"Back-Cover",7,7,3420],[2025,6,"15 Extra Copies",59,59,15],[2024,10,"Inside FC Spread",14,15,8431],[2025,3,"Banner Ad",1,1,0],[2025,8,"Extra Copies",21,575,0],[2024,9,"30 Extra Copies",24,24,0],[2025,10,"10 Extra Copies",2,3,0],[2026,1,"Camera-Ready Ad (CR)",95,95,188],[2025,7,"10 Extra Copies",36,41,0],[2024,11,"40 Extra Copies",4,4,0],[2026,3,"Camera-Ready Ad (CR)",132,132,188],[2025,3,"Back-Cover",20,20,11541],[2026,7,"Inside FC Spread",7,7,3851],[2025,12,"Inside BC Page",5,5,2238],[2026,6,"Haven Internal Editorial",26,41,0],[2025,4,"Inside BC Page",1,1,188],[2025,8,"Camera-Ready Ad (CR)",125,125,0],[2026,8,"Back-Cover",1,1,895],[2025,11,"30 Extra Copies",1,1,0],[2026,1,"Extra Copies",105,1990,20],[2025,9,"40 Extra Copies",6,6,0],[2026,6,"Inside FC Page",3,3,1912],[2026,3,"Extra Copies",194,3598,1558],[2025,4,"Back-Cover",14,14,6684],[2026,6,"Half-Page Ad",267,269,44068],[2025,12,"Back-Cover",29,29,15372],[2024,12,"Camera-Ready Ad (CR)",161,162,1442],[2026,4,"Camera-Ready Ad (CR)",94,94,188],[2026,6,"1/6 Page Ad",58,58,5303],[2025,5,"Front-Cover",29,29,27983],[2025,5,"Re-Run Previous Ad",80,81,935],[2025,4,"Banner Ad",3,3,30],[2026,5,"Premium Placement (First 20 Pages)",33,33,100],[2025,6,"Premium Placement (First 10 Pages)",19,19,0],[2025,10,"5 Extra Copies",1,1,0],[2025,10,"Full-Page Ad",1450,1482,389256],[2026,5,"Digital Feature",3,3,150],[2025,2,"30 Extra Copies",22,22,10],[2026,4,"Extra Copies",140,2282,530],[2026,5,"Cover Wrap Overrun",223,223,104998],[2024,10,"50 Extra Copies",4,4,105],[2025,6,"Haven of the Day",5,5,90],[2025,7,"Full-Page Ad",1493,1518,385184],[2025,7,"5 Extra Copies",27,31,0],[2024,12,"50 Extra Copies",5,7,0],[2026,5,"Enhanced Digital Exposure",31,31,2462],[2026,7,"Extra Copies",107,1805,557],[2025,4,"Full-Page Ad",1372,1408,363784],[2025,12,"5 Extra Copies",3,3,0],[2025,12,"Full-Page Ad",1360,1392,341915],[2025,4,"5 Extra Copies",24,28,5],[2025,8,"Inside FC Spread",14,14,8153],[2025,3,"10 Extra Copies",40,42,0],[2026,7,"Camera-Ready Ad (CR)",73,73,188],[2025,7,"Back-Cover",25,25,13967],[2026,3,"Inside FC Spread",8,8,5008],[2025,10,"Back-Cover",22,22,11721],[2026,1,"Inside FC Spread",8,8,5168],[2025,1,"10 Extra Copies",28,28,0],[2026,5,"Re-Run Current Ad",87,87,0],[2024,10,"Camera-Ready Ad (CR)",142,144,4010],[2025,3,"Re-Run Current Ad",243,243,908],[2025,9,"Haven Internal Editorial",63,117,0],[2026,2,"Half-Page Ad",252,253,38675],[2026,2,"1/6 Page Ad",52,52,4317],[2025,5,"Inside FC Spread",14,15,8001],[2025,9,"Inside FC Page",6,6,3691],[2025,1,"Re-Run Current Ad",206,205,833],[2024,9,"15 Extra Copies",52,52,0],[2024,11,"Haven Internal Editorial",56,91,0],[2025,4,"1/4 Page Ad",2,2,150],[2025,2,"Premium Placement (First 10 Pages)",7,7,0],[2025,6,"30 Extra Copies",36,36,0],[2026,4,"Social Media Post",1,1,0],[2024,11,"Inside FC Page",1,1,596],[2024,12,"Inside BC Spread",2,2,670],[2026,4,"Inside BC Spread",2,2,820],[2025,2,"Haven of the Day",3,3,190],[2026,8,"Re-Run Current Ad",15,15,0],[2024,10,"Inside BC Spread",2,2,670],[2026,5,"Inside BC Page",1,1,100],[2025,7,"1/4 Page Ad",2,2,200],[2025,1,"Digital Feature",5,6,575],[2026,8,"Premium Placement (First 20 Pages)",4,4,0],[2025,3,"Digital Feature",6,7,1055],[2025,10,"1/4 Page Ad",20,20,0],[2024,10,"Social Media Post",1,1,95],[2025,8,"Re-Run Previous Ad",112,113,350],[2026,7,"Inside BC Spread",1,1,295],[2024,11,"Two-Page Spread",700,716,215568],[2025,8,"Front-Cover",29,29,34945],[2025,3,"Premium Placement (First 20 Pages)",51,51,600],[2026,8,"Cover Wrap Overrun",10,10,4825],[2026,8,"Digital Feature",2,2,190],[2025,6,"TTF",7,7,0],[2026,3,"Re-Run Previous Ad",131,132,350],[2026,3,"Front-Cover",35,35,41310],[2026,1,"Re-Run Previous Ad",106,106,0],[2025,8,"Center Spread",1,1,0],[2026,1,"Front-Cover",29,29,34330],[2025,1,"Premium Placement (First 20 Pages)",41,41,400],[2025,9,"Two-Page Spread",880,911,282364],[2025,5,"Back-Cover",24,24,13635],[2026,5,"Camera-Ready Ad (CR)",78,78,188],[2024,10,"Re-Run Current Ad",237,236,3563],[2025,4,"Re-Run Previous Ad",99,100,643],[2025,12,"Front-Cover",35,35,39991],[2025,4,"Front-Cover",29,29,26706],[2025,12,"Re-Run Previous Ad",158,159,643],[2026,7,"Re-Run Current Ad",106,106,0],[2024,12,"Premium Placement (First 20 Pages)",38,38,900],[2025,5,"Banner Ad",1,1,0],[2026,4,"Premium Placement (First 20 Pages)",29,29,100],[2026,5,"Extra Copies",154,3205,1297],[2026,4,"Cover Wrap Overrun",185,187,87474],[2026,7,"Enhanced Digital Exposure",6,6,190],[2024,12,"Digital Feature",3,3,445],[2026,4,"Digital Feature",1,1,125],[2025,2,"Two-Page Spread",776,801,246133],[2024,9,"Half-Page Ad",336,336,49976],[2024,11,"Premium Placement (First 10 Pages)",11,11,0],[2026,4,"Enhanced Digital Exposure",75,75,6599],[2026,7,"Cover Wrap Overrun",168,168,79858],[2026,6,"Enhanced Digital Exposure (Premium)",9,9,4455],[2025,2,"Haven Internal Editorial",44,78,0],[2026,7,"Digital Feature",3,4,365],[2025,3,"Inside BC Spread",1,1,375],[2024,9,"1/6 Page Ad",84,84,7712],[2024,9,"Collab Sponsored Article (Sophie)",1,1,200],[2024,11,"Haven of the Day",2,2,95],[2025,1,"Inside BC Spread",1,1,295],[2025,3,"Social Media Post",1,1,95],[2025,5,"5 Extra Copies",31,35,10],[2025,5,"Full-Page Ad",1525,1549,405515],[2025,2,"Inside FC Page",2,2,858],[2026,3,"1/4 Page Ad",1,1,175],[2024,10,"Digital Feature",2,2,320],[2025,10,"Front-Cover",30,30,37638],[2025,9,"Premium Placement (First 10 Pages)",22,22,150],[2025,10,"Re-Run Previous Ad",98,98,293],[2025,11,"Half-Page Ad",218,218,32618],[2026,2,"15 Extra Copies",1,1,0],[2024,10,"Premium Placement (First 20 Pages)",35,35,500],[2025,8,"1/4 Page Ad",1,1,75],[2025,11,"1/6 Page Ad",64,64,5574],[2026,7,"Premium Placement (First 20 Pages)",23,23,0],[2025,9,"Haven of the Day",4,4,95],[2025,7,"Re-Run Previous Ad",90,91,935],[2024,12,"Re-Run Current Ad",305,305,3413],[2025,7,"Front-Cover",29,29,30662],[2026,4,"Re-Run Current Ad",108,108,0],[2025,12,"Inside FC Spread",12,12,6299],[2025,4,"Inside FC Spread",13,13,7281],[2024,12,"10 Extra Copies",35,35,0],[2025,8,"Full-Page Ad",1536,1571,408052],[2025,8,"5 Extra Copies",25,33,5],[2025,1,"50 Extra Copies",8,8,80],[2025,5,"1/4 Page Ad",3,3,325],[2026,3,"Full-Page Ad",1621,1657,429916],[2025,9,"TTF",18,18,0],[2026,7,"Inside BC Page",1,1,188],[2026,1,"Full-Page Ad",1120,1143,279102],[2026,1,"5 Extra Copies",2,2,0],[2026,5,"Inside BC Spread",1,1,293],[2025,3,"50 Extra Copies",12,12,105],[2025,6,"Two-Page Spread",907,930,283970],[2025,6,"Haven Internal Editorial",46,81,0],[2026,4,"Inside BC Page",1,1,188],[2026,8,"Camera-Ready Ad (CR)",9,9,0],[2024,11,"30 Extra Copies",21,21,0],[2025,8,"Back-Cover",28,28,15903],[2025,6,"Inside FC Page",6,6,3381],[2024,9,"40 Extra Copies",4,4,0],[2025,10,"Inside FC Spread",11,11,6063],[2026,1,"Back-Cover",22,22,12317],[2026,8,"Extra Copies",12,140,70],[2024,10,"10 Extra Copies",39,41,0],[2025,1,"Camera-Ready Ad (CR)",152,152,1283],[2025,9,"30 Extra Copies",14,14,0],[2025,11,"40 Extra Copies",1,1,0],[2025,3,"Camera-Ready Ad (CR)",156,156,450],[2026,3,"Back-Cover",25,25,12775],[2025,7,"Inside FC Spread",10,10,6108],[2024,10,"Full-Page Ad",1375,1396,348292],[2026,6,"Premium Placement (First 10 Pages)",19,19,0],[2024,10,"5 Extra Copies",18,22,0],[2026,1,"Inside BC Page",4,4,2295],[2025,5,"Digital Feature",4,6,915],[2025,7,"50 Extra Copies",17,17,0],[2025,12,"Extra Copies",135,2661,80],[2026,2,"30 Extra Copies",2,2,0],[2026,6,"Haven of the Day",6,6,740],[2026,7,"Full-Page Ad",1093,1105,290960],[2026,3,"Inside BC Page",1,1,188],[2024,12,"Back-Cover",14,14,6812],[2025,6,"Half-Page Ad",372,373,56604],[2026,4,"Back-Cover",25,25,13817],[2025,12,"Camera-Ready Ad (CR)",117,117,188],[2025,4,"Camera-Ready Ad (CR)",131,131,425],[2025,6,"Collab Sponsored Article (Sophie)",5,5,738],[2025,6,"1/6 Page Ad",120,122,11047],[2025,8,"Inside BC Page",4,4,1988],[2025,2,"40 Extra Copies",4,4,6],[2026,5,"Front-Cover",28,28,31272],[2026,5,"Re-Run Previous Ad",94,94,293],[2024,12,"Banner Ad",1,1,0],[2025,5,"Premium Placement (First 20 Pages)",34,34,200],[2025,7,"Camera-Ready Ad (CR)",127,127,295],[2026,7,"Back-Cover",15,15,8555],[2024,10,"Banner Ad",1,1,95],[2025,3,"Inside FC Spread",14,14,7490],[2026,2,"TTF",13,13,0],[2024,10,"Back-Cover",19,19,10474],[2025,1,"Inside FC Spread",8,8,3898],[2025,5,"Re-Run Current Ad",201,201,330],[2025,10,"Camera-Ready Ad (CR)",120,120,425],[2026,1,"10 Extra Copies",9,9,0],[2025,4,"50 Extra Copies",11,11,0],[2025,12,"50 Extra Copies",4,53,100],[2024,12,"Full-Page Ad",1442,1474,336045],[2025,8,"10 Extra Copies",42,49,0],[2026,4,"Full-Page Ad",1384,1411,366855],[2024,12,"5 Extra Copies",16,20,0],[2025,10,"Extra Copies",179,3865,50],[2026,1,"Enhanced Digital Exposure",41,41,3654],[2025,9,"15 Extra Copies",39,39,30],[2025,11,"Haven Internal Editorial",54,86,0],[2026,2,"Premium Placement (First 10 Pages)",15,15,0],[2025,4,"Social Media Post",3,3,289],[2025,12,"Social Media Post",1,1,0],[2025,4,"Inside BC Spread",1,1,0],[2025,8,"Re-Run Current Ad",164,164,578],[2025,11,"Inside FC Page",6,6,3521],[2025,12,"Inside BC Spread",2,2,670],[2026,2,"Haven of the Day",3,3,385],[2026,3,"Enhanced Digital Exposure",80,80,6927],[2026,5,"Homepage Carousel",1,1,200],[2024,9,"Haven Internal Editorial",56,108,0],[2024,11,"15 Extra Copies",25,25,0],[2025,2,"Half-Page Ad",253,253,36551],[2026,3,"Re-Run Current Ad",119,119,0],[2025,2,"1/6 Page Ad",101,102,9072],[2025,2,"Collab Sponsored Article (Sophie)",2,2,353],[2026,5,"Inside FC Spread",11,11,6439],[2025,6,"40 Extra Copies",11,11,0],[2025,5,"10 Extra Copies",35,39,0],[2026,1,"Re-Run Current Ad",121,121,0],[2026,3,"Premium Placement (First 20 Pages)",50,50,0],[2025,8,"Digital Feature",5,5,615],[2025,3,"Re-Run Previous Ad",113,114,935],[2026,6,"TTF",18,18,0],[2025,3,"Front-Cover",36,36,35406],[2025,1,"Re-Run Previous Ad",100,101,643],[2025,1,"Front-Cover",28,28,25180],[2026,1,"Premium Placement (First 20 Pages)",28,28,0],[2024,9,"Two-Page Spread",1176,1207,366025],[2025,5,"Inside BC Page",1,1,188],[2025,7,"Social Media Post",1,1,95],[2025,10,"Inside BC Spread",2,2,668],[2026,1,"Cover Wrap Overrun",59,59,26307],[2026,1,"Digital Feature",1,1,245],[2024,10,"1/4 Page Ad",1,1,75],[2025,8,"Premium Placement (First 20 Pages)",50,50,100],[2026,3,"Cover Wrap Overrun",212,212,98709],[2026,3,"Digital Feature",2,2,225],[2025,7,"Inside BC Spread",2,2,668],[2025,11,"Two-Page Spread",526,532,165160],[2026,8,"Re-Run Previous Ad",17,17,0],[2025,1,"Center Spread",1,1,395],[2025,2,"5 Extra Copies",16,16,5],[2025,9,"Inside FC Spread",14,14,8174],[2025,2,"Full-Page Ad",1241,1269,304934],[2025,5,"Haven Internal Editorial",43,78,0],[2026,1,"Extra Copies (Cover Wrap Overrun)",4,160,450],[2025,11,"10 Extra Copies",1,1,0],[2024,12,"40 Extra Copies",1,1,0],[2025,1,"Custom Design (Hourly Rate)",1,6,248],[2025,10,"TTF",20,20,0],[2025,7,"TTF",8,8,0],[2025,11,"Inside BC Page",2,2,450],[2025,12,"30 Extra Copies",6,6,45],[2025,6,"Full-Page Ad",1895,1946,501250],[2025,6,"5 Extra Copies",36,36,5],[2024,9,"Premium Placement (First 20 Pages)",38,38,900],[2026,3,"Two-Page Spread",790,811,255482],[2025,11,"Cover Wrap Overrun",53,53,24187],[2024,11,"Re-Run Previous Ad",103,103,1485],[2024,11,"Front-Cover",30,30,27547],[2025,1,"Editorial Page",1,1,75],[2024,10,"Collab Sponsored Article (Sophie)",3,3,150],[2024,10,"1/6 Page Ad",81,81,7392],[2026,7,"1/6 Page Ad",32,32,2795],[2024,9,"Digital Feature",4,4,440],[2025,11,"Re-Run Current Ad",103,103,143],[2024,12,"Half-Page Ad",276,276,40089],[2025,1,"15 Extra Copies",32,32,0],[2025,8,"Haven Internal Editorial",53,100,0],[2026,4,"1/6 Page Ad",38,38,3497],[2025,12,"Haven of the Day",2,2,0],[2025,11,"Listing Article",1,1,0],[2026,1,"Haven Internal Editorial",33,57,0],[2025,2,"1/4 Page Ad",7,7,0],[2025,12,"Premium Placement (First 10 Pages)",18,18,0],[2026,3,"Inside FC Page",5,5,2797],[2026,3,"Half-Page Ad",296,296,46771],[2024,9,"1/4 Page Ad",3,3,170],[2025,4,"15 Extra Copies",47,47,15],[2026,1,"1/6 Page Ad",122,122,8252],[2026,5,"TTF",19,19,0],[2024,11,"Inside BC Spread",1,1,375],[2024,12,"Inside FC Page",1,1,596],[2025,3,"Premium Placement (First 10 Pages)",11,11,0],[2026,4,"Haven Internal Editorial",29,42,0],[2025,8,"1/6 Page Ad",75,76,6785],[2025,8,"Collab Sponsored Article (Sophie)",2,2,150],[2025,3,"Haven of the Day",4,4,345],[2024,10,"Haven Internal Editorial",81,120,0],[2024,12,"Two-Page Spread",766,781,229910],[2025,2,"Digital Feature",3,3,320],[2025,4,"Editorial Page",1,1,395],[2025,10,"15 Extra Copies",4,4,0],[2026,6,"Inside FC Spread",8,8,4928],[2025,2,"Premium Placement (First 20 Pages)",33,33,0],[2025,7,"15 Extra Copies",42,42,0],[2025,11,"Back-Cover",21,21,11613],[2024,11,"Camera-Ready Ad (CR)",121,122,2130],[2025,3,"30 Extra Copies",25,25,10],[2026,8,"TTF",1,1,0],[2026,4,"Extra Copies (Cover Wrap Overrun)",15,565,270],[2025,6,"Digital Feature",10,10,1820],[2024,9,"Full-Page Ad",1806,1848,459669],[2026,2,"Inside FC Spread",7,7,5321],[2024,9,"5 Extra Copies",27,31,0],[2026,9,"Full-Page Ad",4,4,518],[2025,6,"Premium Placement (First 20 Pages)",67,67,200],[2025,9,"50 Extra Copies",10,10,50],[2025,5,"1/6 Page Ad",81,81,7235],[2025,5,"Collab Sponsored Article (Sophie)",1,1,188],[2024,11,"10 Extra Copies",28,28,37]],
+
+/* --- extra copies: [launchDate, lineItems, copies, revenue$] --- */
+extraSlate:[["2024-12-02",20,22,30],["2025-02-03",25,26,0],["2024-12-09",20,24,0],["2026-01-05",36,469,150],["2025-07-14",41,42,0],["2025-11-24",34,622,100],["2025-12-15",21,349,20],["2025-10-20",42,910,0],["2025-06-16",32,33,0],["2025-03-03",32,36,0],["2025-05-05",42,43,0],["2025-08-11",39,223,20],["2025-01-13",28,28,90],["2025-01-27",26,26,0],["2024-09-02",22,22,0],["2026-06-15",48,1244,1185],["2026-05-18",36,1474,2645],["2025-06-30",46,50,215],["2024-09-09",32,34,35],["2025-05-19",36,36,20],["2024-11-18",23,23,0],["2024-10-28",29,33,25],["2026-06-22",36,875,911],["2026-03-23",43,950,625],["2025-08-18",41,175,0],["2025-09-08",39,222,75],["2026-08-03",11,130,70],["2025-02-17",35,35,16],["2024-12-30",19,19,0],["2026-06-01",40,642,329],["2026-02-16",47,964,691],["2026-02-23",40,908,961],["2026-03-16",38,829,523],["2024-12-23",19,19,0],["2025-10-27",43,816,0],["2026-07-27",21,321,85],["2026-02-02",34,699,180],["2025-06-02",49,49,146],["2026-01-26",25,476,0],["2025-04-28",32,32,0],["2025-09-22",31,370,70],["2026-07-06",45,776,234],["2026-05-04",42,894,434.6],["2026-04-20",37,708,96],["2025-12-29",36,539,45],["2025-03-10",36,37,0],["2024-09-23",35,35,10],["2024-11-25",25,25,30],["2025-06-09",39,39,0],["2024-09-30",39,39,130],["2026-03-30",45,949,628],["2025-09-01",32,212,0],["2025-11-03",27,360,20],["2025-03-17",34,34,60],["2025-12-08",44,728,130],["2025-04-14",38,42,0],["2025-12-01",34,613,30],["2025-08-04",56,60,0],["2025-11-10",30,631,30],["2025-03-24",30,31,54.75],["2026-01-19",38,679,170],["2025-12-22",28,509,0],["2025-04-07",39,39,20],["2025-02-24",29,29,20],["2026-04-27",39,680,100],["2025-03-31",41,42,0],["2026-04-06",39,810,196],["2024-09-16",34,39,75],["2024-10-21",26,26,50],["2025-09-15",42,329,0],["2024-12-16",23,23,0],["2025-06-23",41,43,10],["2025-07-07",39,44,30],["2024-11-11",25,25,0],["2025-01-06",41,41,30],["2026-05-11",41,728,227],["2026-06-29",24,650,670.6],["2026-03-02",48,934,376],["2026-03-09",31,556,66],["2025-11-17",42,775,0],["2026-04-13",40,649,408],["2025-02-10",23,23,150],["2025-07-28",42,44,0],["2025-07-21",39,40,0],["2025-10-06",52,946,0],["2025-04-21",39,40,0],["2026-01-12",30,546,150],["2026-02-09",44,737,125],["2025-09-29",33,509,0],["2026-07-13",19,318,60],["2025-10-13",50,1202,50],["2025-08-25",45,292,60],["2026-07-20",22,390,178],["2026-06-08",36,674,280],["2026-05-25",45,1166,1113],["2025-05-12",45,47,0],["2025-01-20",22,26,0],["2024-10-14",33,34,0],["2025-05-26",35,40,20],["2024-10-07",36,38,30],["2026-08-10",1,10,0],["2024-11-04",31,31,109.5]],
+
+/* [product, lineItems, copies, revenue$] — since Sep 2024 */
+extraProd:[["30 Extra Copies",334,335,185],["10 Extra Copies",483,514,56.5],["5 Extra Copies",316,360,35],["Extra Copies (Cover Wrap Overrun)",51,2880,5539],["15 Extra Copies",558,558,120],["Extra Copies",1575,30939,8658.2],["40 Extra Copies",81,82,46],["50 Extra Copies",131,187,1283.74]],
+
+/* last 12 months: [market, lineItems, copies, revenue$] */
+extraMarket:[["PHIL",29,686,110],["TOR",109,1959,14.6],["NC",45,523,350],["CHI",26,322,105],["DET",44,1053,967],["DC",44,512,100],["NE",22,276,88],["TN",33,493,0],["DEN",30,555,450],["LA",86,1253,614],["PB",80,1110,315],["HOU",45,648,90],["SF",40,831,316],["SW",11,253,70],["CA",36,710,634],["LOU/AR",31,818,30],["OC/SD",43,1136,1325],["MIA",61,841,456],["AL/MS",23,394,50],["WI",11,263,0],["ATL",41,892,50],["TB",105,1372,410],["MTNW",83,1628,660],["PHX",80,1002,398],["LV",36,538,576],["DFW",72,756,220],["UPS",57,1346,430],["BOS",35,529,50],["MN",27,657,650],["CO",55,1117,390],["SC",50,974,164],["CGY",23,507,0],["MW",24,586,361],["VA",39,443,61],["FLP",59,1809,2470],["VC",22,273,87.6],["NJ",25,456,183],["NYC",75,1259,560],["PTL",49,883,60],["HI",38,900,464],["SEA",40,486,64],["OH/IN",38,491,90],["ATX/SA",40,687,34]],
+
+/* --- refunds: HISTORICAL Stripe import only, Nov 2023 - Oct 2025 --------- */
+archiveWindow:"Nov 2023 – Oct 2025",
+archive:[["void",336,46433.64],["open",239,33233.12],["paid",29795,4276008.82],["failed",1,95],["draft",1538,204514.28],["Refunded",757,104794.63],["uncollectible",51,7007.91]],
+
+/* [stripeInvoiceDate, count, refunded$] */
+refundDate:[["2025-03-16",1,95],["2025-04-10",1,195],["2025-09-06",1,91.25],["2024-12-14",2,321.29],["2025-08-10",2,190],["2025-02-14",1,195],["2024-12-06",3,468.98],["2025-07-01",2,245],["2025-07-22",3,540],["2024-12-27",5,656.25],["2024-12-18",1,175],["2024-10-08",1,109.5],["2024-05-15",1,91.25],["2024-09-24",1,150],["2024-06-16",2,345],["2024-04-11",1,95],["2025-09-10",3,365],["2024-12-10",1,150],["2024-07-12",1,91.25],["2024-07-06",1,98.55],["2024-11-15",2,220],["2025-07-26",3,415],["2025-07-08",3,645],["2024-11-18",1,95],["2025-07-17",3,385],["2024-12-19",5,600],["2025-05-30",2,370],["2024-10-04",1,95],["2025-08-26",3,532.35],["2025-07-06",2,248.3],["2024-12-04",1,95],["2025-05-06",1,95],["2025-04-21",3,585],["2025-07-12",3,470],["2025-01-16",2,245],["2024-08-05",1,195],["2025-03-12",3,465],["2025-10-01",1,95],["2025-08-17",3,385],["2024-07-08",2,204.5],["2025-05-08",1,195],["2025-07-28",2,320],["2024-05-08",3,399.5],["2024-09-11",1,95],["2024-11-30",1,190],["2025-03-01",3,440],["2025-01-28",3,395],["2025-06-22",2,390],["2024-06-02",1,125],["2025-01-08",6,545.29],["2025-06-11",3,495],["2024-10-01",2,290],["2025-08-20",3,288.55],["2025-03-14",1,250],["2025-01-11",6,745],["2025-05-04",1,195],["2025-07-29",2,290],["2025-05-05",3,457],["2024-11-19",1,95],["2025-02-09",3,470],["2024-10-06",1,95],["2025-07-11",4,590],["2024-06-19",1,95],["2025-08-06",2,286.25],["2025-04-30",3,340],["2024-12-30",3,580],["2025-09-22",2,345],["2024-12-25",2,390],["2024-09-08",1,109.5],["2025-02-12",2,370],["2024-08-09",2,190],["2025-07-10",4,480],["2025-01-04",4,416.1],["2024-08-11",2,190],["2025-01-18",6,1045],["2025-08-14",2,290],["2025-04-08",2,233.59],["2025-04-17",2,320],["2025-02-03",2,270],["2024-12-09",1,195],["2024-02-11",1,95],["2025-06-17",4,510],["2024-10-26",1,125],["2025-02-17",2,337.35],["2025-05-17",5,560],["2024-12-23",1,95],["2025-03-20",5,788.3],["2025-04-05",2,190],["2025-07-30",3,336.25],["2025-04-22",1,195],["2025-09-07",2,350],["2024-12-26",1,125],["2024-12-11",6,825],["2024-12-12",2,245],["2025-08-28",2,345],["2025-01-22",3,440],["2025-09-23",2,300],["2025-05-18",1,195],["2025-04-29",1,142.35],["2025-06-02",2,345],["2025-05-24",2,190],["2025-03-24",1,142.35],["2025-05-16",1,95],["2025-01-02",1,91.25],["2025-01-12",5,630],["2024-09-10",1,69.35],["2025-07-24",2,190],["2024-10-19",1,95],["2025-08-30",1,91.25],["2024-04-17",1,150],["2025-05-14",2,445],["2025-06-12",2,205],["2024-09-30",2,245],["2025-07-13",1,110],["2025-02-02",5,634.35],["2024-08-14",1,95],["2025-06-26",3,370],["2025-02-24",4,482.35],["2025-01-05",6,766.7],["2024-12-05",2,390],["2024-08-04",1,195],["2025-05-09",2,345],["2025-08-31",1,150],["2025-06-07",1,195],["2025-02-05",3,385],["2024-10-21",1,95],["2025-07-16",1,95],["2025-05-10",3,385],["2025-01-17",4,554.88],["2025-01-15",1,125],["2024-09-06",1,95],["2025-07-05",1,195],["2025-09-27",3,450],["2025-07-09",1,95],["2025-06-30",4,525],["2025-05-19",1,195],["2024-10-11",2,245],["2025-02-04",1,95],["2024-09-01",3,365],["2025-03-21",2,390],["2024-12-24",2,337.35],["2025-02-19",3,435],["2024-06-12",1,195],["2024-06-01",1,95],["2025-04-01",3,385],["2024-12-13",2,250],["2024-03-08",1,109.5],["2024-09-17",1,195],["2025-09-01",1,95],["2025-08-12",2,305],["2024-03-11",1,95],["2024-06-07",2,193.55],["2024-05-02",1,125],["2024-09-26",1,125],["2025-02-18",1,195],["2024-12-29",5,760],["2025-01-20",3,391.25],["2024-12-03",4,576.25],["2025-04-11",4,645],["2025-06-04",2,390],["2025-01-31",3,425],["2025-06-27",4,590],["2024-07-23",2,264.35],["2025-09-05",3,440],["2024-08-08",3,299.5],["2024-08-19",1,95],["2025-06-05",5,702],["2024-05-11",1,95],["2025-03-18",1,195],["2025-05-28",2,290],["2025-04-27",2,290],["2025-07-23",3,395],["2025-09-18",1,127.75],["2025-03-04",4,410],["2025-06-09",2,345],["2025-04-20",5,713.3],["2025-03-02",1,125],["2025-04-18",2,290],["2024-10-25",1,195],["2024-07-02",1,125],["2025-07-07",1,175],["2025-03-25",1,195],["2024-12-20",3,391.25],["2025-07-21",2,290],["2025-04-25",1,95],["2024-11-05",1,195],["2024-11-26",1,125],["2025-07-02",2,245],["2025-01-23",2,300],["2025-06-16",2,290],["2025-04-13",2,245],["2025-04-02",2,420],["2025-04-24",1,95],["2024-10-31",1,95],["2024-09-15",2,290],["2025-02-07",1,95],["2025-02-26",2,275],["2025-04-15",1,95],["2024-08-02",1,125],["2024-12-16",1,95],["2025-03-26",3,370],["2025-07-15",2,290],["2025-05-11",3,450],["2025-04-09",2,320],["2024-11-16",1,95],["2025-08-01",1,95],["2024-12-08",1,125],["2025-04-14",1,250],["2025-08-22",3,540],["2025-05-02",1,195],["2024-07-09",1,95],["2024-04-02",1,125],["2025-08-15",1,95],["2024-11-29",2,320],["2025-02-01",9,1310],["2025-03-13",1,150],["2024-05-19",1,95],["2024-09-29",1,142.35],["2025-06-23",4,490],["2025-02-13",2,245],["2025-01-19",5,611.18],["2024-01-11",1,95],["2025-01-27",3,411.25],["2025-03-30",1,195],["2025-09-04",1,175],["2025-06-25",1,95],["2025-06-19",1,95],["2025-03-17",2,290],["2025-04-12",3,520],["2025-01-25",8,1147.75],["2025-04-03",2,370],["2025-09-19",2,430],["2024-11-21",1,215.34],["2024-06-08",1,109.5],["2024-09-27",2,300],["2025-06-21",2,290],["2024-08-01",2,245],["2024-12-17",2,251.29],["2025-08-02",2,245],["2025-01-01",2,275],["2025-03-15",3,315],["2025-02-28",4,480],["2024-11-17",2,251.29],["2025-06-13",2,260],["2025-06-24",2,190],["2025-06-28",2,320],["2025-08-05",3,483.44],["2024-05-01",1,150],["2025-04-16",2,290],["2025-02-15",3,277.5],["2025-05-20",5,713.3],["2025-01-14",3,446.29],["2025-07-20",3,288.55],["2024-12-01",1,125],["2025-05-22",2,390],["2024-11-24",1,195],["2025-03-11",3,340],["2025-09-25",1,150],["2025-05-23",5,685],["2025-05-07",1,195],["2025-03-27",2,290],["2025-09-30",1,150],["2025-09-20",1,95],["2024-03-15",1,69.35],["2024-11-06",1,95],["2025-06-20",6,830],["2024-07-11",2,190],["2025-02-21",2,196.03],["2025-02-16",1,95],["2025-07-25",1,95],["2025-05-21",4,615],["2025-01-30",3,315],["2025-07-14",3,465],["2025-05-25",1,195],["2024-10-05",2,390],["2024-12-15",1,125],["2024-05-12",1,195],["2025-05-12",2,377.5],["2025-02-20",4,615],["2025-02-25",1,195],["2025-08-08",2,390],["2024-06-11",1,95],["2024-07-19",2,290],["2025-04-28",1,95],["2024-09-05",2,390],["2025-09-11",1,95],["2025-07-31",2,200],["2025-06-15",3,385],["2025-04-26",3,370],["2025-06-03",1,142.35],["2024-06-06",1,98.55],["2024-11-11",1,95],["2025-01-06",2,275],["2024-07-21",1,150],["2025-01-09",2,275],["2025-02-27",2,286.25],["2024-07-10",1,95],["2025-05-01",4,480],["2025-03-19",3,490],["2025-02-08",1,142.35],["2025-06-10",4,580],["2025-03-03",3,365],["2024-09-13",1,175],["2025-06-06",1,195],["2025-09-12",2,305],["2024-09-25",1,195],["2025-03-05",5,579.35],["2024-07-25",2,290],["2025-02-06",3,470],["2025-05-26",4,620],["2024-09-04",4,480],["2024-04-23",1,95],["2024-12-28",5,615],["2024-10-30",1,175],["2025-05-27",5,730],["2025-09-14",2,390],["2024-09-14",1,195],["2024-09-19",1,95],["2025-04-23",3,340],["2025-05-31",1,50],["2025-09-15",1,95],["2025-01-26",2,250],["2025-02-11",2,190],["2025-08-11",3,340],["2025-01-13",2,250],["2025-03-09",3,415],["2025-05-13",1,150],["2025-08-21",2,345],["2024-11-25",1,195],["2025-06-18",1,195],["2025-07-27",3,395],["2024-07-16",2,293.55],["2025-06-14",3,465],["2025-07-04",1,195],["2024-10-28",1,125],["2025-08-24",1,95],["2025-03-28",1,95],["2024-11-13",1,95],["2025-04-04",2,290],["2025-08-04",1,195],["2024-05-29",1,150],["2025-06-01",2,290],["2024-06-22",1,195],["2024-08-25",1,195],["2025-08-23",4,545],["2025-01-24",4,482.35],["2024-12-21",2,265.34],["2025-08-27",5,670],["2025-08-13",2,260],["2025-03-31",1,50],["2025-05-15",3,385],["2024-04-08",2,204.5],["2025-01-03",7,1041.25],["2025-02-23",1,150],["2024-06-13",1,95],["2025-01-29",5,810]],
+
+/* refund traced to the agreement's first deal's issue launch date: [launchDate, count, refunded$] */
+refundSlate:[["2024-08-12",6,939.38],["2023-11-27",15,1931.1],["2024-11-18",3,525],["2024-05-20",10,1246.69],["2025-04-21",3,368.55],["2024-08-05",11,1550],["2023-11-13",17,2650],["2024-01-15",7,864.79],["2024-07-08",6,860],["2025-07-28",1,175],["2023-12-11",16,1675],["2024-03-04",3,385],["2024-04-22",23,3086.25],["2024-06-24",22,3139.35],["2024-12-09",2,370],["2025-02-17",2,325],["2024-12-23",10,835],["2024-02-26",10,1431.44],["2025-06-02",2,370],["2024-05-06",16,2465],["2024-02-05",13,2265],["2025-03-24",2,190],["2024-07-29",12,1470],["2024-09-30",3,285],["2025-02-24",4,690],["2024-09-23",2,337.35],["2024-10-21",7,1019],["2024-05-27",25,3850],["2025-06-30",3,450],["2024-06-10",18,2375],["2025-08-18",4,780],["2025-09-08",6,1050],["2024-01-08",26,3047.5],["2025-09-01",1,125],["2024-03-11",21,3695],["2023-12-04",20,2403.15],["2025-01-20",1,150],["2024-07-01",4,346.84],["2024-10-07",5,877.35],["2023-10-30",7,915],["2023-11-20",3,256.7],["2024-08-19",7,1345],["2025-03-10",1,195],["2024-06-17",12,1550],["2024-07-22",7,1190],["2024-04-01",16,1820],["2025-06-09",1,175],["2023-11-06",28,4328.98],["2024-10-14",3,385],["2025-06-16",1,195],["2024-12-16",5,693.44],["2025-04-14",2,290],["2024-04-15",9,1365],["2025-11-17",1,215],["2024-11-04",10,1555],["2023-10-23",5,755],["2025-06-23",3,285],["2025-01-27",2,430.69],["2025-03-17",3,615],["2024-02-12",8,960],["2024-03-18",9,1555],["2024-01-22",21,2570],["2023-12-18",7,820.53],["2024-09-02",8,980],["2024-01-01",11,1756.03],["2024-12-02",2,190],["2024-05-13",10,1405],["2025-07-14",3,450],["2024-08-26",3,460.24],["2024-02-19",22,3075],["2025-05-12",3,585],["2023-12-25",10,1181.18],["2025-04-28",1,300],["2024-11-11",4,480],["2025-01-06",1,95],["2025-03-03",5,750],["2024-09-16",5,750],["2025-05-26",2,245],["2024-09-09",6,735],["2024-01-29",33,4360.21],["2024-07-15",11,1539.84],["2024-06-03",11,1517.09],["2025-01-13",1,175],["2024-11-25",2,290],["2024-10-28",17,1570],["2024-04-29",23,2385],["2025-08-04",1,195],["2024-03-25",11,1750],["2025-03-31",4,545],["2024-04-08",14,1965.94]],
+
+/* --- subscriptions, agreements, bridges --- */
+subs:[["Incomplete Expired",24,786.84],["Pending",2,700.99],["incomplete_expired",42,1491.29],["Active",1496,112875.06],["past_due",19,1435],["Canceled",3092,385941.97],["Unpaid",150,14718.58],["Cancelled",9,1846.85]],
+agrPay:[["Unset",7501,9224313.47,7435362.04],["Stripe Activated",3706,6064814.84,7732830.48],["Partial Payment",1,1140,0],["Failed Payment",1,1140,0],["Xero Paid",109,182686.02,145762.35],["Outstanding Payment",1,2340,195]],
+agrColl:[["Unset",6916,9029710.1,9057746.97],["Reconciled",19,37054.05,43391.44],["Closed - Waived",6,8114.97,2588.93],["Paid In Full",101,159035.18,89847.5],["Invoice Sent",56,97555.69,55840.07],["Overpaid",10,16409.94,20594.09],["Collections Inbox",1808,3017398.4,2417929.38],["Waiting On Customer",3,6780,8560],["Default",2400,3104375.99,3617651.48]],
+bridge:{owed:2074450.14,paid:9331973.53,wo:81143.92,inv:9736769.32,bill:1632364.01,c:9505}
+};
+var DATA = SNAPSHOT;
+
+/* ===========================================================================
+   HELPERS
+   ======================================================================== */
+var CH = {};                                   /* live Chart instances by id */
+var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var C = {won:'#22c55e',drop:'#f87171',accent:'#3b82f6',amber:'#f5a623',violet:'#a78bfa',
+         grey:'#5b6472',teal:'#2dd4bf',pink:'#f472b6',ink:'#e7e9ea',muted:'#7f858e',line:'#26282c'};
+var SERIES = [C.accent,C.won,C.amber,C.violet,C.teal,C.pink,C.drop,C.grey,'#60a5fa','#fbbf24','#34d399','#c084fc'];
+
+function num(n){return (n==null?0:Math.round(n)).toLocaleString();}
+function usd(n){
+  n = n||0;
+  var a = Math.abs(n), s = n<0?'-':'';
+  if(a>=1e6) return s+'$'+(a/1e6).toFixed(a>=1e7?1:2)+'M';
+  if(a>=1e3) return s+'$'+Math.round(a/1e3)+'k';
+  return s+'$'+Math.round(a);
+}
+function usdFull(n){return (n<0?'-':'')+'$'+Math.abs(Math.round(n||0)).toLocaleString();}
+function pct(n){return (n==null?0:Math.round(n*10)/10)+'%';}
+function r1(n){return Math.round(n*10)/10;}
+function ymd(d){return d.toISOString().slice(0,10);}
+function slateLabel(s){return s? s.slice(5,7)+'/'+s.slice(8,10)+'/'+s.slice(2,4) : '—';}
+function monLabel(y,m){return MON[m-1]+" '"+String(y).slice(2);}
+function today(){return new Date();}
+function daysBetween(a,b){return Math.round((b-a)/864e5);}
+
+/* Chart.js house style */
+function chartInit(){
+  if(!window.Chart) return;
+  Chart.defaults.color = C.muted;
+  Chart.defaults.borderColor = C.line;
+  Chart.defaults.font.family = '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
+  Chart.defaults.font.size = 11;
+  Chart.defaults.plugins.legend.labels.boxWidth = 10;
+  Chart.defaults.plugins.legend.labels.boxHeight = 10;
+  Chart.defaults.plugins.legend.labels.usePointStyle = true;
+  Chart.defaults.plugins.tooltip.backgroundColor = '#1b1d21';
+  Chart.defaults.plugins.tooltip.borderColor = '#34373d';
+  Chart.defaults.plugins.tooltip.borderWidth = 1;
+  Chart.defaults.plugins.tooltip.titleColor = '#fff';
+  Chart.defaults.plugins.tooltip.bodyColor = '#d4d7db';
+  Chart.defaults.plugins.tooltip.padding = 10;
+  Chart.defaults.maintainAspectRatio = false;
+}
+function draw(id,cfg){
+  var el = document.getElementById(id);
+  if(!el || !window.Chart) return;
+  if(CH[id]){ CH[id].destroy(); }
+  CH[id] = new Chart(el.getContext('2d'), cfg);
+}
+var GRIDS = {};
+function grid(id,cols,rows,opts){
+  var el = document.getElementById(id);
+  if(!el || !window.gridjs) return;
+  el.innerHTML = '';
+  var g = new gridjs.Grid(Object.assign({
+    columns:cols, data:rows, sort:true, fixedHeader:false,
+    pagination:rows.length>18?{limit:18}:false
+  }, opts||{}));
+  g.render(el);
+  GRIDS[id] = g;
+}
+function moneyAxis(){
+  return {ticks:{callback:function(v){return usd(v);}},grid:{color:C.line}};
+}
+function pctAxis(){
+  return {ticks:{callback:function(v){return v+'%';}},grid:{color:C.line}};
+}
+
+/* ---- shared derivations -------------------------------------------------- */
+var OPEN_STAGES = ['Awaiting Payment','Authorised','Payment Failed','Needs Review'];
+
+function stageMap(){
+  var m = {};
+  DATA.xeroStages.forEach(function(r){ m[r[0]] = {c:r[1],t:r[2],d:r[3],cr:r[4]}; });
+  return m;
+}
+function openTotals(){
+  var sm = stageMap(), c = 0, t = 0;
+  OPEN_STAGES.forEach(function(s){ if(sm[s]){ c += sm[s].c; t += sm[s].t; } });
+  return {c:c,t:t};
+}
+/* slates sorted oldest -> newest, with derived rates */
+function slateRows(){
+  return DATA.slates.slice()
+    .filter(function(r){ return r[1] >= 20; })          // ignore stub slates
+    .sort(function(a,b){ return a[0] < b[0] ? -1 : 1; })
+    .map(function(r){
+      return {d:r[0], n:r[1], booked:r[2], inv:r[3], paid:r[4],
+              invRate:r[2]?100*r[3]/r[2]:0, colRate:r[2]?100*r[4]/r[2]:0};
+    });
+}
+/* a slate is "mature" once it is at least this old — recent ones are still collecting */
+var MATURE_DAYS = 120;
+function matureSlates(){
+  var cut = ymd(new Date(+today() - MATURE_DAYS*864e5));
+  return slateRows().filter(function(r){ return r.d <= cut; });
+}
+/* --- when did deal-level Paid Amount become real? ---------------------------
+   Haven moved its billing onto Xero/Stripe sync in Oct 2025, and Paid_Amount__c
+   on the Opportunity only starts being populated at that cutover. Every slate
+   before it reads as ~0% collected, which is missing data, not lost money.
+   Rather than hard-coding a date, walk back from the newest settled slate and
+   stop where collection collapses — so this keeps working on live refreshes.
+   ------------------------------------------------------------------------ */
+function paidEraStart(){
+  var cut = ymd(new Date(+today() - MATURE_DAYS*864e5));   // ignore slates still collecting
+  var s = slateRows().filter(function(r){ return r.d <= cut; });
+  if(s.length < 6) return null;
+  /* baseline = median collection rate of the 20 most recent settled slates.
+     Walk back and cut at the first slate collecting less than 60% of that —
+     a relative test, so it still finds the cutover if rates shift over time. */
+  var recent = s.slice(-20).map(function(r){ return r.colRate; }).sort(function(a,b){return a-b;});
+  var med = recent[Math.floor(recent.length/2)] || 0;
+  if(med <= 0) return null;
+  var floor = med * 0.6, start = s[0].d;
+  for(var i=s.length-1;i>=0;i--){
+    if(s[i].colRate < floor){ start = s[i+1] ? s[i+1].d : null; break; }
+  }
+  return start;
+}
+function inPaidEra(d){ var e = paidEraStart(); return !e || d >= e; }
+/* mature AND inside the era where collection data actually exists */
+function collectableSlates(){
+  return matureSlates().filter(function(r){ return inPaidEra(r.d); });
+}
+
+function stopMap(){
+  var m = {};
+  DATA.stopSlate.forEach(function(r){ m[r[0]] = {c:r[1], a:r[2]}; });
+  return m;
+}
+
+/* ===========================================================================
+   TOP KPIs
+   ======================================================================== */
+function renderKPIs(){
+  var sm = stageMap(), open = openTotals();
+  var voided = sm['Voided'] || {c:0,t:0};
+  var mkts = DATA.markets.filter(function(r){ return r[0] !== 'TEST'; });
+  var booked = mkts.reduce(function(a,r){return a+r[2];},0);
+  var paid   = mkts.reduce(function(a,r){return a+r[4];},0);
+  var deals  = mkts.reduce(function(a,r){return a+r[1];},0);
+  var stopC  = DATA.stopMarket.reduce(function(a,r){return a+r[1];},0);
+  var colRate = booked ? 100*paid/booked : 0;
+
+  var tiles = [
+    ['Outstanding',   usd(open.t),        num(open.c)+' open Xero invoices',            'big'],
+    ['Voided',        num(voided.c),      usd(voided.t)+' of invoicing undone',         'bad'],
+    ['Collected · 12mo', usd(paid),       'across '+num(deals)+' approved deals',       'good'],
+    ['Collection rate', pct(colRate),     usd(booked)+' booked in the same window',     ''],
+    ['Stop Invoice',  pct(100*stopC/(deals||1)), num(stopC)+' deals suppressed · 12mo', ''],
+    ['Credits applied', usd(Math.abs(DATA.xeroStages.reduce(function(a,r){return a+r[4];},0))), 'written against invoices', '']
+  ];
+  document.getElementById('kpis').innerHTML = tiles.map(function(t){
+    return '<div class="kpi '+t[3]+'"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="ksub">'+t[2]+'</div></div>';
+  }).join('');
+
+  document.getElementById('kpiScope').innerHTML =
+    '<b>What is in here.</b> Invoice figures come from <b>Xero_Invoice__c</b>, the system Haven actually invoices out of today &mdash; it holds '+
+    num(DATA.xeroStages.reduce(function(a,r){return a+r[1];},0))+' invoices and is current through this week. '+
+    'Booked / invoiced / collected dollars come off <b>approved Opportunities</b>, rolled up by the launch date of their issue &mdash; one row per slate. '+
+    'Refunds are the exception: they live only in a <b>historical Stripe import</b> that stopped in October 2025, so that tab is an archive, not a live feed. '+
+    'Every dollar figure is US-dollar-denominated as stored; no currency conversion is applied.';
+}
+
+/* ===========================================================================
+   INVOICES
+   ======================================================================== */
+function renderInvoices(){
+  var sm = stageMap(), open = openTotals();
+  var paid = sm['Paid']||{c:0,t:0}, voided = sm['Voided']||{c:0,t:0};
+  var settled = paid.c + voided.c + open.c;
+  document.getElementById('invKpis').innerHTML = [
+    ['Paid',    num(paid.c),   usd(paid.t)+' collected',      'good'],
+    ['Open',    num(open.c),   usd(open.t)+' outstanding',    'big'],
+    ['Voided',  num(voided.c), pct(100*voided.c/(settled||1))+' of all invoices', 'bad'],
+    ['Credits on voids', usd(Math.abs(voided.cr||0)), 'credited before the void', '']
+  ].map(function(t){
+    return '<div class="kpi '+t[3]+'"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="ksub">'+t[2]+'</div></div>';
+  }).join('');
+
+  /* --- stage chart --- */
+  var order = ['Paid','Awaiting Payment','Authorised','Voided','Draft','Unset','Payment Failed','Needs Review'];
+  var stages = DATA.xeroStages.slice().sort(function(a,b){
+    return order.indexOf(a[0]) - order.indexOf(b[0]);
+  });
+  var stageColor = {'Paid':C.won,'Awaiting Payment':C.amber,'Authorised':C.violet,
+                    'Voided':C.drop,'Draft':C.grey,'Unset':C.grey,'Payment Failed':C.drop,'Needs Review':C.teal};
+  draw('stageChart',{
+    type:'bar',
+    data:{labels:stages.map(function(r){return r[0];}),
+      datasets:[{label:'Invoice value',data:stages.map(function(r){return r[2];}),
+        backgroundColor:stages.map(function(r){return stageColor[r[0]]||C.grey;}),borderRadius:3}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){
+        var r = stages[x.dataIndex];
+        return [usdFull(r[2])+' total', num(r[1])+' invoices',
+                usdFull(r[3])+' deals · '+usdFull(r[4])+' credits'];
+      }}}},
+      scales:{y:moneyAxis(),x:{grid:{display:false}}}}
+  });
+
+  grid('stageGrid',
+    [{name:'Stage'},{name:'Invoices'},{name:'Deals total'},{name:'Credits'},{name:'Invoice total'},{name:'Share of value'}],
+    (function(){
+      var tot = DATA.xeroStages.reduce(function(a,r){return a+r[2];},0);
+      return stages.map(function(r){
+        return [r[0], num(r[1]), usdFull(r[3]), usdFull(r[4]), usdFull(r[2]), pct(tot?100*r[2]/tot:0)];
+      });
+    })());
+
+  /* --- monthly trend --- */
+  var metric = document.getElementById('trendMetric').value;   // 'c' | 't'
+  var mi = metric==='c' ? 3 : 4;
+  var months = {}, stageSet = {};
+  DATA.xeroTrend.forEach(function(r){
+    var k = r[0]+'-'+String(r[1]).padStart(2,'0');
+    months[k] = months[k] || {y:r[0],m:r[1]};
+    months[k][r[2]] = (months[k][r[2]]||0) + r[mi];
+    stageSet[r[2]] = 1;
+  });
+  var mk = Object.keys(months).sort();
+  var used = order.filter(function(s){ return stageSet[s]; });
+  draw('trendChart',{
+    type:'bar',
+    data:{labels:mk.map(function(k){return monLabel(months[k].y,months[k].m);}),
+      datasets:used.map(function(s){
+        return {label:s,data:mk.map(function(k){return months[k][s]||0;}),
+                backgroundColor:stageColor[s]||C.grey,borderRadius:2};
+      })},
+    options:{plugins:{tooltip:{callbacks:{label:function(x){
+        return x.dataset.label+': '+(metric==='c'?num(x.parsed.y)+' invoices':usdFull(x.parsed.y));
+      }}}},
+      scales:{x:{stacked:true,grid:{display:false}},
+              y:Object.assign({stacked:true},metric==='c'?{grid:{color:C.line}}:moneyAxis())}}
+  });
+
+  var recent = mk.filter(function(k){ return k >= '2025-11'; });
+  var recCount = recent.reduce(function(a,k){
+    return a + used.reduce(function(b,s){ return b + (metric==='c'?(months[k][s]||0):0); },0);
+  },0);
+  document.getElementById('invInsight').innerHTML =
+    'October 2025 is the Xero backfill &mdash; <b>'+num((months['2025-10']&&metric==='c')?Object.keys(months['2025-10']).reduce(function(a,s){return a+(order.indexOf(s)>=0?months['2025-10'][s]:0);},0):0)+
+    ' invoices</b> landed in one month and most of them were already resolved. From November 2025 onward you are looking at real invoicing cadence: roughly <b>'+
+    num(Math.round(recCount/(recent.length||1)))+'</b> invoices a month'+(metric==='c'?'':' (switch the measure to counts to see this)')+
+    ', of which the <b>Awaiting Payment</b> band is the part still owed.';
+
+  /* --- void rate --- */
+  var vr = mk.map(function(k){
+    var o = months[k];
+    var v = o['Voided']||0;
+    var base = v + (o['Awaiting Payment']||0) + (o['Paid']||0) + (o['Authorised']||0);
+    return base>=5 ? r1(100*v/base) : null;
+  });
+  draw('voidChart',{
+    type:'line',
+    data:{labels:mk.map(function(k){return monLabel(months[k].y,months[k].m);}),
+      datasets:[{label:'Void rate',data:vr,borderColor:C.drop,backgroundColor:'rgba(248,113,113,.12)',
+        fill:true,tension:.3,pointRadius:3,spanGaps:true}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){return 'Void rate '+pct(x.parsed.y);}}}},
+      scales:{y:pctAxis(),x:{grid:{display:false}}}}
+  });
+  var vv = vr.filter(function(x){return x!=null;});
+  var vAvg = vv.length? r1(vv.reduce(function(a,b){return a+b;},0)/vv.length) : 0;
+  var vLast = vv.length? vv[vv.length-1] : 0;
+  document.getElementById('voidInsight').innerHTML =
+    'Across the whole Xero book, <b>'+num((sm['Voided']||{}).c||0)+' invoices</b> worth <b>'+usdFull((sm['Voided']||{}).t||0)+
+    '</b> have been voided &mdash; and <b>'+usdFull(Math.abs((sm['Voided']||{}).cr||0))+'</b> in credits had already been applied to them before they were killed. '+
+    'The monthly void rate averages <b>'+pct(vAvg)+'</b> and sits at <b>'+pct(vLast)+'</b> in the most recent month with volume. '+
+    'A void is not a write-off in the ledger sense &mdash; the deal usually gets re-invoiced &mdash; but every one is billing work done twice.';
+}
+
+/* ===========================================================================
+   OUTSTANDING
+   ======================================================================== */
+var AGE_BUCKETS = [
+  ['Not yet due',  -1e9,   0],
+  ['1–30 days',        1,  30],
+  ['31–60 days',      31,  60],
+  ['61–90 days',      61,  90],
+  ['91–180 days',     91, 180],
+  ['180+ days',      181, 1e9]
+];
+function agingRows(){
+  var now = today();
+  var b = AGE_BUCKETS.map(function(x){ return {label:x[0], c:0, t:0}; });
+  var noDue = {label:'No due date', c:0, t:0};
+  DATA.xeroDue.forEach(function(r){
+    if(!r[0] || r[0]==='none'){ noDue.c += r[1]; noDue.t += r[2]; return; }
+    var od = daysBetween(new Date(r[0]+'T00:00:00Z'), now);   // >0 means overdue
+    for(var i=0;i<AGE_BUCKETS.length;i++){
+      if(od <= AGE_BUCKETS[i][2] && od >= AGE_BUCKETS[i][1]){ b[i].c += r[1]; b[i].t += r[2]; break; }
+    }
+  });
+  if(noDue.c) b.push(noDue);
+  return b;
+}
+function renderOutstanding(){
+  var rows = agingRows(), open = openTotals();
+  var overdue = rows.filter(function(r){ return r.label!=='Not yet due' && r.label!=='No due date'; });
+  var odT = overdue.reduce(function(a,r){return a+r.t;},0);
+  var odC = overdue.reduce(function(a,r){return a+r.c;},0);
+  var deep = rows.filter(function(r){ return r.label==='91–180 days' || r.label==='180+ days'; })
+                 .reduce(function(a,r){return a+r.t;},0);
+
+  document.getElementById('outKpis').innerHTML = [
+    ['Open invoice value', usd(open.t),  num(open.c)+' invoices',                       'big'],
+    ['Past due',           usd(odT),     num(odC)+' invoices past their due date',      'bad'],
+    ['Past due share',     pct(open.t?100*odT/open.t:0), 'of all open invoice value',   ''],
+    ['90+ days out',       usd(deep),    'the hard-to-collect tail',                    'bad']
+  ].map(function(t){
+    return '<div class="kpi '+t[3]+'"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="ksub">'+t[2]+'</div></div>';
+  }).join('');
+
+  var colors = [C.won,C.amber,'#f59e0b',C.drop,'#dc2626','#991b1b',C.grey];
+  draw('ageChart',{
+    type:'bar',
+    data:{labels:rows.map(function(r){return r.label;}),
+      datasets:[{label:'Open value',data:rows.map(function(r){return r.t;}),
+        backgroundColor:rows.map(function(r,i){return colors[i]||C.grey;}),borderRadius:3}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){
+        var r = rows[x.dataIndex]; return [usdFull(r.t), num(r.c)+' invoices'];
+      }}}},
+      scales:{y:moneyAxis(),x:{grid:{display:false}}}}
+  });
+  grid('ageGrid',[{name:'Age bucket'},{name:'Invoices'},{name:'Open value'},{name:'Share'}],
+    rows.map(function(r){ return [r.label, num(r.c), usdFull(r.t), pct(open.t?100*r.t/open.t:0)]; }));
+
+  document.getElementById('ageInsight').innerHTML =
+    '<b>'+usdFull(odT)+'</b> across <b>'+num(odC)+' invoices</b> is already past its due date &mdash; '+
+    pct(open.t?100*odT/open.t:0)+' of everything open. Of that, <b>'+usdFull(deep)+'</b> is more than 90 days out, '+
+    'which is the band where collection odds drop hard. The "Not yet due" bucket is healthy working capital, not a problem.';
+
+  /* --- by market --- */
+  var mm = {};
+  DATA.xeroMarket.forEach(function(r){
+    if(OPEN_STAGES.indexOf(r[1]) < 0) return;
+    mm[r[0]] = mm[r[0]] || {c:0,t:0};
+    mm[r[0]].c += r[2]; mm[r[0]].t += r[3];
+  });
+  var mrows = Object.keys(mm).map(function(k){ return [k, mm[k].c, mm[k].t]; })
+                             .sort(function(a,b){ return b[2]-a[2]; });
+  var named = mrows.filter(function(r){ return r[0] !== 'Unassigned'; });
+  draw('outMktChart',{
+    type:'bar',
+    data:{labels:named.map(function(r){return r[0];}),
+      datasets:[{label:'Open value',data:named.map(function(r){return r[2];}),
+        backgroundColor:C.amber,borderRadius:3}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){
+        var r = named[x.dataIndex]; return [usdFull(r[2]), num(r[1])+' invoices'];
+      }}}},
+      scales:{x:moneyAxis(),y:{grid:{display:false}}}}
+  });
+  grid('outMktGrid',[{name:'Market'},{name:'Open invoices'},{name:'Open value'},{name:'Avg per invoice'}],
+    mrows.map(function(r){ return [r[0], num(r[1]), usdFull(r[2]), usdFull(r[1]?r[2]/r[1]:0)]; }));
+}
+
+/* ===========================================================================
+   PAYMENTS
+   ======================================================================== */
+function renderPayments(){
+  var sm = stageMap();
+  var paid = sm['Paid']||{c:0,t:0};
+  var slates = slateRows();
+  var era = paidEraStart();
+  var last8 = collectableSlates().slice(-8);
+  var recentPaid = last8.reduce(function(a,r){return a+r.paid;},0);
+  var mkts = DATA.markets.filter(function(r){return r[0]!=='TEST';});
+  var paid12 = mkts.reduce(function(a,r){return a+r[4];},0);
+  var inv12  = mkts.reduce(function(a,r){return a+r[3];},0);
+
+  document.getElementById('payKpis').innerHTML = [
+    ['Xero invoices paid', num(paid.c), usd(paid.t)+' settled',                    'good'],
+    ['Collected · 12mo',   usd(paid12), 'deal-level Paid Amount',                  'good'],
+    ['Invoiced · 12mo',    usd(inv12),  pct(inv12?100*paid12/inv12:0)+' of it collected', ''],
+    ['Per slate · recent', usd(last8.length?recentPaid/last8.length:0), 'average across the last 8 settled slates', '']
+  ].map(function(t){
+    return '<div class="kpi '+t[3]+'"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="ksub">'+t[2]+'</div></div>';
+  }).join('');
+
+  /* paid Xero invoices by creation month */
+  var months = {};
+  DATA.xeroTrend.forEach(function(r){
+    if(r[2]!=='Paid') return;
+    var k = r[0]+'-'+String(r[1]).padStart(2,'0');
+    months[k] = months[k] || {y:r[0],m:r[1],c:0,t:0};
+    months[k].c += r[3]; months[k].t += r[4];
+  });
+  var mk = Object.keys(months).sort();
+  draw('paidChart',{
+    data:{labels:mk.map(function(k){return monLabel(months[k].y,months[k].m);}),
+      datasets:[
+        {type:'bar',label:'Paid value',data:mk.map(function(k){return months[k].t;}),
+         backgroundColor:'rgba(34,197,94,.55)',borderRadius:3,yAxisID:'y'},
+        {type:'line',label:'Paid invoices',data:mk.map(function(k){return months[k].c;}),
+         borderColor:C.accent,backgroundColor:C.accent,tension:.3,pointRadius:3,yAxisID:'y1'}
+      ]},
+    options:{plugins:{tooltip:{callbacks:{label:function(x){
+        return x.datasetIndex===0 ? 'Paid '+usdFull(x.parsed.y) : num(x.parsed.y)+' invoices';
+      }}}},
+      scales:{y:Object.assign({position:'left'},moneyAxis()),
+              y1:{position:'right',grid:{display:false},ticks:{callback:function(v){return num(v);}}},
+              x:{grid:{display:false}}}}
+  });
+  document.getElementById('payInsight').innerHTML =
+    'The October 2025 spike is the backfill of invoices that were already settled when Xero was connected. '+
+    'Since then, <b>'+num(mk.filter(function(k){return k>='2025-11';}).reduce(function(a,k){return a+months[k].c;},0))+' invoices</b> worth <b>'+
+    usdFull(mk.filter(function(k){return k>='2025-11';}).reduce(function(a,k){return a+months[k].t;},0))+
+    '</b> have been marked paid. Because Salesforce keeps no payment date on the Xero record, this is a cohort view &mdash; '+
+    'use the slate curve below when you need to know when cash actually moved.';
+
+  /* deal-level collections by slate */
+  draw('collectChart',{
+    data:{labels:slates.map(function(r){return slateLabel(r.d);}),
+      datasets:[
+        {type:'bar',label:'Collected',data:slates.map(function(r){return inPaidEra(r.d)? r.paid : null;}),
+         backgroundColor:'rgba(34,197,94,.5)',borderRadius:2,yAxisID:'y'},
+        {type:'line',label:'Invoiced',data:slates.map(function(r){return r.inv;}),
+         borderColor:C.accent,tension:.25,pointRadius:0,borderWidth:2,yAxisID:'y'}
+      ]},
+    options:{plugins:{tooltip:{callbacks:{label:function(x){return x.dataset.label+': '+usdFull(x.parsed.y);}}}},
+      scales:{y:moneyAxis(),x:{grid:{display:false},ticks:{maxTicksLimit:18}}}}
+  });
+  var lag = slates.slice(-4);
+  var m12 = collectableSlates().slice(-12);
+  document.getElementById('collectInsight').innerHTML =
+    'Collected bars start at the <b>'+slateLabel(era)+'</b> slate because that is when deal-level Paid Amount began being written &mdash; '+
+    'earlier slates show no green not because nothing was collected but because the field was empty. '+
+    'Since then, collection lags invoicing by roughly a slate cycle, which is why the last few bars sit low: the '+
+    slateLabel(lag[0]&&lag[0].d)+' through '+slateLabel(lag[lag.length-1]&&lag[lag.length-1].d)+
+    ' slates are still in flight. A settled slate typically collects <b>'+
+    pct(r1(m12.reduce(function(a,r){return a+r.colRate;},0)/Math.max(1,m12.length)))+
+    '</b> of booked value &mdash; anything materially below that is worth opening.';
+}
+
+/* ===========================================================================
+   REALIZATION BY ISSUE
+   ======================================================================== */
+function renderRealization(){
+  var slates = slateRows(), mat = collectableSlates(), era = paidEraStart();
+  var m12 = mat.slice(-26);
+  var booked = m12.reduce(function(a,r){return a+r.booked;},0);
+  var inv    = m12.reduce(function(a,r){return a+r.inv;},0);
+  var paid   = m12.reduce(function(a,r){return a+r.paid;},0);
+
+  document.getElementById('realKpis').innerHTML = [
+    ['Booked',        usd(booked), 'approved deal value, last '+m12.length+' settled slates', ''],
+    ['Invoiced',      usd(inv),    pct(booked?100*inv/booked:0)+' of booked',     ''],
+    ['Collected',     usd(paid),   pct(booked?100*paid/booked:0)+' of booked',    'good'],
+    ['Leakage',       usd(booked-paid), 'booked but never collected',             'bad']
+  ].map(function(t){
+    return '<div class="kpi '+t[3]+'"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="ksub">'+t[2]+'</div></div>';
+  }).join('');
+
+  draw('realChart',{
+    type:'line',
+    data:{labels:slates.map(function(r){return slateLabel(r.d);}),
+      datasets:[
+        {label:'Booked',   data:slates.map(function(r){return r.booked;}),borderColor:C.accent,backgroundColor:'rgba(59,130,246,.10)',fill:true,tension:.25,pointRadius:0,borderWidth:2},
+        {label:'Invoiced', data:slates.map(function(r){return r.inv;}),   borderColor:C.amber, backgroundColor:'rgba(245,166,35,.10)', fill:true,tension:.25,pointRadius:0,borderWidth:2},
+        {label:'Collected',data:slates.map(function(r){return inPaidEra(r.d)? r.paid : null;}),borderColor:C.won,backgroundColor:'rgba(34,197,94,.14)',fill:true,tension:.25,pointRadius:0,borderWidth:2,spanGaps:false}
+      ]},
+    options:{interaction:{mode:'index',intersect:false},
+      plugins:{tooltip:{callbacks:{label:function(x){return x.dataset.label+': '+usdFull(x.parsed.y);}}}},
+      scales:{y:moneyAxis(),x:{grid:{display:false},ticks:{maxTicksLimit:18}}}}
+  });
+
+  draw('rateChart',{
+    type:'line',
+    data:{labels:slates.map(function(r){return slateLabel(r.d);}),
+      datasets:[
+        {label:'Invoiced rate',  data:slates.map(function(r){return r1(r.invRate);}),borderColor:C.amber,tension:.25,pointRadius:0,borderWidth:2},
+        {label:'Collection rate',data:slates.map(function(r){return inPaidEra(r.d)? r1(r.colRate) : null;}),borderColor:C.won,tension:.25,pointRadius:0,borderWidth:2,spanGaps:false}
+      ]},
+    options:{interaction:{mode:'index',intersect:false},
+      plugins:{tooltip:{callbacks:{label:function(x){return x.dataset.label+': '+pct(x.parsed.y);}}}},
+      scales:{y:Object.assign({max:100},pctAxis()),x:{grid:{display:false},ticks:{maxTicksLimit:18}}}}
+  });
+
+  var recent12 = mat.slice(-12), prior12 = mat.slice(-24,-12);
+  var eraLbl = slateLabel(era);
+  var rc = recent12.reduce(function(a,r){return a+r.paid;},0)/Math.max(1,recent12.reduce(function(a,r){return a+r.booked;},0))*100;
+  var pc = prior12.length? prior12.reduce(function(a,r){return a+r.paid;},0)/Math.max(1,prior12.reduce(function(a,r){return a+r.booked;},0))*100 : rc;
+  var ri = recent12.reduce(function(a,r){return a+r.inv;},0)/Math.max(1,recent12.reduce(function(a,r){return a+r.booked;},0))*100;
+  document.getElementById('realInsight').innerHTML =
+    '<b>Read the green line from '+eraLbl+' forward only.</b> Deal-level Paid Amount was not populated before that slate &mdash; '+
+    'Haven moved billing onto the Xero/Stripe sync around then &mdash; so earlier slates read as 0% collected purely because the field was empty. '+
+    'The amber invoiced line is trustworthy across the whole window. '+
+    'Only about <b>'+pct(r1(ri))+'</b> of booked dollars ever become an invoice line; the rest is discounting, stop-invoice deals and '+
+    'subscription revenue billed elsewhere. Of what is booked, <b>'+pct(r1(rc))+'</b> is collected on the last 12 settled slates, '+
+    (rc>=pc? 'up from ' : 'down from ')+'<b>'+pct(r1(pc))+'</b> on the 12 before. '+
+    'The standing gap between invoiced and collected &mdash; roughly <b>'+pct(r1(ri-rc))+' of booked value</b> &mdash; is invoiced money that has not landed.';
+
+  /* by market */
+  var mrows = DATA.markets.filter(function(r){ return r[0]!=='TEST' && r[1]>=100; })
+    .map(function(r){ return {mk:r[0],n:r[1],booked:r[2],inv:r[3],paid:r[4],
+                              invRate:r[2]?100*r[3]/r[2]:0, colRate:r[2]?100*r[4]/r[2]:0}; })
+    .sort(function(a,b){ return b.colRate - a.colRate; });
+  draw('realMktChart',{
+    type:'bar',
+    data:{labels:mrows.map(function(r){return r.mk;}),
+      datasets:[
+        {label:'Collection rate',data:mrows.map(function(r){return r1(r.colRate);}),backgroundColor:C.won,borderRadius:3},
+        {label:'Invoiced rate',  data:mrows.map(function(r){return r1(r.invRate);}),backgroundColor:'rgba(245,166,35,.55)',borderRadius:3}
+      ]},
+    options:{indexAxis:'y',
+      plugins:{tooltip:{callbacks:{label:function(x){return x.dataset.label+': '+pct(x.parsed.x);}}}},
+      scales:{x:Object.assign({max:100},pctAxis()),y:{grid:{display:false}}}}
+  });
+  grid('realMktGrid',
+    [{name:'Market'},{name:'Deals'},{name:'Booked'},{name:'Invoiced'},{name:'Collected'},{name:'Invoiced %'},{name:'Collected %'},{name:'Leakage'}],
+    mrows.map(function(r){
+      return [r.mk, num(r.n), usdFull(r.booked), usdFull(r.inv), usdFull(r.paid),
+              pct(r1(r.invRate)), pct(r1(r.colRate)), usdFull(r.booked-r.paid)];
+    }));
+}
+
+/* ===========================================================================
+   PRODUCTS
+   ======================================================================== */
+function prodTotals(fromKey,toKey,idx){
+  var m = {};
+  DATA.products.forEach(function(r){
+    var k = r[0]+'-'+String(r[1]).padStart(2,'0');
+    if(k < fromKey || k >= toKey) return;
+    m[r[2]] = (m[r[2]]||0) + r[idx];
+  });
+  return m;
+}
+function monthKeys(){
+  var s = {};
+  DATA.products.forEach(function(r){ s[r[0]+'-'+String(r[1]).padStart(2,'0')] = 1; });
+  return Object.keys(s).sort();
+}
+function renderProducts(){
+  var metric = document.getElementById('prodMetric').value;    // 't' | 'c'
+  var topN   = parseInt(document.getElementById('prodTop').value,10);
+  var idx    = metric==='t' ? 5 : 3;
+
+  var totals = {};
+  DATA.products.forEach(function(r){ totals[r[2]] = (totals[r[2]]||0) + r[idx]; });
+  var top = Object.keys(totals).sort(function(a,b){ return totals[b]-totals[a]; }).slice(0,topN);
+
+  var mk = monthKeys();
+  var byMonth = {};
+  DATA.products.forEach(function(r){
+    var k = r[0]+'-'+String(r[1]).padStart(2,'0');
+    byMonth[k] = byMonth[k] || {};
+    byMonth[k][r[2]] = (byMonth[k][r[2]]||0) + r[idx];
+  });
+  draw('prodChart',{
+    type:'bar',
+    data:{labels:mk.map(function(k){return monLabel(+k.slice(0,4),+k.slice(5,7));}),
+      datasets:top.map(function(p,i){
+        return {label:p,data:mk.map(function(k){return (byMonth[k]&&byMonth[k][p])||0;}),
+                backgroundColor:SERIES[i%SERIES.length],borderRadius:2};
+      })},
+    options:{plugins:{tooltip:{callbacks:{label:function(x){
+        return x.dataset.label+': '+(metric==='t'?usdFull(x.parsed.y):num(x.parsed.y)+' line items');
+      }}}},
+      scales:{x:{stacked:true,grid:{display:false}},
+              y:Object.assign({stacked:true},metric==='t'?moneyAxis():{grid:{color:C.line}})}}
+  });
+
+  /* period over period — last 12 months of issue launches vs the 12 before */
+  var last = mk[mk.length-1];
+  var ly = +last.slice(0,4), lm = +last.slice(5,7);
+  function shift(y,m,back){ var t = y*12 + (m-1) - back; return Math.floor(t/12)+'-'+String((t%12)+1).padStart(2,'0'); }
+  var curFrom = shift(ly,lm,11), prevFrom = shift(ly,lm,23), curTo = shift(ly,lm,-1);
+  var cur = prodTotals(curFrom, curTo, 5), prev = prodTotals(prevFrom, curFrom, 5);
+  var curC = prodTotals(curFrom, curTo, 3);
+  var names = Object.keys(cur).concat(Object.keys(prev)).filter(function(v,i,a){return a.indexOf(v)===i;});
+  var rows = names.map(function(n){
+    var c = cur[n]||0, p = prev[n]||0;
+    return {n:n, c:c, p:p, d:c-p, pc:p? r1(100*(c-p)/p) : null, li:curC[n]||0};
+  }).sort(function(a,b){ return b.c - a.c; });
+  grid('prodGrid',
+    [{name:'Product'},{name:'Revenue · last 12mo'},{name:'Revenue · prior 12mo'},{name:'Change $'},{name:'Change %'},{name:'Line items · 12mo'}],
+    rows.map(function(r){
+      return [r.n, usdFull(r.c), usdFull(r.p), (r.d>=0?'+':'')+usdFull(r.d),
+              r.pc==null?'—':((r.pc>=0?'+':'')+r.pc+'%'), num(r.li)];
+    }));
+
+  var grew = rows.filter(function(r){return r.d>0;}).sort(function(a,b){return b.d-a.d;});
+  var fell = rows.filter(function(r){return r.d<0;}).sort(function(a,b){return a.d-b.d;});
+  var zero = rows.filter(function(r){ return r.c===0 && r.li>0; });
+  document.getElementById('prodInsight').innerHTML =
+    'The book is concentrated: <b>'+rows[0].n+'</b> alone is '+
+    pct(r1(100*rows[0].c/Math.max(1,rows.reduce(function(a,r){return a+r.c;},0))))+
+    ' of last-12-month product revenue. Biggest gain is <b>'+(grew[0]?grew[0].n:'—')+'</b> at '+(grew[0]?'+'+usdFull(grew[0].d):'—')+
+    '; biggest fall is <b>'+(fell[0]?fell[0].n:'—')+'</b> at '+(fell[0]?usdFull(fell[0].d):'—')+'. '+
+    (zero.length? '<b>'+zero.length+' products</b> carried line items in the last 12 months but billed $0 &mdash; those are identifiers and re-runs, not lost revenue, but they do inflate line-item counts.' : '');
+}
+
+/* ===========================================================================
+   EXTRA COPIES
+   ======================================================================== */
+function renderExtra(){
+  var rows = DATA.extraSlate.slice().sort(function(a,b){ return a[0]<b[0]?-1:1; });
+  var last12 = rows.slice(-26);
+  var copies12 = last12.reduce(function(a,r){return a+r[2];},0);
+  var rev12    = last12.reduce(function(a,r){return a+r[3];},0);
+  var totCopies = rows.reduce(function(a,r){return a+r[2];},0);
+  var totRev    = rows.reduce(function(a,r){return a+r[3];},0);
+
+  document.getElementById('extraKpis').innerHTML = [
+    ['Copies billed · 26 slates', num(copies12), 'extra copies on approved deals', 'big'],
+    ['Revenue · 26 slates',       usdFull(rev12),'from those copies',              ''],
+    ['Revenue per copy',          '$'+(copies12? (rev12/copies12).toFixed(2) : '0.00'), 'blended across all tiers', 'bad'],
+    ['All time (since Sep 24)',   num(totCopies), usdFull(totRev)+' billed',       '']
+  ].map(function(t){
+    return '<div class="kpi '+t[3]+'"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="ksub">'+t[2]+'</div></div>';
+  }).join('');
+
+  draw('extraChart',{
+    data:{labels:rows.map(function(r){return slateLabel(r[0]);}),
+      datasets:[
+        {type:'bar',label:'Copies',data:rows.map(function(r){return r[2];}),
+         backgroundColor:'rgba(167,139,250,.55)',borderRadius:2,yAxisID:'y'},
+        {type:'line',label:'Revenue',data:rows.map(function(r){return r[3];}),
+         borderColor:C.won,tension:.25,pointRadius:0,borderWidth:2,yAxisID:'y1'}
+      ]},
+    options:{interaction:{mode:'index',intersect:false},
+      plugins:{tooltip:{callbacks:{label:function(x){
+        return x.datasetIndex===0 ? num(x.parsed.y)+' copies' : usdFull(x.parsed.y);
+      }}}},
+      scales:{y:{position:'left',grid:{color:C.line},ticks:{callback:function(v){return num(v);}}},
+              y1:Object.assign({position:'right',grid:{display:false}},moneyAxis()),
+              x:{grid:{display:false},ticks:{maxTicksLimit:18}}}}
+  });
+
+  var half1 = rows.slice(0,Math.floor(rows.length/2));
+  var half2 = rows.slice(Math.floor(rows.length/2));
+  var c1 = half1.reduce(function(a,r){return a+r[2];},0), c2 = half2.reduce(function(a,r){return a+r[2];},0);
+  document.getElementById('extraInsight').innerHTML =
+    'The step change around mid-2025 is a <b>product change, not a demand change</b>: the fixed tiers (5/10/15/30 Extra Copies, one line item each) were retired in favour of a single quantity-based <b>Extra Copies</b> product, so copies finally get counted. '+
+    'Volume went from <b>'+num(c1)+'</b> copies across the first half of this window to <b>'+num(c2)+
+    '</b> across the second, while revenue stayed near the floor. Blended, Haven bills about <b>$'+
+    (totCopies? (totRev/totCopies).toFixed(2) : '0.00')+' per extra copy</b>. '+
+    'Almost all of the dollars that do land come from <b>Extra Copies (Cover Wrap Overrun)</b>; the plain <b>Extra Copies</b> line moves '+
+    num((DATA.extraProd.filter(function(r){return r[0]==='Extra Copies';})[0]||[0,0,0,0])[2])+
+    ' copies for '+usdFull((DATA.extraProd.filter(function(r){return r[0]==='Extra Copies';})[0]||[0,0,0,0])[3])+
+    '. If extra copies are meant to be a revenue line rather than a courtesy, this is the gap.';
+
+  grid('extraProdGrid',
+    [{name:'Product'},{name:'Line items'},{name:'Copies'},{name:'Revenue'},{name:'$ / copy'}],
+    DATA.extraProd.slice().sort(function(a,b){return b[2]-a[2];}).map(function(r){
+      return [r[0], num(r[1]), num(r[2]), usdFull(r[3]), '$'+(r[2]? (r[3]/r[2]).toFixed(2):'0.00')];
+    }));
+  grid('extraMktGrid',
+    [{name:'Market · last 12mo'},{name:'Line items'},{name:'Copies'},{name:'Revenue'},{name:'$ / copy'}],
+    DATA.extraMarket.slice().sort(function(a,b){return b[2]-a[2];}).map(function(r){
+      return [r[0], num(r[1]), num(r[2]), usdFull(r[3]), '$'+(r[2]? (r[3]/r[2]).toFixed(2):'0.00')];
+    }));
+}
+
+/* ===========================================================================
+   STOP INVOICE
+   ======================================================================== */
+function renderStop(){
+  var sm = stopMap();
+  var slates = slateRows().map(function(r){
+    var s = sm[r.d] || {c:0,a:0};
+    return {d:r.d, n:r.n, c:s.c, a:s.a, pct:r.n? 100*s.c/r.n : 0};
+  });
+  var last = slates.slice(-14,-2);
+  var stopC12 = DATA.stopMarket.reduce(function(a,r){return a+r[1];},0);
+  var stopA12 = DATA.stopMarket.reduce(function(a,r){return a+r[2];},0);
+  var deals12 = DATA.markets.filter(function(r){return r[0]!=='TEST';}).reduce(function(a,r){return a+r[1];},0);
+  var booked12= DATA.markets.filter(function(r){return r[0]!=='TEST';}).reduce(function(a,r){return a+r[2];},0);
+
+  document.getElementById('stopKpis').innerHTML = [
+    ['Deals suppressed · 12mo', num(stopC12), pct(r1(100*stopC12/(deals12||1)))+' of approved deals', 'big'],
+    ['Value suppressed · 12mo', usd(stopA12), pct(r1(100*stopA12/(booked12||1)))+' of booked value',  ''],
+    ['Avg per deal',            usdFull(stopC12? stopA12/stopC12 : 0), 'vs '+usdFull(deals12? booked12/deals12:0)+' overall', ''],
+    ['Recent slates',           pct(r1(last.reduce(function(a,r){return a+r.pct;},0)/Math.max(1,last.length))), 'average share, last 12 settled slates', '']
+  ].map(function(t){
+    return '<div class="kpi '+t[3]+'"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="ksub">'+t[2]+'</div></div>';
+  }).join('');
+
+  var metric = document.getElementById('stopMetric').value;    // pct | c | a
+  var series = slates.map(function(r){ return metric==='pct'? r1(r.pct) : (metric==='c'? r.c : r.a); });
+  draw('stopChart',{
+    type:'line',
+    data:{labels:slates.map(function(r){return slateLabel(r.d);}),
+      datasets:[{label:metric==='pct'?'Share of approved deals':(metric==='c'?'Deals':'Suppressed value'),
+        data:series, borderColor:C.violet, backgroundColor:'rgba(167,139,250,.14)',
+        fill:true, tension:.25, pointRadius:0, borderWidth:2}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){
+        var r = slates[x.dataIndex];
+        return [ (metric==='pct'? pct(r1(r.pct)) : (metric==='c'? num(r.c)+' deals' : usdFull(r.a))),
+                 num(r.c)+' of '+num(r.n)+' approved deals' ];
+      }}}},
+      scales:{y: metric==='pct'? pctAxis() : (metric==='a'? moneyAxis() : {grid:{color:C.line}}),
+              x:{grid:{display:false},ticks:{maxTicksLimit:18}}}}
+  });
+
+  var early = slates.slice(0,20), recent = slates.slice(-22,-2);
+  var e = early.reduce(function(a,r){return a+r.pct;},0)/Math.max(1,early.length);
+  var l = recent.reduce(function(a,r){return a+r.pct;},0)/Math.max(1,recent.length);
+  document.getElementById('stopInsight').innerHTML =
+    'Roughly <b>'+pct(r1(l))+'</b> of approved deals on recent slates are flagged Stop Invoice, versus <b>'+pct(r1(e))+
+    '</b> a year and a half ago &mdash; the share has been '+(l>e?'creeping up':'holding or easing')+'. '+
+    'That is <b>'+usdFull(stopA12)+'</b> of booked value in the last 12 months that deliberately never generates an invoice. '+
+    'Most of it should be subscription-covered; the number worth auditing is any market sitting well above the '+
+    pct(r1(100*stopC12/(deals12||1)))+' house average below.';
+
+  var mrows = DATA.stopMarket.map(function(r){
+    var mk = DATA.markets.filter(function(x){return x[0]===r[0];})[0];
+    var n = mk? mk[1] : 0, bk = mk? mk[2] : 0;
+    return {mk:r[0], c:r[1], a:r[2], n:n, pct:n? 100*r[1]/n : 0, vpct:bk?100*r[2]/bk:0};
+  }).filter(function(r){ return r.n >= 100; }).sort(function(a,b){ return b.pct - a.pct; });
+
+  draw('stopMktChart',{
+    type:'bar',
+    data:{labels:mrows.map(function(r){return r.mk;}),
+      datasets:[{label:'Share of approved deals',data:mrows.map(function(r){return r1(r.pct);}),
+        backgroundColor:mrows.map(function(r){ return r.pct > 100*stopC12/(deals12||1) + 6 ? C.amber : C.violet; }),
+        borderRadius:3}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){
+        var r = mrows[x.dataIndex];
+        return [pct(r1(r.pct))+' of deals', num(r.c)+' of '+num(r.n), usdFull(r.a)+' suppressed'];
+      }}}},
+      scales:{x:pctAxis(),y:{grid:{display:false}}}}
+  });
+  grid('stopMktGrid',
+    [{name:'Market'},{name:'Stop Invoice deals'},{name:'Approved deals'},{name:'Share of deals'},{name:'Suppressed value'},{name:'Share of value'}],
+    mrows.map(function(r){
+      return [r.mk, num(r.c), num(r.n), pct(r1(r.pct)), usdFull(r.a), pct(r1(r.vpct))];
+    }));
+}
+
+/* ===========================================================================
+   REFUNDS  (historical Stripe archive)
+   ======================================================================== */
+function weekStart(s){
+  var d = new Date(s+'T00:00:00Z');
+  var dow = d.getUTCDay();                       // 0 = Sun
+  d.setUTCDate(d.getUTCDate() - ((dow+6)%7));    // back to Monday
+  return ymd(d);
+}
+function renderRefunds(){
+  var arch = {};
+  DATA.archive.forEach(function(r){ arch[r[0]] = {c:r[1], a:r[2]}; });
+  var ref  = arch['Refunded'] || {c:0,a:0};
+  var paid = arch['paid'] || {c:0,a:0};
+  var voidA= arch['void'] || {c:0,a:0};
+  var unc  = arch['uncollectible'] || {c:0,a:0};
+
+  document.getElementById('refundWarn').innerHTML =
+    '<b>This tab is an archive, not a live feed.</b> Refunds are handled in Stripe and never sync back to Salesforce. '+
+    'Everything below comes from a one-time import of Stripe invoices covering <b>'+(DATA.archiveWindow||'Nov 2023 – Oct 2025')+
+    '</b>; no refund recorded after that window exists in the org, so this will not move when you refresh. '+
+    'Treat it as history worth knowing, and go to Stripe for anything current.';
+
+  document.getElementById('refKpis').innerHTML = [
+    ['Refunded',        usdFull(ref.a), num(ref.c)+' invoices refunded',                       'bad'],
+    ['Refund rate',     pct(r1(paid.a? 100*ref.a/(paid.a+ref.a) : 0)), 'of paid + refunded dollars', ''],
+    ['Avg refund',      usdFull(ref.c? ref.a/ref.c : 0), 'per refunded invoice',               ''],
+    ['Uncollectible',   usdFull(unc.a), num(unc.c)+' written off in the same window',          'bad'],
+    ['Voided (Stripe)', usdFull(voidA.a), num(voidA.c)+' Stripe invoices voided',              '']
+  ].map(function(t){
+    return '<div class="kpi '+t[3]+'"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="ksub">'+t[2]+'</div></div>';
+  }).join('');
+
+  var bucket = document.getElementById('refBucket').value;   // m | w
+  var metric = document.getElementById('refMetric').value;   // a | c
+  var agg = {};
+  DATA.refundDate.forEach(function(r){
+    var k = bucket==='m' ? r[0].slice(0,7) : weekStart(r[0]);
+    agg[k] = agg[k] || {c:0,a:0};
+    agg[k].c += r[1]; agg[k].a += r[2];
+  });
+  var ks = Object.keys(agg).sort();
+  draw('refChart',{
+    type:'bar',
+    data:{labels:ks.map(function(k){
+        return bucket==='m' ? monLabel(+k.slice(0,4),+k.slice(5,7)) : slateLabel(k);
+      }),
+      datasets:[{label:metric==='a'?'Refunded':'Refunds',
+        data:ks.map(function(k){ return metric==='a'? agg[k].a : agg[k].c; }),
+        backgroundColor:'rgba(248,113,113,.65)',borderRadius:2}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){
+        var o = agg[ks[x.dataIndex]];
+        return [usdFull(o.a), num(o.c)+' refunds'];
+      }}}},
+      scales:{y: metric==='a'? moneyAxis() : {grid:{color:C.line}},
+              x:{grid:{display:false},ticks:{maxTicksLimit:bucket==='m'?24:20}}}}
+  });
+
+  var byMonth = {};
+  DATA.refundDate.forEach(function(r){
+    var k = r[0].slice(0,7); byMonth[k] = byMonth[k]||{c:0,a:0};
+    byMonth[k].c += r[1]; byMonth[k].a += r[2];
+  });
+  var mks = Object.keys(byMonth).sort();
+  var peak = mks.slice().sort(function(a,b){ return byMonth[b].a - byMonth[a].a; })[0];
+  var weeks = Object.keys(agg).length;
+  document.getElementById('refInsight').innerHTML =
+    'Over the archive window Haven refunded <b>'+usdFull(ref.a)+'</b> across <b>'+num(ref.c)+' invoices</b> &mdash; about <b>'+
+    usdFull(ref.a/Math.max(1,mks.length))+' a month</b>, or roughly <b>'+ (ref.c/Math.max(1,mks.length*4.345)).toFixed(1) +' refunds a week</b>. '+
+    'The heaviest month was <b>'+(peak? monLabel(+peak.slice(0,4),+peak.slice(5,7)) : '—')+'</b> at <b>'+(peak? usdFull(byMonth[peak].a):'—')+'</b>. '+
+    'Average refund is <b>'+usdFull(ref.c? ref.a/ref.c : 0)+'</b>, which lines up with a single monthly subscription payment rather than a whole contract &mdash; '+
+    'these are mostly one-month-back credits, not deal reversals.';
+
+  var srows = DATA.refundSlate.filter(function(r){ return r[0]!=='unlinked'; })
+                              .sort(function(a,b){ return a[0]<b[0]?-1:1; });
+  draw('refSlateChart',{
+    type:'bar',
+    data:{labels:srows.map(function(r){return slateLabel(r[0]);}),
+      datasets:[{label:'Refunded',data:srows.map(function(r){return r[2];}),
+        backgroundColor:'rgba(248,113,113,.6)',borderRadius:2}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){
+        var r = srows[x.dataIndex]; return [usdFull(r[2]), num(r[1])+' refunds'];
+      }}}},
+      scales:{y:moneyAxis(),x:{grid:{display:false},ticks:{maxTicksLimit:20}}}}
+  });
+  grid('refGrid',[{name:'Originating slate'},{name:'Refunds'},{name:'Refunded'},{name:'Avg refund'}],
+    srows.slice().sort(function(a,b){return b[2]-a[2];}).map(function(r){
+      return [slateLabel(r[0]), num(r[1]), usdFull(r[2]), usdFull(r[1]?r[2]/r[1]:0)];
+    }));
+}
+
+/* ===========================================================================
+   SUBSCRIPTIONS & COLLECTIONS
+   ======================================================================== */
+function renderSubs(){
+  /* normalise the case-variant statuses Stripe has written over time */
+  var norm = {'past_due':'Past due','Past Due':'Past due','incomplete_expired':'Incomplete expired',
+              'Incomplete Expired':'Incomplete expired','Cancelled':'Canceled','Trailing':'Trialing'};
+  var sm = {};
+  DATA.subs.forEach(function(r){
+    var k = norm[r[0]] || r[0];
+    sm[k] = sm[k] || {c:0,mp:0};
+    sm[k].c += r[1]; sm[k].mp += r[2];
+  });
+  var order = ['Active','Trialing','Past due','Unpaid','Pending','Canceled','Ended','Expired','Incomplete','Incomplete expired'];
+  var srows = Object.keys(sm).sort(function(a,b){
+    var ia = order.indexOf(a), ib = order.indexOf(b);
+    return (ia<0?99:ia) - (ib<0?99:ib);
+  });
+  var act = sm['Active']||{c:0,mp:0};
+  var risk = ['Past due','Unpaid'].reduce(function(a,k){ return a + ((sm[k]||{}).mp||0); },0);
+  var riskC= ['Past due','Unpaid'].reduce(function(a,k){ return a + ((sm[k]||{}).c||0); },0);
+  var b = DATA.bridge || {};
+
+  document.getElementById('subKpis').innerHTML = [
+    ['Active subscriptions', num(act.c),   usd(act.mp)+' in monthly price', 'good'],
+    ['At risk',              num(riskC),   usd(risk)+'/mo past due or unpaid', 'bad'],
+    ['Amount owed',          usd(b.owed),  'across '+num(b.c)+' subscription bridges', 'big'],
+    ['Written off',          usd(b.wo),    'formal write-offs on bridges', 'bad'],
+    ['Collected all-time',   usd(b.paid),  'against '+usd(b.inv)+' invoiced', '']
+  ].map(function(t){
+    return '<div class="kpi '+t[3]+'"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="ksub">'+t[2]+'</div></div>';
+  }).join('');
+
+  var subColor = {'Active':C.won,'Trialing':C.teal,'Past due':C.amber,'Unpaid':C.drop,
+                  'Pending':C.violet,'Canceled':C.grey,'Incomplete expired':'#3f444b','Ended':C.grey,'Expired':C.grey};
+  draw('subChart',{
+    data:{labels:srows,
+      datasets:[
+        {type:'bar',label:'Subscriptions',data:srows.map(function(k){return sm[k].c;}),
+         backgroundColor:srows.map(function(k){return subColor[k]||C.grey;}),borderRadius:3,yAxisID:'y'},
+        {type:'line',label:'Monthly price',data:srows.map(function(k){return sm[k].mp;}),
+         borderColor:C.accent,pointRadius:4,showLine:false,yAxisID:'y1'}
+      ]},
+    options:{plugins:{tooltip:{callbacks:{label:function(x){
+        return x.datasetIndex===0 ? num(x.parsed.y)+' subscriptions' : usdFull(x.parsed.y)+'/mo';
+      }}}},
+      scales:{y:{position:'left',grid:{color:C.line},ticks:{callback:function(v){return num(v);}}},
+              y1:Object.assign({position:'right',grid:{display:false}},moneyAxis()),
+              x:{grid:{display:false}}}}
+  });
+  grid('subGrid',[{name:'Status'},{name:'Subscriptions'},{name:'Monthly price'},{name:'Avg monthly'}],
+    srows.map(function(k){
+      return [k, num(sm[k].c), usdFull(sm[k].mp), usdFull(sm[k].c? sm[k].mp/sm[k].c : 0)];
+    }));
+
+  /* collections */
+  var coll = DATA.agrColl.filter(function(r){ return r[0]!=='Unset' && r[0]!=='Default'; })
+                         .sort(function(a,b){ return b[2]-a[2]; });
+  var collColor = {'Collections Inbox':C.drop,'Invoice Sent':C.amber,'Waiting On Customer':C.violet,
+                   'Partial Payment':C.amber,'Overpaid':C.teal,'Closed - Waived':C.grey,
+                   'Paid In Full':C.won,'Reconciled':C.won};
+  draw('collStatusChart',{
+    data:{labels:coll.map(function(r){return r[0];}),
+      datasets:[
+        {type:'bar',label:'Agreement value',data:coll.map(function(r){return r[2];}),
+         backgroundColor:coll.map(function(r){return collColor[r[0]]||C.grey;}),borderRadius:3},
+        {type:'bar',label:'Collected',data:coll.map(function(r){return r[3];}),
+         backgroundColor:'rgba(34,197,94,.35)',borderRadius:3}
+      ]},
+    options:{plugins:{tooltip:{callbacks:{label:function(x){return x.dataset.label+': '+usdFull(x.parsed.y);}}}},
+      scales:{y:moneyAxis(),x:{grid:{display:false}}}}
+  });
+  grid('collGrid',[{name:'Collections status'},{name:'Agreements'},{name:'Agreement value'},{name:'Collected'},{name:'Collected %'}],
+    DATA.agrColl.slice().sort(function(a,b){return b[2]-a[2];}).map(function(r){
+      return [r[0]==='Unset'?'(not set)':r[0], num(r[1]), usdFull(r[2]), usdFull(r[3]), pct(r1(r[2]?100*r[3]/r[2]:0))];
+    }));
+
+  var inbox = DATA.agrColl.filter(function(r){return r[0]==='Collections Inbox';})[0];
+  document.getElementById('subInsight').innerHTML =
+    '<b>'+num(inbox?inbox[1]:0)+' agreements</b> worth <b>'+usdFull(inbox?inbox[2]:0)+'</b> are sitting in the Collections Inbox with '+
+    pct(r1(inbox&&inbox[2]?100*inbox[3]/inbox[2]:0))+' collected against them &mdash; that queue is the single biggest pool of recoverable money in the org. '+
+    'Separately, <b>'+num(riskC)+' Stripe subscriptions</b> carrying <b>'+usdFull(risk)+' a month</b> are past due or unpaid; '+
+    'each one is recurring revenue that has already stopped arriving but has not been formally closed.';
+}
+
+/* ===========================================================================
+   TABS + ORCHESTRATOR
+   ======================================================================== */
+document.getElementById('tabs').addEventListener('click',function(e){
+  var p = e.target.dataset && e.target.dataset.p; if(!p) return;
+  Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(t){t.classList.toggle('on',t.dataset.p===p);});
+  Array.prototype.forEach.call(document.querySelectorAll('.panel'),function(pl){pl.classList.toggle('on',pl.dataset.p===p);});
+});
+['trendMetric','prodMetric','prodTop','stopMetric','refBucket','refMetric'].forEach(function(id){
+  var el = document.getElementById(id);
+  if(!el) return;
+  el.addEventListener('change',function(){
+    if(id==='trendMetric') renderInvoices();
+    else if(id==='prodMetric'||id==='prodTop') renderProducts();
+    else if(id==='stopMetric') renderStop();
+    else renderRefunds();
+  });
+});
+
+function renderAll(){
+  renderKPIs(); renderInvoices(); renderOutstanding(); renderPayments();
+  renderRealization(); renderProducts(); renderExtra(); renderStop();
+  renderRefunds(); renderSubs();
+  var src = DATA.live
+    ? 'Source: Salesforce, queried live from your browser at '+DATA.generated+'.'
+    : 'Source: Salesforce (static snapshot bundled with this file, pulled '+DATA.generated+').';
+  document.getElementById('dataFoot').innerHTML = src +
+    ' Invoice metrics come from Xero_Invoice__c (Total = Deals Total + Credit Total). Booked / invoiced / collected come from approved Opportunities '+
+    '(Amount, Invoiced_Amount__c, Paid_Amount__c) grouped by Issue__r.Launch_Date__c — one row per slate. "Stop Invoice" is Prepaid__c = Yes. '+
+    'Extra copies are OpportunityLineItems whose product name contains "Extra Copies". Refund figures come from the historical Stripe_Invoices__c import '+
+    'and stop in October 2025.';
+}
+
+/* ===========================================================================
+   SALESFORCE LIVE REFRESH
+   ---------------------------------------------------------------------------
+   Browser-only OAuth (auth-code + PKCE) against the org, then ~19 aggregate
+   SOQL queries that rebuild DATA in place. No secrets live in this file and
+   no server is involved.
+   ======================================================================== */
+
+const REDIRECT_URI='https://haven-sales-dashboard.vercel.app/Billing_Overview.html';
+const API_VER='v60.0';
+const LOGIN_DEFAULT='https://havenlifestyles.my.salesforce.com';
+
+/* ---- shared connection state --------------------------------------------
+   The storage keys below are deliberately the SAME ones the PALI and
+   drop-rate dashboards use. All three files are served from
+   haven-sales-dashboard.vercel.app, so they share a browser origin: set the
+   Consumer Key once, connect once, and every dashboard is live. The PKCE
+   verifier gets its own key so a sign-in started here cannot clobber one
+   started elsewhere.
+   ------------------------------------------------------------------------ */
+const ls={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:v;}catch(e){return d;}},
+          set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+const ss={get(k){try{return sessionStorage.getItem(k);}catch(e){return null;}},
+          set(k,v){try{sessionStorage.setItem(k,v);return true;}catch(e){return false;}},
+          del(k){try{sessionStorage.removeItem(k);}catch(e){}}};
+
+function sfCfg(){
+  return {clientId:(ls.get('pali_sf_client','')||'').trim(),
+          loginUrl:(ls.get('pali_sf_login',LOGIN_DEFAULT)||LOGIN_DEFAULT).trim().replace(/\/+$/,'')};
+}
+let ACCESS_TOKEN=ss.get('pali_sf_token')||'';
+let INSTANCE_URL=ss.get('pali_sf_instance')||'';
+let BUSY=false,PROG='',ERR='';
+let LIVE_AT='snapshot '+SNAPSHOT.generated;
+
+function corsHint(){
+  return ' This is almost always the Salesforce CORS allowlist. In Setup &rarr; <b>CORS</b>, add <code>'
+    +location.origin+'</code> as an Allowed Origin and tick <b>Enable CORS for OAuth endpoints</b>.';
+}
+
+/* ---- PKCE ---- */
+function b64url(buf){return btoa(String.fromCharCode.apply(null,new Uint8Array(buf)))
+  .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+async function sha256buf(s){return await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));}
+function randStr(n){const a=new Uint8Array(n);crypto.getRandomValues(a);return b64url(a.buffer).slice(0,n);}
+
+async function sfConnect(){
+  const cfg=sfCfg();
+  if(!cfg.clientId){openSettings('Enter your Salesforce Consumer Key (Client ID) first.');return;}
+  const verifier=randStr(96),state=randStr(16);
+  if(!ss.set('bill_pkce',verifier)){
+    ERR='Browser storage is blocked, so the sign-in cannot complete. Allow cookies/storage for this site and retry.';
+    paint();return;
+  }
+  ss.set('bill_state',state);
+  const u=cfg.loginUrl+'/services/oauth2/authorize?response_type=code'+
+    '&client_id='+encodeURIComponent(cfg.clientId)+
+    '&redirect_uri='+encodeURIComponent(REDIRECT_URI)+
+    '&scope='+encodeURIComponent('api refresh_token')+
+    '&state='+encodeURIComponent(state)+
+    '&code_challenge='+b64url(await sha256buf(verifier))+'&code_challenge_method=S256';
+  window.location.assign(u);
+}
+
+async function sfHandleRedirect(){
+  const q=new URLSearchParams(location.search);
+  if(q.get('error')){
+    ERR='Salesforce declined the sign-in: '+String(q.get('error_description')||q.get('error'));
+    history.replaceState({},'',location.pathname);return;
+  }
+  const code=q.get('code');
+  if(!code) return;
+  const expect=ss.get('bill_state');
+  if(expect&&q.get('state')!==expect){
+    ss.del('bill_state');history.replaceState({},'',location.pathname);
+    ERR='OAuth state mismatch — the sign-in was discarded for safety. Click Connect to try again.';
+    return;
+  }
+  ss.del('bill_state');
+  const cfg=sfCfg(),verifier=ss.get('bill_pkce')||'';
+  ss.del('bill_pkce');
+  try{
+    const body=new URLSearchParams({grant_type:'authorization_code',code,client_id:cfg.clientId,
+      redirect_uri:REDIRECT_URI,code_verifier:verifier});
+    const r=await fetch(cfg.loginUrl+'/services/oauth2/token',
+      {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
+    const j=await r.json().catch(()=>({}));
+    if(!j.access_token) throw new Error(j.error_description||j.error||'token exchange failed ('+r.status+')');
+    ACCESS_TOKEN=j.access_token;INSTANCE_URL=j.instance_url;
+    ss.set('pali_sf_token',ACCESS_TOKEN);
+    ss.set('pali_sf_instance',INSTANCE_URL);
+    history.replaceState({},'',location.pathname);
+    await refresh();
+  }catch(e){
+    history.replaceState({},'',location.pathname);
+    const m=String(e&&e.message||e);
+    ERR='Salesforce sign-in failed: '+m+(/fetch|network|Failed/i.test(m)?corsHint():'');
+  }
+}
+
+async function sfQueryAll(soql){
+  let url=INSTANCE_URL+'/services/data/'+API_VER+'/query?q='+encodeURIComponent(soql);
+  const out=[];
+  while(url){
+    let r;
+    try{ r=await fetch(url,{headers:{Authorization:'Bearer '+ACCESS_TOKEN}}); }
+    catch(e){ throw new Error('NETWORK'); }
+    if(r.status===401){
+      ACCESS_TOKEN='';ss.del('pali_sf_token');
+      throw new Error('Session expired — click Connect Salesforce to sign in again.');
+    }
+    if(!r.ok){
+      const t=await r.text().catch(()=>'');
+      throw new Error('Salesforce query failed ('+r.status+'): '+t.slice(0,240));
+    }
+    const j=await r.json();
+    out.push.apply(out,j.records||[]);
+    url=j.done?null:(INSTANCE_URL+j.nextRecordsUrl);
+  }
+  return out;
+}
+
+function sfDisconnect(){
+  ACCESS_TOKEN='';INSTANCE_URL='';
+  ss.del('pali_sf_token');ss.del('pali_sf_instance');
+  DATA=SNAPSHOT;LIVE_AT='snapshot '+SNAPSHOT.generated;ERR='';
+  renderAll();paint();
+}
+
+/* ---- date windows (derived from today, so they roll forward on their own) ---- */
+function windows(){
+  const n=new Date();
+  const Y=n.getUTCFullYear(),M=n.getUTCMonth();
+  const mk=(y,m)=>new Date(Date.UTC(y,m,1));
+  return{
+    trendStart:mk(Y-2,M),      // 24 months of slate / product history
+    curStart:mk(Y-1,M),        // "last 12 months" windows
+    end:mk(Y,M+2)              // generous upper bound: includes upcoming slates
+  };
+}
+const d2s=d=>d.toISOString().slice(0,10);
+
+/* ---- the query set ---- */
+const OPEN_SOQL="('Awaiting Payment','Authorised','Payment Failed','Needs Review')";
+
+function buildQueries(w){
+  const ts=d2s(w.trendStart), cs=d2s(w.curStart);
+  const APPR="StageName = 'Approved'";
+  const launchFrom=d=>"Issue__r.Launch_Date__c >= "+d;
+  const oliLaunchFrom=d=>"Opportunity.Issue__r.Launch_Date__c >= "+d;
+  const oliY="CALENDAR_YEAR(Opportunity.Issue__r.Launch_Date__c)";
+  const oliM="CALENDAR_MONTH(Opportunity.Issue__r.Launch_Date__c)";
+  return{
+    xeroStages:"SELECT Stage__c s, COUNT(Id) c, SUM(Total__c) t, SUM(Deals_Total__c) d, SUM(Credit_Total__c) cr "
+      +"FROM Xero_Invoice__c GROUP BY Stage__c",
+
+    xeroTrend:"SELECT CALENDAR_YEAR(CreatedDate) y, CALENDAR_MONTH(CreatedDate) m, Stage__c s, COUNT(Id) c, SUM(Total__c) t "
+      +"FROM Xero_Invoice__c GROUP BY CALENDAR_YEAR(CreatedDate), CALENDAR_MONTH(CreatedDate), Stage__c",
+
+    xeroMarket:"SELECT Market__c mk, Stage__c s, COUNT(Id) c, SUM(Total__c) t "
+      +"FROM Xero_Invoice__c GROUP BY Market__c, Stage__c",
+
+    xeroDue:"SELECT Due_Date__c dd, COUNT(Id) c, SUM(Total__c) t FROM Xero_Invoice__c "
+      +"WHERE Stage__c IN "+OPEN_SOQL+" GROUP BY Due_Date__c",
+
+    slates:"SELECT Issue__r.Launch_Date__c d, COUNT(Id) c, SUM(Amount) b, SUM(Invoiced_Amount__c) inv, SUM(Paid_Amount__c) pd "
+      +"FROM Opportunity WHERE "+APPR+" AND "+launchFrom(ts)+" GROUP BY Issue__r.Launch_Date__c",
+
+    markets:"SELECT Issue__r.Market_Label__c mk, COUNT(Id) c, SUM(Amount) b, SUM(Invoiced_Amount__c) inv, SUM(Paid_Amount__c) pd "
+      +"FROM Opportunity WHERE "+APPR+" AND "+launchFrom(cs)+" GROUP BY Issue__r.Market_Label__c",
+
+    stopSlate:"SELECT Issue__r.Launch_Date__c d, COUNT(Id) c, SUM(Amount) a FROM Opportunity "
+      +"WHERE Prepaid__c = 'Yes' AND "+APPR+" AND "+launchFrom(ts)+" GROUP BY Issue__r.Launch_Date__c",
+
+    stopMarket:"SELECT Issue__r.Market_Label__c mk, COUNT(Id) c, SUM(Amount) a FROM Opportunity "
+      +"WHERE Prepaid__c = 'Yes' AND "+APPR+" AND "+launchFrom(cs)+" GROUP BY Issue__r.Market_Label__c",
+
+    products:"SELECT "+oliY+" y, "+oliM+" m, Product2.Name p, COUNT(Id) c, SUM(Quantity) q, SUM(TotalPrice) t "
+      +"FROM OpportunityLineItem WHERE Opportunity.StageName = 'Approved' AND "+oliLaunchFrom(ts)+" "
+      +"GROUP BY "+oliY+", "+oliM+", Product2.Name",
+
+    extraSlate:"SELECT Opportunity.Issue__r.Launch_Date__c d, COUNT(Id) c, SUM(Quantity) q, SUM(TotalPrice) t "
+      +"FROM OpportunityLineItem WHERE Product2.Name LIKE '%Extra Copies%' AND Opportunity.StageName = 'Approved' "
+      +"AND "+oliLaunchFrom(ts)+" GROUP BY Opportunity.Issue__r.Launch_Date__c",
+
+    extraProd:"SELECT Product2.Name p, COUNT(Id) c, SUM(Quantity) q, SUM(TotalPrice) t "
+      +"FROM OpportunityLineItem WHERE Product2.Name LIKE '%Extra Copies%' AND Opportunity.StageName = 'Approved' "
+      +"AND "+oliLaunchFrom(ts)+" GROUP BY Product2.Name",
+
+    extraMarket:"SELECT Opportunity.Issue__r.Market_Label__c mk, COUNT(Id) c, SUM(Quantity) q, SUM(TotalPrice) t "
+      +"FROM OpportunityLineItem WHERE Product2.Name LIKE '%Extra Copies%' AND Opportunity.StageName = 'Approved' "
+      +"AND "+oliLaunchFrom(cs)+" GROUP BY Opportunity.Issue__r.Market_Label__c",
+
+    archive:"SELECT Status__c s, COUNT(Id) c, SUM(Amount__c) a FROM Stripe_Invoices__c GROUP BY Status__c",
+
+    refundDate:"SELECT Stripe_Created_Date__c d, COUNT(Id) c, SUM(Amount__c) a FROM Stripe_Invoices__c "
+      +"WHERE Status__c = 'Refunded' GROUP BY Stripe_Created_Date__c",
+
+    refundSlate:"SELECT Agreement__r.First_Deal__r.Issue__r.Launch_Date__c d, COUNT(Id) c, SUM(Amount__c) a "
+      +"FROM Stripe_Invoices__c WHERE Status__c = 'Refunded' GROUP BY Agreement__r.First_Deal__r.Issue__r.Launch_Date__c",
+
+    subs:"SELECT Status__c s, COUNT(Id) c, SUM(Monthly_Price__c) mp FROM Stripe_Subscription__c GROUP BY Status__c",
+
+    agrPay:"SELECT Payment_Status__c p, COUNT(Id) c, SUM(Total_Value__c) v, SUM(Total_Paid__c) pd "
+      +"FROM Agreement__c GROUP BY Payment_Status__c",
+
+    agrColl:"SELECT Collections_Status__c cs, COUNT(Id) c, SUM(Total_Value__c) v, SUM(Total_Paid__c) pd "
+      +"FROM Agreement__c GROUP BY Collections_Status__c",
+
+    bridge:"SELECT SUM(Amount_Owed__c) owed, SUM(Total_Paid__c) paid, SUM(Write_Off_Amount__c) wo, "
+      +"SUM(Invoiced_Amount__c) inv, SUM(Billable_Amount__c) bill, COUNT(Id) c FROM Subscription_Bridge__c"
+  };
+}
+
+/* ---- run all queries with a small concurrency cap ---- */
+async function runQueries(qs,onProg){
+  const keys=Object.keys(qs),res={};
+  let done=0;
+  const step=()=>{done++;onProg(done,keys.length);};
+  const pool=4;
+  let idx=0;
+  async function worker(){
+    while(idx<keys.length){
+      const k=keys[idx++];
+      res[k]=await sfQueryAll(qs[k]);
+      step();
+    }
+  }
+  await Promise.all(Array.from({length:Math.min(pool,keys.length)},worker));
+  return res;
+}
+
+/* ---- transforms: raw AggregateResults -> the DATA shape the charts expect ---- */
+const N=v=>v==null?0:Math.round(v*100)/100;
+const I=v=>v==null?0:Math.round(v);
+
+function buildData(R,w){
+  const D={live:true,generated:new Date().toISOString().replace('T',' ').slice(0,16)+' UTC'};
+
+  D.xeroStages  = R.xeroStages.map(x=>[x.s||'Unset', x.c, N(x.t), N(x.d), N(x.cr)]);
+  D.xeroTrend   = R.xeroTrend.map(x=>[x.y, x.m, x.s||'Unset', x.c, N(x.t)]);
+  D.xeroMarket  = R.xeroMarket.map(x=>[x.mk||'Unassigned', x.s||'Unset', x.c, N(x.t)]);
+  D.xeroDue     = R.xeroDue.map(x=>[x.dd||'none', x.c, N(x.t)]);
+
+  D.slates      = R.slates.filter(x=>x.d).map(x=>[x.d, x.c, N(x.b), N(x.inv), N(x.pd)]);
+  D.markets     = R.markets.map(x=>[x.mk||'Unassigned', x.c, N(x.b), N(x.inv), N(x.pd)]);
+  D.stopSlate   = R.stopSlate.filter(x=>x.d).map(x=>[x.d, x.c, N(x.a)]);
+  D.stopMarket  = R.stopMarket.map(x=>[x.mk||'Unassigned', x.c, N(x.a)]);
+
+  D.products    = R.products.filter(x=>x.p&&x.y).map(x=>[x.y, x.m, x.p, x.c, I(x.q), I(x.t)]);
+  D.extraSlate  = R.extraSlate.filter(x=>x.d).map(x=>[x.d, x.c, I(x.q), N(x.t)]);
+  D.extraProd   = R.extraProd.filter(x=>x.p).map(x=>[x.p, x.c, I(x.q), N(x.t)]);
+  D.extraMarket = R.extraMarket.map(x=>[x.mk||'Unassigned', x.c, I(x.q), N(x.t)]);
+
+  D.archive     = R.archive.map(x=>[x.s||'Unset', x.c, N(x.a)]);
+  D.refundDate  = R.refundDate.filter(x=>x.d).map(x=>[x.d, x.c, N(x.a)]);
+  D.refundSlate = R.refundSlate.map(x=>[x.d||'unlinked', x.c, N(x.a)]);
+  D.archiveWindow = (function(){
+    const ds=D.refundDate.map(r=>r[0]).sort();
+    if(!ds.length) return SNAPSHOT.archiveWindow;
+    const f=d=>MON[+d.slice(5,7)-1]+' '+d.slice(0,4);
+    return f(ds[0])+' – '+f(ds[ds.length-1]);
+  })();
+
+  D.subs        = R.subs.map(x=>[x.s||'Unset', x.c, N(x.mp)]);
+  D.agrPay      = R.agrPay.map(x=>[x.p||'Unset', x.c, N(x.v), N(x.pd)]);
+  D.agrColl     = R.agrColl.map(x=>[x.cs||'Unset', x.c, N(x.v), N(x.pd)]);
+  const b=R.bridge[0]||{};
+  D.bridge      = {owed:N(b.owed), paid:N(b.paid), wo:N(b.wo), inv:N(b.inv), bill:N(b.bill), c:b.c||0};
+
+  return D;
+}
+
+/* ---- orchestration ---------------------------------------------------- */
+async function refresh(){
+  if(BUSY) return;
+  if(!ACCESS_TOKEN){ return sfConnect(); }
+  BUSY=true;ERR='';PROG='';paint();
+  const w=windows();
+  try{
+    const R=await runQueries(buildQueries(w),(d,t)=>{ PROG=d+'/'+t+' queries';paint(); });
+    PROG='';
+    DATA=buildData(R,w);
+    LIVE_AT='live '+DATA.generated;
+    renderAll();
+  }catch(e){
+    const msg=String(e&&e.message||e);
+    if(msg==='NETWORK') ERR='Could not reach Salesforce from the browser.'+corsHint();
+    else ERR=msg;
+    PROG='';
+  }finally{
+    BUSY=false;paint();
+  }
+}
+
+/* ---- connection strip (same shape as the other Haven dashboards) ---- */
+function sfBarHtml(){
+  const stamp=BUSY&&PROG?PROG:LIVE_AT;
+  return '<span class="muted">'+
+      (ACCESS_TOKEN?'<span style="color:#22c55e">&#9679; Connected</span>':'&#9679; Not connected')+
+      ' &middot; '+stamp+'</span>'+
+    '<button class="refresh ghost" id="sfset">&#9881; Settings</button>'+
+    (ACCESS_TOKEN?'<button class="refresh ghost" id="sfdis">Disconnect</button>':'')+
+    '<button class="refresh" id="sfrf"'+(BUSY?' disabled':'')+'>'+
+      (BUSY?'<span class="spin"></span>Refreshing&hellip;'
+           :(ACCESS_TOKEN?'&#8635; Refresh from Salesforce':'&#128274; Connect Salesforce'))+
+    '</button>';
+}
+function paint(){
+  const bar=document.getElementById('sfbar');
+  if(bar){
+    bar.className='sfbar';
+    bar.innerHTML=sfBarHtml();
+    const rf=document.getElementById('sfrf'); if(rf) rf.onclick=refresh;
+    const st=document.getElementById('sfset'); if(st) st.onclick=()=>openSettings();
+    const ds=document.getElementById('sfdis'); if(ds) ds.onclick=sfDisconnect;
+  }
+  const e=document.getElementById('errBox');
+  if(e){ e.innerHTML=ERR||''; e.classList.toggle('on',!!ERR); }
+}
+
+/* ---- settings modal ---- */
+function openSettings(msg){
+  const c=sfCfg();
+  document.getElementById('setClient').value=c.clientId;
+  document.getElementById('setLogin').value=c.loginUrl;
+  document.getElementById('setMsg').textContent=msg||'';
+  document.getElementById('settings').style.display='flex';
+}
+function closeSettings(){document.getElementById('settings').style.display='none';}
+
+/* ---- access guard -------------------------------------------------------
+   The password gate lives on the homepage only. Unlocking there sets
+   pali_unlock for the browser session; this page just reads that flag. With
+   no unlocked session we bounce to /homepage.html (carrying ?next= so you
+   land back here after the password) instead of prompting a second time.
+   A Salesforce OAuth return (?code= / ?error=) is let through so a sign-in
+   round-trip can never strand its token on the homepage.
+   ---------------------------------------------------------------------- */
+const HOME_PAGE='/homepage.html';
+function guardOk(){
+  if(location.protocol==='file:') return true;      /* opened straight off disk */
+  if(ss.get('pali_unlock')==='1') return true;
+  if(/[?&](code|error)=/.test(location.search)){ ss.set('pali_unlock','1'); return true; }
+  return false;
+}
+function guardBounce(){
+  const here=location.pathname.split('/').pop()||'';
+  location.replace(HOME_PAGE+(here?'?next='+encodeURIComponent(here):''));
+}
+function unlock(){
+  document.getElementById('app').style.display='';
+  boot();
+}
+
+/* ---- boot ---- */
+async function boot(){
+  chartInit();
+  renderAll();       /* snapshot first, so the page is never blank */
+  paint();
+  try{ await sfHandleRedirect(); }
+  catch(e){ ERR='Sign-in handling failed: '+String(e&&e.message||e); }
+  paint();
+}
+
+(function(){
+  document.getElementById('setSave').onclick=()=>{
+    ls.set('pali_sf_client',document.getElementById('setClient').value.trim());
+    ls.set('pali_sf_login',document.getElementById('setLogin').value.trim()||LOGIN_DEFAULT);
+    closeSettings();paint();
+  };
+  document.getElementById('setCancel').onclick=closeSettings;
+  document.getElementById('settings').addEventListener('click',e=>{
+    if(e.target.id==='settings') closeSettings();
+  });
+  if(guardOk()) unlock();
+  else guardBounce();
+})();
+</script>
+</body>
+</html>
