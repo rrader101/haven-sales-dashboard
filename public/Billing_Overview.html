@@ -106,28 +106,49 @@ select{border:1px solid var(--line2);border-radius:7px;padding:6px 10px;font-siz
   background:var(--card3);color:var(--ink2);cursor:pointer;font-family:inherit;}
 select:focus{outline:none;border-color:var(--won);}
 
-/* ---- Grid.js dark theme ---- */
-.gridjs-container{color:var(--ink2);padding:0;}
+/* ---- Grid.js dark theme -------------------------------------------------
+   The mermaid theme we load from the CDN is a LIGHT theme: it paints #fff on
+   .gridjs-tbody, .gridjs-td, .gridjs-footer, the pagination buttons and the
+   loading bar, and #f9fafb on the header row. Every one of those needs an
+   explicit dark value here — overriding only .gridjs-td and leaving the cells
+   transparent lets the white <tbody> underneath show straight through, which
+   is what made these tables read as white blocks.
+   ---------------------------------------------------------------------- */
+.gridjs-container{color:var(--ink2);padding:0;background:transparent;}
 .gridjs-wrapper{overflow-x:auto;box-shadow:none;border:1px solid var(--line);border-radius:8px;background:var(--card);}
 table.gridjs-table{min-width:760px;width:100%!important;background:var(--card);}
+
+/* header */
 th.gridjs-th{vertical-align:bottom;background:var(--card3);border-color:var(--line);color:var(--muted);
   text-transform:uppercase;letter-spacing:.04em;font-weight:700;}
 th.gridjs-th .gridjs-th-content{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25;font-size:10.5px;}
 th.gridjs-th-sort:hover,th.gridjs-th-sort:focus{background:#22242a;}
+.gridjs-sort{filter:invert(.68);}
+
+/* body — tbody and tr must be painted too, not just the cells */
+.gridjs-tbody{background:var(--card);}
+.gridjs-tr{background:transparent;}
+.gridjs-tr:nth-child(even) td.gridjs-td{background:rgba(255,255,255,.018);}
 td.gridjs-td,th.gridjs-th{padding:8px 10px;}
 td.gridjs-td{background:transparent;border-color:var(--hair);color:var(--ink2);font-size:12.5px;}
 .gridjs-tr:hover td.gridjs-td{background:var(--card3);}
+.gridjs-tr-selected td.gridjs-td{background:#1f2a38;}
+td.gridjs-message{background:transparent;color:var(--muted);}
+.gridjs-loading-bar{background:var(--card);opacity:.55;}
+
+/* search + footer */
 .gridjs-head{background:transparent;padding:0 0 10px;}
 .gridjs-search input.gridjs-input{background:var(--card3);border:1px solid var(--line2);color:var(--ink2);border-radius:7px;}
 .gridjs-search input.gridjs-input::placeholder{color:var(--faint);}
 .gridjs-search input.gridjs-input:focus{box-shadow:none;border-color:var(--won);}
 .gridjs-footer{background:var(--card);border-color:var(--line);box-shadow:none;color:var(--muted);}
 .gridjs-summary{color:var(--muted);}
+.gridjs-pagination{color:var(--muted);}
 .gridjs-pagination .gridjs-pages button{background:var(--card2);border:1px solid var(--line2);color:var(--muted);}
 .gridjs-pagination .gridjs-pages button:hover:not(:disabled){background:var(--card3);color:var(--ink2);}
 .gridjs-pagination .gridjs-pages button:disabled{background:var(--card);color:var(--faint);}
+.gridjs-pagination .gridjs-pages button.gridjs-spread{background:var(--card);color:var(--faint);border-color:var(--line);}
 .gridjs-pagination .gridjs-pages button.gridjs-currentPage{background:var(--won);color:var(--bg);font-weight:700;border-color:var(--won);}
-.gridjs-sort{filter:invert(.68);}
 
 /* ---- Return to homepage ---- */
 .topnav{margin-bottom:12px;}
@@ -273,7 +294,7 @@ td.gridjs-td{background:transparent;border-color:var(--hair);color:var(--ink2);f
   <div class="panel" data-p="products">
     <div class="card">
       <h2>Revenue per product, per month</h2>
-      <p class="note">Line-item revenue on approved deals, grouped by the month their issue launched. Products priced at $0 (identifiers like Camera-Ready, Re-Run, Premium Placement) carry volume but no revenue &mdash; switch the measure to see that split.</p>
+      <p class="note">Line-item revenue on approved deals, grouped by the month their issue launched. Products priced at $0 (identifiers like Camera-Ready, Re-Run, Premium Placement) carry volume but no revenue &mdash; switch the measure to see that split. The final bar or two are partial: those issues have not finished selling.</p>
       <div class="controls">
         <label>Measure</label>
         <select id="prodMetric">
@@ -291,7 +312,7 @@ td.gridjs-td{background:transparent;border-color:var(--hair);color:var(--ink2);f
     </div>
     <div class="card">
       <h2>Product revenue, period over period</h2>
-      <p class="note">Last 12 months vs the 12 before, by product. <b>Change</b> is the dollar swing; use it to see which units are actually carrying the book and which have quietly gone to zero.</p>
+      <p class="note">Twelve complete launch months against the twelve before, by product. <b>Change</b> is the dollar swing &mdash; use it to see which units are carrying the book and which have quietly gone to zero. The current month is excluded on both sides, since its issues are still being sold.</p>
       <div id="prodGrid"></div>
       <div class="insight" id="prodInsight"></div>
     </div>
@@ -1019,9 +1040,19 @@ function renderProducts(){
               y:Object.assign({stacked:true},metric==='t'?moneyAxis():{grid:{color:C.line}})}}
   });
 
-  /* period over period — last 12 months of issue launches vs the 12 before */
-  var last = mk[mk.length-1];
-  var ly = +last.slice(0,4), lm = +last.slice(5,7);
+  /* period over period — 12 complete launch months vs the 12 before.
+     End the window at the last month that is fully in the past: the current
+     month (and any upcoming slates already in the data) is still being sold,
+     and counting a part-month against a whole one makes every product look
+     like it collapsed. */
+  var n = today();
+  var ly = n.getUTCFullYear(), lm = n.getUTCMonth();      // getUTCMonth() is 0-based == previous month, 1-based
+  if(lm === 0){ ly -= 1; lm = 12; }
+  var lastComplete = ly+'-'+String(lm).padStart(2,'0');
+  if(lastComplete > mk[mk.length-1]){                     // data ends before that — fall back
+    lastComplete = mk[mk.length-1];
+    ly = +lastComplete.slice(0,4); lm = +lastComplete.slice(5,7);
+  }
   function shift(y,m,back){ var t = y*12 + (m-1) - back; return Math.floor(t/12)+'-'+String((t%12)+1).padStart(2,'0'); }
   var curFrom = shift(ly,lm,11), prevFrom = shift(ly,lm,23), curTo = shift(ly,lm,-1);
   var cur = prodTotals(curFrom, curTo, 5), prev = prodTotals(prevFrom, curFrom, 5);
@@ -1031,8 +1062,9 @@ function renderProducts(){
     var c = cur[n]||0, p = prev[n]||0;
     return {n:n, c:c, p:p, d:c-p, pc:p? r1(100*(c-p)/p) : null, li:curC[n]||0};
   }).sort(function(a,b){ return b.c - a.c; });
+  var wLbl = monLabel(+curFrom.slice(0,4),+curFrom.slice(5,7))+' – '+monLabel(ly,lm);
   grid('prodGrid',
-    [{name:'Product'},{name:'Revenue · last 12mo'},{name:'Revenue · prior 12mo'},{name:'Change $'},{name:'Change %'},{name:'Line items · 12mo'}],
+    [{name:'Product'},{name:'Revenue · '+wLbl},{name:'Revenue · prior 12mo'},{name:'Change $'},{name:'Change %'},{name:'Line items'}],
     rows.map(function(r){
       return [r.n, usdFull(r.c), usdFull(r.p), (r.d>=0?'+':'')+usdFull(r.d),
               r.pc==null?'—':((r.pc>=0?'+':'')+r.pc+'%'), num(r.li)];
@@ -1042,6 +1074,7 @@ function renderProducts(){
   var fell = rows.filter(function(r){return r.d<0;}).sort(function(a,b){return a.d-b.d;});
   var zero = rows.filter(function(r){ return r.c===0 && r.li>0; });
   document.getElementById('prodInsight').innerHTML =
+    'Window is <b>'+wLbl+'</b> against the 12 months before it &mdash; complete launch months only, so the part-sold current month does not drag every product negative. '+
     'The book is concentrated: <b>'+rows[0].n+'</b> alone is '+
     pct(r1(100*rows[0].c/Math.max(1,rows.reduce(function(a,r){return a+r.c;},0))))+
     ' of last-12-month product revenue. Biggest gain is <b>'+(grew[0]?grew[0].n:'—')+'</b> at '+(grew[0]?'+'+usdFull(grew[0].d):'—')+
