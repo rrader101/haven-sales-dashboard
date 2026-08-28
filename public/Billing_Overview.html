@@ -61,6 +61,46 @@ h1{font-size:22px;margin:0 0 4px;color:#fff;font-weight:700;letter-spacing:-.01e
 .setnote{font-size:11px;color:var(--muted2);line-height:1.6;margin-top:16px;border-top:1px solid var(--line);padding-top:12px;}
 .setnote code{background:#0f1012;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:#9ca3af;word-break:break-all;}
 
+/* ---- scope bar: slate + market picker ---------------------------------- */
+.scopebar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:12px 15px;margin-bottom:14px;}
+.scopebar .sl{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--muted);font-weight:700;margin-right:-7px;}
+.scopefield{position:relative;}
+#slateInput{width:210px;padding:8px 11px;border-radius:8px;border:1px solid var(--line2);
+  background:var(--card3);color:var(--ink);font-size:13px;font-family:inherit;}
+#slateInput:focus{outline:none;border-color:var(--won);box-shadow:0 0 0 2px rgba(34,197,94,.16);}
+#slateInput::placeholder{color:var(--faint);}
+.combo{position:absolute;z-index:60;top:calc(100% + 5px);left:0;width:290px;max-height:290px;
+  overflow-y:auto;background:var(--card3);border:1px solid var(--line2);border-radius:9px;
+  box-shadow:0 18px 40px -12px rgba(0,0,0,.9);display:none;padding:4px;}
+.combo.on{display:block;}
+.copt{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  padding:7px 9px;border-radius:6px;cursor:pointer;font-size:12.5px;color:var(--ink2);}
+.copt:hover,.copt.hi{background:#262a30;color:#fff;}
+.copt .cmeta{font-size:10.5px;color:var(--muted2);white-space:nowrap;}
+.copt.none{color:var(--muted);cursor:default;}
+.copt.none:hover{background:transparent;}
+#mktSel{min-width:190px;}
+.scopenow{margin-left:auto;font-size:12px;color:var(--muted);text-align:right;line-height:1.45;}
+.scopenow b{color:var(--ink2);font-weight:600;}
+.scopenow .pill{display:inline-block;background:rgba(245,166,35,.13);border:1px solid rgba(245,166,35,.3);
+  color:var(--amber);border-radius:5px;padding:1px 7px;font-size:10.5px;font-weight:700;margin-left:6px;}
+
+/* org-wide tabs are not affected by the picker — say so */
+.tab .gl{font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted2);
+  border:1px solid var(--line2);border-radius:3px;padding:0 3px;margin-left:5px;vertical-align:1px;}
+.scopenote{font-size:12px;color:var(--muted);line-height:1.6;margin:0 0 16px;padding:12px 15px;
+  background:var(--card2);border:1px solid var(--line);border-left:3px solid var(--grey);border-radius:9px;}
+.scopenote b{color:var(--ink3);}
+
+/* panels that need a live connection before they can fill */
+.needlive{background:var(--card);border:1px dashed var(--line2);border-radius:12px;
+  padding:34px 22px;text-align:center;color:var(--muted);font-size:13px;line-height:1.65;}
+.needlive b{color:var(--ink3);}
+.needlive .nl-t{font-size:14px;font-weight:600;color:var(--ink2);margin-bottom:6px;}
+
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));background:var(--card);
   border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:16px;}
 .kpi{padding:16px 18px;border-right:1px solid var(--line);}
@@ -182,156 +222,102 @@ td.gridjs-message{background:transparent;color:var(--muted);}
   <div class="topnav">
     <a class="homebtn" href="/homepage.html"><span class="arw">&#8592;</span>Return To Homepage</a>
   </div>
-  <h1>Billing Analytics</h1>
-  <div class="sub">Invoicing, collections and realization across Haven publications &mdash; <b>what we billed, what came in, and what leaked</b>.</div>
+  <h1>Billing Overview</h1>
+  <div class="sub">Invoicing, collections and realization &mdash; <b>per issue</b>, or across a whole slate.</div>
 
   <div id="sfbar"></div>
   <div class="err" id="errBox"></div>
+
+  <!-- ============ SCOPE PICKER ============ -->
+  <div class="scopebar">
+    <span class="sl">Slate</span>
+    <div class="scopefield">
+      <input id="slateInput" type="text" autocomplete="off" spellcheck="false"
+             placeholder="Search a slate&hellip;" aria-label="Search and select a slate"
+             role="combobox" aria-expanded="false" aria-controls="slateList">
+      <div class="combo" id="slateList" role="listbox" aria-label="Slates"></div>
+    </div>
+    <span class="sl">Market</span>
+    <select id="mktSel" aria-label="Select a market within the slate"></select>
+    <div class="scopenow" id="scopeNow"></div>
+  </div>
 
   <div class="kpis" id="kpis"></div>
   <div class="kpiscope" id="kpiScope"></div>
 
   <div class="tabs" id="tabs">
-    <button class="tab on" data-p="invoices">Invoices</button>
-    <button class="tab" data-p="outstanding">Outstanding</button>
-    <button class="tab" data-p="payments">Payments</button>
-    <button class="tab" data-p="realization">Realization by Issue</button>
+    <button class="tab on" data-p="overview">Overview</button>
+    <button class="tab" data-p="invoices">Invoices</button>
+    <button class="tab" data-p="deals">Deals</button>
     <button class="tab" data-p="products">Products</button>
     <button class="tab" data-p="extra">Extra Copies</button>
     <button class="tab" data-p="stop">Stop Invoice</button>
-    <button class="tab" data-p="refunds">Refunds</button>
-    <button class="tab" data-p="subs">Subscriptions</button>
+    <button class="tab" data-p="trends">Trends<span class="gl">all</span></button>
+    <button class="tab" data-p="refunds">Refunds<span class="gl">all</span></button>
+    <button class="tab" data-p="subs">Subscriptions<span class="gl">all</span></button>
+  </div>
+
+  <!-- ============================ OVERVIEW ============================ -->
+  <div class="panel on" data-p="overview">
+    <div class="card">
+      <h2>Booked &rarr; invoiced &rarr; collected</h2>
+      <p class="note">Where the money for this scope stands. <b>Booked</b> is approved deal Amount, <b>Invoiced</b> is Invoiced Amount, <b>Collected</b> is Paid Amount &mdash; all from the deals attached to the issue. The shortfall at each step is what has not moved yet.</p>
+      <div class="chartbox sm"><canvas id="funnelChart"></canvas></div>
+      <div class="insight" id="ovInsight"></div>
+    </div>
+    <div class="card" id="mktCard">
+      <h2 id="mktTitle">Markets in this slate</h2>
+      <p class="note" id="mktNote">Every issue printed on this slate, sorted by collection rate. The bottom of this list is where a slate's billing is leaking.</p>
+      <div class="chartbox tall"><canvas id="mktChart"></canvas></div>
+      <div id="mktGrid" style="margin-top:16px"></div>
+    </div>
+    <div class="card" id="peerCard">
+      <h2 id="peerTitle">This market over recent slates</h2>
+      <p class="note">The same market across the last slates, so you can see whether this issue is normal for it. The selected issue is highlighted.</p>
+      <div class="chartbox"><canvas id="peerChart"></canvas></div>
+    </div>
   </div>
 
   <!-- ============================ INVOICES ============================ -->
-  <div class="panel on" data-p="invoices">
-    <div class="kpis" id="invKpis"></div>
+  <div class="panel" data-p="invoices">
     <div class="card">
-      <h2>Xero invoices by stage</h2>
-      <p class="note">Every invoice ever written to <b>Xero_Invoice__c</b>, by its current stage. <b>Total</b> = deals total plus credits applied (credits are negative), so it is the amount actually owed on the invoice.</p>
-      <div class="chartbox"><canvas id="stageChart"></canvas></div>
-      <div id="stageGrid" style="margin-top:16px"></div>
-    </div>
-    <div class="card">
-      <h2>Invoices written per month</h2>
-      <p class="note">Invoices by the month they were <b>created</b> in Salesforce, split by where they ended up. The bulk of October 2025 is the initial Xero backfill, not a month of real invoicing &mdash; read the months after that as the live run-rate.</p>
-      <div class="controls">
-        <label>Measure</label>
-        <select id="trendMetric">
-          <option value="c">Invoice count</option>
-          <option value="t">Invoice value ($)</option>
-        </select>
-      </div>
-      <div class="chartbox"><canvas id="trendChart"></canvas></div>
+      <h2>Invoice status</h2>
+      <p class="note">Every invoice raised against this scope's deals. In this org the invoice record is the <b>Quote</b> object &mdash; one per deal, its <b>Invoice #</b> matching the deal's. <b>Voided</b> invoices were cancelled and usually re-cut.</p>
+      <div class="chartbox"><canvas id="invChart"></canvas></div>
+      <div id="invGrid" style="margin-top:16px"></div>
       <div class="insight" id="invInsight"></div>
     </div>
     <div class="card">
-      <h2>Voided invoices over time</h2>
-      <p class="note">Void rate = voided &divide; (voided + awaiting payment + paid + authorised) for invoices created that month. A void undoes an invoice entirely, so a rising line means billing is being re-cut rather than collected.</p>
-      <div class="chartbox"><canvas id="voidChart"></canvas></div>
-      <div class="insight" id="voidInsight"></div>
+      <h2>Open invoice aging</h2>
+      <p class="note">Invoices still awaiting payment, bucketed by how far past their due date they are. Needs a live Salesforce connection &mdash; due dates are not part of the bundled snapshot.</p>
+      <div id="agingSlot"></div>
     </div>
   </div>
 
-  <!-- ============================ OUTSTANDING ============================ -->
-  <div class="panel" data-p="outstanding">
-    <div class="kpis" id="outKpis"></div>
+  <!-- ============================ DEALS ============================ -->
+  <div class="panel" data-p="deals">
     <div class="card">
-      <h2>Outstanding invoice aging</h2>
-      <p class="note">Open invoices (<b>Awaiting Payment</b>, <b>Authorised</b>, <b>Payment Failed</b>, <b>Needs Review</b>) bucketed by how far past their <b>Due Date</b> they are as of today. "Not yet due" is money still inside terms.</p>
-      <div class="chartbox"><canvas id="ageChart"></canvas></div>
-      <div id="ageGrid" style="margin-top:16px"></div>
-      <div class="insight" id="ageInsight"></div>
-    </div>
-    <div class="card">
-      <h2>Outstanding by market</h2>
-      <p class="note">Open invoice value by the market stamped on the invoice. <b>Market is only filled in on the newer Xero records</b> &mdash; the backfilled batch carries none, so it lands in "Unassigned". Treat this as a view of recent invoicing, not the full book.</p>
-      <div class="chartbox tall"><canvas id="outMktChart"></canvas></div>
-      <div id="outMktGrid" style="margin-top:16px"></div>
-    </div>
-  </div>
-
-  <!-- ============================ PAYMENTS ============================ -->
-  <div class="panel" data-p="payments">
-    <div class="kpis" id="payKpis"></div>
-    <div class="card">
-      <h2>Invoices paid, by month written</h2>
-      <p class="note">Xero invoices now sitting in <b>Paid</b>, grouped by the month the invoice was created. Salesforce does not store a payment date on the Xero record, so this shows which cohorts of invoicing have converted &mdash; not the day cash landed.</p>
-      <div class="chartbox"><canvas id="paidChart"></canvas></div>
-      <div class="insight" id="payInsight"></div>
-    </div>
-    <div class="card">
-      <h2>Deal-level dollars collected, slate by slate</h2>
-      <p class="note">Rolling up <b>Paid Amount</b> on approved deals by the slate their issue launched in &mdash; the closest thing to a cash-in curve the org keeps. The green bars start partway along on purpose: <b>Paid Amount was not populated before Haven moved billing onto the Xero/Stripe sync</b>, so earlier slates are blank rather than zero.</p>
-      <div class="chartbox"><canvas id="collectChart"></canvas></div>
-      <div class="insight" id="collectInsight"></div>
-    </div>
-  </div>
-
-  <!-- ============================ REALIZATION ============================ -->
-  <div class="panel" data-p="realization">
-    <div class="kpis" id="realKpis"></div>
-    <div class="card">
-      <h2>Booked vs invoiced vs collected, per slate</h2>
-      <p class="note">For every approved deal on a slate: <b>Booked</b> is deal Amount, <b>Invoiced</b> is Invoiced Amount, <b>Collected</b> is Paid Amount. The gap between booked and collected is the leakage &mdash; discounts, stop-invoice deals, write-offs and money still in flight. Two things to read past: the green series only begins where <b>Paid Amount started being written</b>, and the last few slates have not finished collecting.</p>
-      <div class="chartbox"><canvas id="realChart"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Realization rate over time</h2>
-      <p class="note"><b>Invoiced rate</b> = invoiced &divide; booked. <b>Collection rate</b> = collected &divide; booked. Both are per-slate. The invoiced line runs the full window; the collection line starts at the billing-system cutover. Slates inside the last ~120 days are still maturing, so the falling right edge is expected, not a warning.</p>
-      <div class="chartbox"><canvas id="rateChart"></canvas></div>
-      <div class="insight" id="realInsight"></div>
-    </div>
-    <div class="card">
-      <h2>Realization by publication</h2>
-      <p class="note">Last 12 months of approved deals, grouped by the issue's market label. Sorted by collection rate &mdash; the bottom of this table is where booked revenue is least likely to turn into cash.</p>
-      <div class="chartbox tall"><canvas id="realMktChart"></canvas></div>
-      <div id="realMktGrid" style="margin-top:16px"></div>
+      <h2>Every deal on this issue</h2>
+      <p class="note">The billing line for each approved deal: what it was booked at, what was invoiced, what has been paid, the invoice number and its status. Search the table to find a single advertiser.</p>
+      <div id="dealsSlot"></div>
     </div>
   </div>
 
   <!-- ============================ PRODUCTS ============================ -->
   <div class="panel" data-p="products">
     <div class="card">
-      <h2>Revenue per product, per month</h2>
-      <p class="note">Line-item revenue on approved deals, grouped by the month their issue launched. Products priced at $0 (identifiers like Camera-Ready, Re-Run, Premium Placement) carry volume but no revenue &mdash; switch the measure to see that split. The final bar or two are partial: those issues have not finished selling.</p>
-      <div class="controls">
-        <label>Measure</label>
-        <select id="prodMetric">
-          <option value="t">Revenue ($)</option>
-          <option value="c">Line items</option>
-        </select>
-        <label>Show</label>
-        <select id="prodTop">
-          <option value="8">Top 8 products</option>
-          <option value="12">Top 12 products</option>
-          <option value="6">Top 6 products</option>
-        </select>
-      </div>
-      <div class="chartbox tall"><canvas id="prodChart"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Product revenue, period over period</h2>
-      <p class="note">Twelve complete launch months against the twelve before, by product. <b>Change</b> is the dollar swing &mdash; use it to see which units are carrying the book and which have quietly gone to zero. The current month is excluded on both sides, since its issues are still being sold.</p>
-      <div id="prodGrid"></div>
-      <div class="insight" id="prodInsight"></div>
+      <h2>Revenue by product</h2>
+      <p class="note">Line-item revenue on this scope's approved deals. Products priced at $0 &mdash; identifiers like Camera-Ready and Re-Run &mdash; carry volume but no revenue.</p>
+      <div id="prodSlot"></div>
     </div>
   </div>
 
   <!-- ============================ EXTRA COPIES ============================ -->
   <div class="panel" data-p="extra">
-    <div class="kpis" id="extraKpis"></div>
     <div class="card">
-      <h2>Extra copies billed, slate by slate</h2>
-      <p class="note">All line items whose product name contains <b>Extra Copies</b>, on approved deals. Copies and dollars are plotted together because they have decoupled: volume is up sharply while revenue per copy stays near zero.</p>
-      <div class="chartbox"><canvas id="extraChart"></canvas></div>
-      <div class="insight" id="extraInsight"></div>
-    </div>
-    <div class="card">
-      <h2>By product tier and by market</h2>
-      <p class="note">The numbered tiers (<b>5/10/15/30 Extra Copies</b>) are the retired products; the generic <b>Extra Copies</b> and <b>Extra Copies (Cover Wrap Overrun)</b> lines are what is used now. Market table covers the last 12 months.</p>
-      <div id="extraProdGrid" style="margin-bottom:18px"></div>
-      <div id="extraMktGrid"></div>
+      <h2>Extra copies</h2>
+      <p class="note">Line items whose product name contains <b>Extra Copies</b>, for this scope &mdash; copies moved and dollars billed for them.</p>
+      <div id="extraSlot"></div>
     </div>
   </div>
 
@@ -339,34 +325,38 @@ td.gridjs-message{background:transparent;color:var(--muted);}
   <div class="panel" data-p="stop">
     <div class="kpis" id="stopKpis"></div>
     <div class="card">
-      <h2>Deals marked "Stop Invoice", per slate</h2>
-      <p class="note">The <b>Prepaid__c</b> field (labelled <b>Stop Invoice</b>) set to Yes on an approved deal &mdash; billing is deliberately suppressed, usually because the deal is covered by a subscription or was paid up front. Shown as a count and as a share of all approved deals on that slate. The last point or two drop sharply because those slates are still being sold and flagged, not because behaviour changed.</p>
-      <div class="controls">
-        <label>Measure</label>
-        <select id="stopMetric">
-          <option value="pct">Share of approved deals (%)</option>
-          <option value="c">Deal count</option>
-          <option value="a">Suppressed value ($)</option>
-        </select>
-      </div>
-      <div class="chartbox"><canvas id="stopChart"></canvas></div>
+      <h2>Deals marked "Stop Invoice"</h2>
+      <p class="note">The <b>Prepaid__c</b> field (labelled <b>Stop Invoice</b>) set to Yes on an approved deal &mdash; billing is deliberately suppressed, usually because a subscription already covers it or it was paid up front.</p>
+      <div class="chartbox tall"><canvas id="stopChart"></canvas></div>
+      <div id="stopGrid" style="margin-top:16px"></div>
       <div class="insight" id="stopInsight"></div>
-    </div>
-    <div class="card">
-      <h2>Stop Invoice by publication</h2>
-      <p class="note">Last 12 months. A market well above the house average is either subscription-heavy or has a rep suppressing invoices that should be going out &mdash; worth a spot check either way.</p>
-      <div class="chartbox tall"><canvas id="stopMktChart"></canvas></div>
-      <div id="stopMktGrid" style="margin-top:16px"></div>
     </div>
   </div>
 
-  <!-- ============================ REFUNDS ============================ -->
+  <!-- ============================ TRENDS (org-wide) ============================ -->
+  <div class="panel" data-p="trends">
+    <div class="scopenote">This tab ignores the picker &mdash; it is the whole book over time, with the selected slate marked so you can place it in context.</div>
+    <div class="kpis" id="realKpis"></div>
+    <div class="card">
+      <h2>Booked vs invoiced vs collected, per slate</h2>
+      <p class="note">Every slate over the last two years. The green series only begins where <b>Paid Amount started being written</b> (the move onto the Xero/Stripe sync), and the last few slates have not finished collecting.</p>
+      <div class="chartbox"><canvas id="realChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Realization rate over time</h2>
+      <p class="note"><b>Invoiced rate</b> = invoiced &divide; booked. <b>Collection rate</b> = collected &divide; booked. The invoiced line runs the full window; the collection line starts at the billing-system cutover.</p>
+      <div class="chartbox"><canvas id="rateChart"></canvas></div>
+      <div class="insight" id="realInsight"></div>
+    </div>
+  </div>
+
+  <!-- ============================ REFUNDS (org-wide) ============================ -->
   <div class="panel" data-p="refunds">
     <div class="warnbox" id="refundWarn"></div>
     <div class="kpis" id="refKpis"></div>
     <div class="card">
       <h2>Refunds over time</h2>
-      <p class="note">Refunded Stripe invoices by the date Stripe created the original invoice. Switch between weekly and monthly buckets.</p>
+      <p class="note">Refunded Stripe invoices by the date Stripe created the original invoice.</p>
       <div class="controls">
         <label>Bucket</label>
         <select id="refBucket">
@@ -384,24 +374,25 @@ td.gridjs-message{background:transparent;color:var(--muted);}
     </div>
     <div class="card">
       <h2>Refunds by originating slate</h2>
-      <p class="note">Each refunded invoice traced back through its agreement to that agreement's first deal, and then to that deal's issue launch date. It attributes the refund to where the relationship <b>started</b>, not necessarily the issue being refunded &mdash; useful for spotting bad cohorts, not for per-issue accounting.</p>
+      <p class="note">Each refunded invoice traced through its agreement to that agreement's first deal, and then to that deal's issue launch date &mdash; where the relationship <b>started</b>, not necessarily the issue refunded.</p>
       <div class="chartbox"><canvas id="refSlateChart"></canvas></div>
       <div id="refGrid" style="margin-top:16px"></div>
     </div>
   </div>
 
-  <!-- ============================ SUBSCRIPTIONS ============================ -->
+  <!-- ============================ SUBSCRIPTIONS (org-wide) ============================ -->
   <div class="panel" data-p="subs">
+    <div class="scopenote">Subscriptions and collections sit at <b>agreement</b> level, spanning many issues, so they are not filtered by the picker.</div>
     <div class="kpis" id="subKpis"></div>
     <div class="card">
       <h2>Stripe subscriptions by status</h2>
-      <p class="note">Live subscription records. <b>Monthly price</b> sums the recurring price on each subscription, so the Active row is the closest thing to current MRR in the org.</p>
+      <p class="note">Live subscription records. <b>Monthly price</b> sums the recurring price on each, so the Active row is the closest thing to current MRR in the org.</p>
       <div class="chartbox"><canvas id="subChart"></canvas></div>
       <div id="subGrid" style="margin-top:16px"></div>
     </div>
     <div class="card">
       <h2>Collections queue</h2>
-      <p class="note">Agreements by <b>Collections Status</b>. Value is the agreement's total value; collected is total paid against it. Agreements with no collections status set are excluded from the chart but shown in the table.</p>
+      <p class="note">Agreements by <b>Collections Status</b>. Value is the agreement's total value; collected is total paid against it.</p>
       <div class="chartbox"><canvas id="collStatusChart"></canvas></div>
       <div id="collGrid" style="margin-top:16px"></div>
       <div class="insight" id="subInsight"></div>
@@ -413,25 +404,12 @@ td.gridjs-message{background:transparent;color:var(--muted);}
 
 <script>
 /* ===========================================================================
-   SNAPSHOT — pulled from Salesforce 2026-08-27. The page renders this
-   immediately so it is never blank; "Refresh from Salesforce" replaces every
-   array below with live aggregate results and re-renders in place.
+   ORG-WIDE SNAPSHOT — pulled from Salesforce 2026-08-28. Feeds the Trends,
+   Refunds and Subscriptions tabs, which are not affected by the issue picker.
+   "Refresh from Salesforce" replaces every array below with live results.
    ======================================================================== */
 var SNAPSHOT = {
-live:false, generated:"2026-08-27",
-
-/* --- Xero invoices --------------------------------------------------------
-   [stage, count, total$, dealsTotal$, credits$]   total = deals + credits   */
-xeroStages:[["Unset",86,29588.46,29588.46,0],["Voided",420,178288.97,238759.51,-60470.54],["Authorised",9,5387.5,5957.5,-570],["Awaiting Payment",510,369819.83,628926.43,-259106.61],["Paid",719,376980.91,416721.76,-39740.84],["Draft",1,0,0,0]],
-
-/* [year, month, stage, count, total$] — month the invoice record was created */
-xeroTrend:[[2026,8,"Voided",1,75],[2026,6,"Paid",6,6087.5],[2026,3,"Awaiting Payment",49,37268.98],[2026,3,"Paid",19,14867],[2026,6,"Awaiting Payment",27,19979.33],[2025,10,"Draft",1,0],[2026,5,"Awaiting Payment",14,9449.08],[2025,12,"Voided",8,6640],[2025,10,"Awaiting Payment",45,24603.34],[2026,1,"Awaiting Payment",13,9355.61],[2026,4,"Awaiting Payment",64,53026.79],[2025,11,"Paid",36,24201.65],[2026,1,"Paid",8,7216.39],[2026,4,"Paid",21,14058],[2025,11,"Awaiting Payment",126,95636.6],[2026,5,"Paid",7,2535],[2026,2,"Voided",23,18183.08],[2025,10,"Paid",565,257209.11],[2026,5,"Voided",5,3930],[2026,2,"Paid",29,33920.95],[2025,12,"Awaiting Payment",59,45035.45],[2025,10,"Voided",337,121632.98],[2025,11,"Authorised",5,2855],[2026,1,"Voided",1,1312.5],[2026,4,"Voided",5,2487.9],[2025,10,"Authorised",3,2390],[2025,11,"Voided",31,18155.02],[2026,2,"Awaiting Payment",80,54201.25],[2025,12,"Paid",21,9865.31],[2025,10,"Unset",86,29588.46],[2026,8,"Awaiting Payment",13,9348.62],[2026,3,"Voided",8,4162.49],[2026,6,"Authorised",1,142.5],[2026,7,"Awaiting Payment",20,11914.77],[2026,7,"Paid",5,5955],[2026,6,"Voided",1,1710],[2026,8,"Paid",2,1065]],
-
-/* [market, stage, count, total$] */
-xeroMarket:[["WI","Paid",1,585],["BOS","Voided",2,1745],["HI","Awaiting Payment",8,5480],["LV","Awaiting Payment",7,2532.5],["MIA","Voided",4,2787],["PHX","Paid",3,2322.5],["UPS","Awaiting Payment",7,4327.5],["NE","Awaiting Payment",8,3352.5],["DFW","Awaiting Payment",13,7747.5],["TOR","Awaiting Payment",22,12167.26],["Unassigned","Unset",86,29588.46],["NC","Paid",1,1637.5],["MN","Paid",1,195],["DET","Voided",3,3140],["MW","Awaiting Payment",7,3782.5],["NE","Paid",2,4768],["NC","Awaiting Payment",12,7645],["MN","Awaiting Payment",3,2400],["MW","Paid",1,700],["WI","Awaiting Payment",2,2755],["AL/MS","Awaiting Payment",8,2902.5],["ATX/SA","Voided",6,4197.5],["LV","Paid",1,1650],["SEA","Awaiting Payment",11,8712.5],["PHX","Awaiting Payment",16,10510.83],["OH/IN","Voided",1,195],["UPS","Paid",2,277.5],["TB","Voided",2,795],["OC/SD","Awaiting Payment",5,3060],["CA","Awaiting Payment",10,9729.2],["VA","Awaiting Payment",7,10290],["CGY","Paid",1,0],["PHIL","Awaiting Payment",7,5221.5],["MTNW","Awaiting Payment",9,5963],["CO","Awaiting Payment",6,3877.5],["SF","Awaiting Payment",5,5945],["DC","Voided",3,2210],["FLP","Paid",2,1010],["Unassigned","Voided",345,130048.38],["SW","Paid",1,1312.5],["LA","Awaiting Payment",12,9228.32],["NYC","Paid",1,150],["SC","Awaiting Payment",6,2970],["SF","Paid",1,520],["CO","Paid",2,2895],["PTL","Awaiting Payment",5,8292.5],["FLP","Awaiting Payment",19,13107.5],["NJ","Awaiting Payment",7,3177.5],["SW","Awaiting Payment",3,1280],["NYC","Awaiting Payment",8,10090],["CGY","Awaiting Payment",6,1832.54],["DEN","Awaiting Payment",3,1447.5],["PHIL","Paid",1,395],["MTNW","Paid",1,1755],["HOU","Awaiting Payment",9,5497.5],["ATL","Awaiting Payment",8,6385],["Unassigned","Authorised",8,5245],["TB","Awaiting Payment",18,11027.5],["OC/SD","Voided",1,97.5],["CA","Voided",2,760],["VA","Voided",1,195],["MTNW","Voided",1,705],["PHIL","Voided",2,840],["CO","Voided",2,1145],["SF","Voided",4,2447.5],["PB","Paid",2,1420],["DC","Awaiting Payment",7,3537.5],["LA","Voided",7,4990.02],["Unassigned","Awaiting Payment",146,111436.38],["SC","Voided",3,3402.5],["PB","Awaiting Payment",8,6965],["PTL","Voided",2,472.5],["TN","Awaiting Payment",11,5767.5],["FLP","Voided",1,1710],["NJ","Voided",2,1597.5],["NYC","Voided",1,75],["Unassigned","Paid",684,345462.12],["SW","Voided",2,1045],["TB","Paid",1,375],["SF","Authorised",1,142.5],["CHI","Awaiting Payment",5,2537.5],["DEN","Voided",2,1622.5],["HOU","Voided",3,725],["ATL","Voided",1,585],["BOS","Awaiting Payment",10,6115],["HI","Voided",3,4050],["VC","Paid",2,2603.3],["ATX/SA","Paid",2,737.5],["LV","Voided",1,390],["MIA","Awaiting Payment",15,14532.5],["OH/IN","Paid",1,1462.5],["DFW","Voided",1,500],["TOR","Voided",5,2057.57],["DET","Awaiting Payment",5,1957.5],["LOU/AR","Paid",2,652.5],["NC","Voided",4,2563.5],["Unassigned","Draft",1,0],["DET","Paid",1,1515],["LOU/AR","Awaiting Payment",14,11472.5],["BOS","Paid",1,2340],["VC","Awaiting Payment",3,5133.3],["ATX/SA","Awaiting Payment",5,5362.5],["SEA","Voided",2,770],["PHX","Voided",1,425],["MIA","Paid",1,240],["OH/IN","Awaiting Payment",4,2265]],
-
-/* open invoices only: [dueDate, count, total$] */
-xeroDue:[["2026-04-01",3,5435],["2026-09-02",2,1462.5],["2025-12-10",14,10425],["2025-10-10",1,380],["2024-11-18",1,1312.5],["2026-12-18",1,1500],["2026-03-23",5,3815],["2026-03-13",6,2061.99],["2026-08-20",1,595],["2026-05-05",5,3266.25],["2026-06-01",1,230],["2024-06-26",1,350],["2026-07-19",1,153.3],["2026-03-16",2,587.5],["2025-10-17",4,4312.5],["2025-12-09",3,990],["2026-04-16",1,142.5],["2026-04-08",2,580.84],["2026-01-13",2,1395],["2026-07-06",1,210],["2026-04-19",3,1483.3],["2026-04-20",10,7392.5],["2025-12-29",1,95],["2026-02-25",3,460],["2026-03-30",1,200],["2025-10-24",1,1805],["2026-06-03",1,315],["2025-11-28",5,1140],["2026-03-19",1,153.3],["2025-12-08",1,525],["2026-07-15",2,797.5],["2026-03-03",3,427.5],["2025-09-19",1,525],["2026-01-02",1,4282.06],["2025-12-01",1,750],["2026-03-12",4,3027.5],["2025-11-27",19,6754.54],["2025-12-22",2,2340],["2026-04-29",5,5445],["2026-08-29",1,1758],["2026-02-20",2,545],["2025-12-03",2,2775],["2026-06-10",1,525],["2025-11-13",1,100],["2025-11-26",17,9104.56],["2026-05-14",1,195],["2026-11-19",1,153.3],["2025-11-05",1,285],["2026-03-14",1,1242],["2026-04-28",12,14287.69],["2026-05-11",2,920],["2026-04-22",5,5857.5],["2025-10-31",1,195],["2026-03-09",1,395],["2025-12-19",5,3490],["2026-06-11",2,400],["2026-04-13",2,538],["2025-02-06",2,2345],["2026-03-10",1,175],["2026-03-05",34,25949.67],["2026-02-09",4,4035],["2026-03-04",2,2857.5],["2026-02-05",1,410.61],["2026-05-25",1,840],["2026-07-28",1,2145],["2026-05-08",1,2340],["2026-04-07",4,3587.5],["2026-03-18",8,2980.64],["2026-02-18",2,1922.5],["2026-01-10",1,1800],["2026-05-19",1,153.3],["2026-05-21",1,585],["2026-10-19",1,153.3],["2025-11-30",1,300],["2024-11-20",1,570],["2025-02-03",1,300],["2026-02-24",1,675],["2026-02-27",3,1216.85],["2025-11-20",11,4090],["2026-12-19",1,153.3],["2025-11-24",18,19022.5],["2025-10-07",1,950],["2026-04-15",5,6785],["2025-10-08",1,322.5],["2026-06-18",1,364.99],["2025-12-30",1,300],["2026-08-17",3,1595],["2026-03-26",2,1594.34],["2026-05-20",1,300],["2026-06-15",2,1075],["2026-05-18",1,90],["2026-02-01",1,790],["2025-10-28",6,2935],["2025-12-02",1,690],["2026-02-19",1,200],["2025-10-30",1,300],["2026-04-02",1,1560],["2026-06-22",5,4350],["2026-07-14",7,2068.09],["2026-08-03",1,1050],["2026-02-16",3,658.84],["2026-01-06",1,85],["2025-11-21",8,2505],["2025-12-28",1,130],["2026-06-04",1,1601.58],["2026-03-06",1,200],["2026-08-19",1,153.3],["2026-08-06",1,70],["2026-07-27",3,977.5],["2025-12-16",2,3277.5],["2026-02-02",1,190],["2026-03-31",1,1267.5],["2025-09-16",1,450],["2025-11-12",1,1560],["2025-10-01",2,675],["2026-08-18",1,2150],["2026-07-01",1,230],["2025-11-03",1,300],["2026-06-02",3,1792.5],["2025-08-13",1,780],["2026-09-01",2,2017.5],["2025-10-29",16,5598.84],["2026-06-09",2,3787.5],["2025-11-18",5,7100],["2026-06-30",2,1487.5],["2026-02-12",7,8466.39],["2026-06-25",1,1500],["2026-05-13",1,700],["2026-07-17",2,788.69],["2026-08-01",1,230],["2026-05-01",1,230],["2025-12-18",12,12368.19],["2026-01-30",1,585],["2026-06-14",1,195],["2026-06-19",1,153.3],["2025-12-12",2,825],["2026-06-16",2,701.84],["2026-04-06",1,2047.5],["2026-02-26",2,305],["2026-06-23",1,142.5],["2026-04-14",5,4210],["2025-11-19",13,11470],["2025-11-17",16,22580],["2026-06-12",2,2000],["2026-02-17",5,3700.5],["2026-02-13",2,388],["2026-09-19",1,153.3],["2026-07-31",1,875],["2026-05-22",2,280],["2025-11-25",13,8685],["2026-06-08",5,2077.5],["2026-07-29",1,230],["2024-10-14",1,3475],["2026-05-07",1,185],["2026-03-24",2,2025],["2026-08-10",3,1146.12],["2026-11-02",1,292],["2025-12-25",3,2209.75],["2026-01-21",1,295],["2026-08-26",2,612.5],["2025-12-15",3,2565],["2026-03-11",2,1020],["2026-02-06",4,3440],["2025-10-22",1,1140],["2026-03-17",7,6052.5]],
+live:false, generated:"2026-08-28",
 
 /* --- deal-level realization -----------------------------------------------
    approved deals only.  slates: [launchDate, dealCount, booked$, invoiced$, collected$] */
@@ -475,6 +453,23 @@ agrColl:[["Unset",6916,9029710.1,9057746.97],["Reconciled",19,37054.05,43391.44]
 bridge:{owed:2074450.14,paid:9331973.53,wo:81143.92,inv:9736769.32,bill:1632364.01,c:9505}
 };
 var DATA = SNAPSHOT;
+
+/* ===========================================================================
+   PER-ISSUE INDEX — powers the Slate / Market picker and every scoped KPI.
+   Covers the last ~12 months of launched issues (380 issues, 56 slates).
+   Connecting to Salesforce reloads this and extends the detail panels.
+
+   SLATES is the full launch-date list; each issue row points at one by index:
+   [slateIdx, market, deals, booked, invoiced, collected,
+    stopCount, stopValue, invPaidCount, invPaidValue,
+    invOpenCount, invOpenValue, invVoidCount, invVoidValue]
+
+   "inv*" are Quote records — the per-deal invoice in this org
+   (Quote.Invoice__c == Opportunity.Invoice_number__c).
+   Issue name is market + "-" + MMDDYY of the slate date, e.g. SEA-060826.
+   ======================================================================== */
+var SLATES = ["2024-09-02","2024-09-09","2024-09-16","2024-09-23","2024-09-30","2024-10-07","2024-10-14","2024-10-21","2024-10-28","2024-11-04","2024-11-11","2024-11-18","2024-11-25","2024-12-02","2024-12-09","2024-12-16","2024-12-23","2024-12-30","2025-01-01","2025-01-06","2025-01-13","2025-01-20","2025-01-27","2025-02-03","2025-02-10","2025-02-17","2025-02-24","2025-03-03","2025-03-10","2025-03-17","2025-03-24","2025-03-31","2025-04-07","2025-04-14","2025-04-21","2025-04-28","2025-05-05","2025-05-12","2025-05-19","2025-05-26","2025-06-02","2025-06-09","2025-06-16","2025-06-23","2025-06-30","2025-07-07","2025-07-14","2025-07-21","2025-07-28","2025-08-04","2025-08-11","2025-08-18","2025-08-25","2025-09-01","2025-09-08","2025-09-15","2025-09-22","2025-09-29","2025-10-06","2025-10-13","2025-10-20","2025-10-27","2025-11-03","2025-11-10","2025-11-17","2025-11-24","2025-12-01","2025-12-08","2025-12-15","2025-12-22","2025-12-29","2026-01-05","2026-01-12","2026-01-19","2026-01-26","2026-02-02","2026-02-09","2026-02-16","2026-02-23","2026-03-02","2026-03-09","2026-03-16","2026-03-23","2026-03-30","2026-04-06","2026-04-13","2026-04-20","2026-04-27","2026-05-04","2026-05-11","2026-05-18","2026-05-25","2026-06-01","2026-06-08","2026-06-15","2026-06-22","2026-06-29","2026-07-06","2026-07-13","2026-07-20","2026-07-27","2026-08-03","2026-08-10","2026-08-17","2026-08-24","2026-08-31","2026-09-07","2026-09-14","2026-09-21"];
+var ISSUES = [[108,"MIA",1,225,0,0,1,225,0,0,0,0,0,0],[107,"LOU/AR",1,0,0,0,0,0,0,0,2,0,0,0],[106,"PTL",1,292,0,0,1,292,0,0,0,0,0,0],[106,"TOR",1,0,0,0,0,0,0,0,1,0,0,0],[105,"CO",1,292,0,0,1,292,0,0,0,0,0,0],[105,"NC",1,142,0,0,1,142,0,0,0,0,0,0],[104,"ATX/SA",2,850,850,850,0,0,2,850,0,0,0,0],[104,"BOS",2,690,690,395,0,0,1,395,1,295,0,0],[104,"DFW",3,1285,1285,495,0,0,1,495,2,790,0,0],[104,"SF",3,1078,890,495,1,188,1,495,1,395,0,0],[104,"TN",5,1558,1265,870,1,292,3,870,1,395,0,0],[104,"VA",4,1082,790,395,1,292,1,395,2,395,0,0],[104,"WI",1,0,0,0,0,0,0,0,1,0,0,0],[103,"HI",4,1240,895,645,1,345,2,645,1,250,0,0],[103,"LV",6,1602,1460,1065,1,142,4,1065,1,395,0,0],[103,"NE",15,5175,5175,3545,0,0,10,3545,5,1630,0,0],[103,"PB",11,3212,2275,940,3,795,3,940,4,1335,0,0],[103,"PHIL",11,2742,2315,1055,2,142,4,1055,4,1260,0,0],[103,"PHX",8,2345,2345,1360,0,0,5,1360,3,985,0,0],[103,"SW",2,395,395,395,1,0,1,395,0,0,0,0],[103,"TB",16,5052,4280,2870,3,698,8,2870,5,1805,0,0],[102,"CA",8,2852,2590,1485,0,0,3,1485,4,1105,0,0],[102,"CGY",9,2214,2132,1555,1,82,6,1555,2,577,0,0],[102,"FLP",21,6117,5562,4347,1,292,12,4347,7,1215,0,0],[102,"MIA",14,4898,3810,2575,4,1182,7,2575,4,1235,0,0],[102,"MN",8,3660,3660,3265,0,0,7,3265,1,395,0,0],[102,"UPS",17,5538,5395,3665,1,142,11,3665,5,1730,0,0],[102,"VC",13,3557,3343,2767,1,214,10,2767,2,577,0,0],[101,"CHI",14,3755,3050,790,3,705,2,790,9,2260,0,0],[101,"DET",28,7802,5740,3955,11,1920,11,3955,5,1785,1,395],[101,"LA",48,15535,10578,8298,19,4958,23,8298,7,2375,1,250],[101,"LOU/AR",33,9562,8730,7100,5,690,23,7495,5,1630,0,0],[101,"MTNW",67,19798,15030,11865,22,4876,33,11865,11,3560,1,395],[101,"MW",40,10575,7898,5380,12,2415,19,5380,8,2518,0,0],[101,"OH/IN",30,8318,5880,3720,11,2438,12,3720,8,2160,0,0],[100,"AL/MS",26,7338,4780,3495,11,2558,12,3495,3,1285,0,0],[100,"DC",52,15922,9622,5590,23,5715,15,5590,12,4032,0,0],[100,"DEN",35,10778,6795,4570,14,3270,12,4570,6,2225,0,0],[100,"NYC",40,11982,6440,2970,22,5588,9,2970,11,3765,0,0],[100,"OC/SD",23,7482,4280,2105,12,3060,7,2105,5,2175,0,0],[100,"PTL",59,16060,6982,4685,32,7682,15,4685,9,2648,1,295],[100,"TOR",102,23365,13335,10335,52,9368,36,10842,13,3000,2,723],[99,"ATL",78,23472,12902,7760,41,9852,23,8550,16,5392,2,790],[99,"CO",72,21498,12965,8230,30,8083,25,8885,18,4735,0,0],[99,"HOU",52,15415,8852,5762,22,5925,17,5762,11,3090,1,195],[99,"NC",93,29492,19105,15950,42,9892,44,16445,10,3945,2,890],[99,"NJ",42,10753,7686,5308,16,3068,19,5658,9,2378,0,0],[99,"SC",48,13700,7905,6450,25,5965,19,6745,5,1455,0,0],[99,"SEA",136,44352,28740,23720,57,13460,59,24215,15,5810,1,195],[98,"ATX/SA",81,25420,17615,15675,28,7318,40,15675,10,1940,2,790],[98,"BOS",74,25138,18265,14850,24,6228,37,14850,12,3975,2,690],[98,"DFW",78,22262,14815,11325,32,6900,32,11820,13,3490,2,538],[98,"SF",72,20525,11928,8658,29,7148,24,8658,15,3270,2,790],[98,"TN",105,32278,19465,13620,48,12355,39,13620,15,5845,3,1185],[98,"VA",61,18230,13108,10362,20,4380,29,10362,9,2745,1,301],[98,"WI",24,8875,4705,3915,12,4170,10,3915,2,790,1,295],[97,"HI",62,20788,11185,5750,36,9038,16,5750,10,5435,2,790],[97,"LV",43,13415,7595,6300,19,5078,17,6300,4,1295,0,0],[97,"NE",116,39303,26448,23010,45,11970,65,23405,9,3932,1,250],[97,"PB",97,32326,19165,14180,45,12124,37,14475,11,4985,2,690],[97,"PHIL",75,24388,16805,12985,29,6772,37,13380,9,4215,1,250],[97,"PHX",89,31348,19992,14978,43,11130,35,14978,11,5510,0,0],[97,"SW",15,4395,1905,1500,9,2490,5,1500,2,655,0,0],[97,"TB",124,37329,20756,15438,63,15433,42,15934,18,5958,2,690],[96,"CA",105,32451,20296,18386,49,10860,48,18386,8,2205,3,885],[96,"CGY",35,7643,6033,4489,14,1321,15,4489,5,1544,1,288],[96,"FLP",107,33838,22133,19503,49,11208,47,19503,10,2630,0,0],[96,"MIA",87,26345,17240,12665,37,8870,36,12665,12,4575,1,225],[96,"MN",48,15490,12420,11235,15,2782,28,11235,4,1185,2,645],[96,"UPS",62,19159,12445,9315,26,6654,27,9315,9,3130,2,790],[96,"VC",78,20817,12074,10537,39,8108,29,10537,7,1537,1,361],[95,"CHI",48,15562,12330,10100,14,2805,26,10100,7,2580,0,0],[95,"DET",80,26098,19098,17302,30,6220,43,17302,8,1970,1,250],[95,"LA",110,38318,26205,21610,43,11370,49,21610,16,4990,0,0],[95,"LOU/AR",51,14318,10050,9165,23,4125,25,9165,5,885,3,865],[95,"MTNW",137,43588,30346,25649,56,13524,69,25649,16,4948,3,1285],[95,"MW",77,25821,19371,17251,27,6210,44,17251,9,2370,2,790],[95,"OH/IN",53,17412,13280,10560,16,3728,30,10560,7,2720,0,0],[94,"AL/MS",35,12088,9043,7958,11,3078,20,7958,4,1085,0,0],[94,"DC",104,33088,24505,19248,33,7445,59,19248,11,5652,1,195],[94,"DEN",49,16738,11570,10090,22,5168,24,10090,5,1480,2,395],[94,"NYC",61,19278,14302,12888,18,4582,38,13338,7,1415,2,820],[94,"OC/SD",31,11615,7925,5680,15,3690,14,6075,4,2245,1,395],[94,"PTL",100,30768,18498,17208,49,12330,47,17208,5,1540,1,495],[94,"TOR",176,44558,28810,26203,74,16622,93,27575,15,3619,1,215],[93,"ATL",100,32462,21375,19585,39,10470,53,20475,8,1790,5,1975],[93,"CO",94,28432,19567,18377,33,7785,51,18377,9,1735,0,0],[93,"HOU",64,20510,13450,12535,26,6818,32,12535,8,915,1,195],[93,"NC",117,33413,20830,17970,48,10888,46,17970,18,2860,2,690],[93,"NJ",49,16462,12940,11900,17,3360,27,11900,5,1040,1,590],[93,"SC",73,21632,14345,12165,29,6515,35,12460,7,2430,0,0],[93,"SEA",163,48688,31060,30270,58,14550,84,30270,11,1185,4,1532],[92,"ATX/SA",96,32592,22786,21554,34,9670,53,21949,10,1232,1,142],[92,"BOS",74,25525,20005,19015,19,4665,47,19015,6,1385,3,1040],[92,"DFW",123,36670,28615,26220,40,7632,70,26220,11,2395,1,395],[92,"SF",88,28372,20420,17845,33,7650,46,18295,11,2575,0,0],[92,"TN",96,26706,15881,14986,35,8195,44,14986,9,895,1,495],[92,"VA",76,24908,18632,18238,22,5698,50,18238,4,395,2,800],[92,"WI",32,10912,6720,6325,14,4192,17,6325,1,395,1,195],[91,"HI",64,21792,11800,10748,31,9420,26,10748,3,1052,1,295],[91,"LV",50,16798,10670,9655,21,5625,24,9655,5,1015,2,790],[91,"NE",126,39092,26834,25207,43,11016,69,25207,8,1628,5,1310],[91,"PB",109,34160,22925,22280,41,11150,58,22280,11,940,1,250],[91,"PHIL",73,21628,15075,12800,30,6368,34,12800,8,2275,1,295],[91,"PHX",110,36113,22176,21236,47,12462,58,21586,7,1065,0,0],[91,"SW",19,5868,3085,2295,9,2490,7,2295,2,790,1,215],[91,"TB",138,40833,23803,22123,66,15900,58,22123,9,1680,1,225],[90,"CA",128,39038,27430,24925,45,10320,69,24925,13,2755,3,1185],[90,"CGY",33,9335,7723,6544,8,1206,18,6833,7,1686,0,0],[90,"FLP",115,37618,24545,21970,47,11755,53,21970,13,2970,1,395],[90,"MIA",117,36806,25038,23793,39,10688,67,23793,8,1245,2,570],[90,"MN",46,12448,9622,9622,13,2198,25,9622,5,0,1,395],[90,"UPS",66,21728,14379,12589,29,6983,33,12589,6,1790,0,0],[90,"VC",99,24956,14896,13264,45,9785,43,13264,9,1632,1,431],[89,"CHI",51,16388,13230,13030,13,2812,33,13030,6,595,0,0],[89,"DET",82,27274,20074,20074,23,5430,54,20470,1,0,2,415],[89,"LA",113,37708,26185,25100,45,11042,63,25595,9,1975,1,395],[89,"LOU/AR",48,13128,8525,7435,27,4602,20,7630,3,1090,0,0],[89,"MTNW",128,40140,27060,24630,48,12072,66,24630,11,2680,3,1985],[89,"MW",67,17808,11135,10152,33,6585,31,10152,5,982,1,250],[89,"OH/IN",40,11885,7155,7155,16,4175,20,7155,5,790,1,200],[88,"AL/MS",42,12482,9065,9065,12,2818,29,9065,3,395,2,790],[88,"DC",102,34865,27602,24788,27,6768,66,24788,13,2815,0,0],[88,"DEN",54,15870,9915,9915,21,4958,27,9915,3,0,1,295],[88,"NYC",79,23678,18380,14442,26,5815,46,14538,13,4188,0,0],[88,"OC/SD",47,15112,11405,10995,13,3442,27,10995,5,410,1,395],[88,"PTL",91,28405,17128,14892,43,10782,40,15188,7,2235,3,815],[88,"TOR",168,44147,25142,24151,79,17164,79,24800,8,991,2,577],[87,"ATL",103,34428,24262,22730,35,10110,67,23125,7,1928,1,295],[87,"CO",104,33092,22577,21932,39,9623,60,21932,5,645,0,0],[87,"HOU",66,19045,10860,10070,32,7780,28,10070,6,1185,2,688],[87,"NC",128,39813,26412,23808,53,12168,68,23808,8,3000,3,840],[87,"NJ",46,14120,10690,10000,12,3158,29,10000,3,690,3,1040],[87,"SC",80,23630,15465,12625,32,7042,38,12900,8,2840,1,395],[87,"SEA",140,43708,26530,24850,60,16268,76,24850,9,1680,1,275],[86,"ATX/SA",86,28730,18868,17540,31,9090,45,17540,7,1328,2,538],[86,"BOS",76,25210,19325,17240,17,4612,46,17240,8,2085,0,0],[86,"DFW",114,33092,24185,22645,41,8104,67,22840,8,1935,2,620],[86,"SF",91,26488,17670,17470,37,7695,49,17470,5,200,2,795],[86,"TN",100,32592,24320,21870,30,6450,59,22265,11,2745,2,890],[86,"VA",64,20445,14505,13320,23,6025,35,13320,6,1185,2,645],[86,"WI",28,9392,4712,4420,15,4388,9,4420,3,292,0,0],[85,"HI",58,16394,6284,6284,38,10289,18,6284,3,0,1,395],[85,"LV",44,16145,9090,8345,16,5620,24,8345,3,745,0,0],[85,"NE",105,32630,21442,21192,43,9838,58,21192,2,250,0,0],[85,"PB",101,31389,18006,16483,40,10285,45,16483,8,1523,2,690],[85,"PHIL",70,20248,13270,12405,29,7268,34,12405,6,1115,3,1085],[85,"PHX",109,36895,21955,20772,47,12892,61,21222,4,1182,3,890],[85,"SW",19,5508,3025,2590,9,2340,8,2590,1,435,0,0],[85,"TB",137,42928,27190,24028,62,14520,75,24518,11,3613,3,1045],[84,"CA",105,32732,22465,20930,39,9292,58,20930,9,1930,3,1185],[84,"CGY",27,6948,5606,3643,8,1259,12,3643,6,1964,0,0],[84,"FLP",124,35443,20683,17820,61,13665,50,17820,12,3288,2,590],[84,"MIA",126,36124,25596,20236,45,10758,64,20236,22,7855,0,0],[84,"MN",42,13980,11010,10615,13,2565,28,10615,2,395,1,395],[84,"UPS",67,19549,11382,9475,30,7052,28,9475,6,1908,3,845],[84,"VC",101,28108,16964,14894,48,10889,49,15255,8,2069,0,0],[83,"CHI",41,13098,9820,8295,14,3278,24,8295,4,1525,0,0],[83,"DET",71,21366,14902,14902,28,5320,42,14902,1,0,0,0],[83,"LA",123,42499,29224,27739,42,11394,68,27739,15,2375,2,590],[83,"LOU/AR",50,12918,7425,6930,22,3968,21,6930,2,495,1,345],[83,"MTNW",130,40224,26995,26155,51,12468,78,26155,4,840,1,300],[83,"MW",78,24660,18275,17972,23,4898,50,17972,3,302,2,890],[83,"OH/IN",49,13125,9915,9270,12,2580,29,9270,6,645,0,0],[82,"AL/MS",38,14075,9885,9590,11,3948,28,9590,2,295,0,0],[82,"DC",111,36590,27838,26612,36,8552,71,27008,11,2540,0,0],[82,"DEN",62,19260,13655,13065,21,4515,33,13065,5,590,1,10],[82,"NYC",78,24310,18925,15578,24,4375,41,15578,14,3572,0,0],[82,"OC/SD",56,20906,17006,15326,13,3363,39,15821,7,1975,0,0],[82,"PTL",78,23880,13712,13218,30,6570,37,13218,1,495,1,395],[82,"TOR",156,39919,20564,20345,78,16874,68,20345,4,219,1,328],[81,"ATL",83,24928,14445,13125,38,9025,34,13125,7,1320,1,495],[81,"CO",96,31112,21332,20432,34,8573,56,20432,4,900,0,0],[81,"HOU",61,20200,11155,10860,25,7812,32,10860,3,690,3,982],[81,"NC",114,36250,23885,21560,44,10450,56,21560,10,2915,1,395],[81,"NJ",44,12492,9228,8932,15,2640,23,8932,3,295,1,295],[81,"SC",75,22766,14519,14224,34,8720,42,14224,2,295,1,195],[81,"SEA",127,38222,23894,23049,52,12165,64,23049,6,1140,2,500],[80,"ATX/SA",85,26445,15100,14805,37,10288,43,14805,3,295,1,20],[80,"BOS",67,19736,14344,13599,17,4450,44,13599,4,745,1,400],[80,"DFW",129,37629,29240,27404,38,7792,86,27554,8,1836,1,395],[80,"SF",89,27345,19255,17960,33,7718,53,17960,7,1295,0,0],[80,"TN",78,22861,15886,15241,26,5798,45,15241,5,940,2,500],[80,"VA",73,23989,17164,16078,27,6942,45,16078,6,1480,1,175],[80,"WI",33,10852,6322,6322,13,4152,19,6322,3,345,1,345],[79,"HI",77,23490,12470,12470,41,11075,36,12470,1,0,2,390],[79,"LV",58,17524,10991,10991,24,6398,34,10991,1,0,1,225],[79,"NE",90,24689,13200,12905,38,9606,41,12905,4,295,1,295],[79,"PB",105,32759,18900,15745,43,11264,42,15745,12,3800,1,295],[79,"PHIL",56,15985,8775,8775,30,6788,24,8775,1,0,2,425],[79,"PHX",124,39832,25512,24232,44,11775,67,24458,7,1280,3,1340],[79,"SW",17,4128,1645,1645,9,1898,6,1645,1,0,0,0],[79,"TB",165,48492,30770,28916,63,14602,88,28916,15,3828,2,690],[78,"CA",86,24638,14185,12245,39,10188,36,12340,8,1940,2,790],[78,"CGY",34,8912,6525,6525,8,2387,23,6525,3,0,0,0],[78,"FLP",134,39808,23238,21512,50,13082,69,21512,8,2515,2,885],[78,"MIA",123,36799,24546,23521,37,8986,69,23521,15,2560,4,1090],[78,"MN",39,12062,8868,7172,13,2940,24,7172,2,1695,0,0],[78,"UPS",55,15174,8055,6200,31,6792,20,6200,3,1855,1,225],[78,"VC",94,23386,12625,11935,41,9909,44,12219,9,1197,0,0],[77,"CHI",56,17295,13038,12248,16,3188,36,12248,3,790,0,0],[77,"DET",67,21291,15441,15441,23,5085,44,15441,1,0,1,295],[77,"LA",126,44075,32065,30180,40,11645,80,30180,9,1885,2,590],[77,"LOU/AR",60,15010,9890,9345,25,4425,28,9345,4,545,1,395],[77,"MTNW",121,37374,22715,21120,49,11526,63,21120,3,1595,2,790],[77,"MW",72,20439,14114,13544,29,5332,39,13544,2,570,2,395],[77,"OH/IN",30,8160,4950,4950,10,2438,15,4950,1,0,0,0],[76,"AL/MS",34,11858,8180,7955,13,3448,19,7955,2,225,0,0],[76,"DC",87,27922,19238,19238,28,6922,51,19238,4,0,1,295],[76,"DEN",50,14678,9695,9695,22,4522,26,9695,2,195,1,590],[76,"NYC",66,19334,14490,12802,22,4568,41,12802,5,1687,0,0],[76,"OC/SD",51,18653,13940,13545,17,4390,35,13545,3,395,0,0],[76,"PTL",81,24898,15088,14398,37,9258,38,14398,4,690,2,475],[76,"TOR",166,39551,19279,18950,80,17699,72,19206,6,438,4,903],[75,"ATL",89,24445,14685,14435,36,8112,45,15730,4,445,5,1730],[75,"CO",94,27462,16332,15437,43,10875,45,15437,4,895,1,450],[75,"HOU",54,15102,8480,7890,21,5708,25,7890,4,590,3,888],[75,"NC",138,42007,29532,27789,46,11170,81,27789,9,1742,2,590],[75,"NJ",55,15708,12348,11658,17,3122,36,11658,3,690,2,445],[75,"SC",76,21870,13725,13080,33,6998,36,13080,4,940,1,395],[75,"SEA",105,28160,13445,12950,56,13478,40,12950,6,495,2,420],[74,"ATX/SA",76,22288,8960,8020,47,12518,24,8020,4,940,1,350],[74,"BOS",59,17606,12066,11466,19,3952,29,11466,6,600,0,0],[74,"DFW",104,26169,17155,16270,35,7822,48,16665,21,980,1,395],[74,"SF",86,19972,10778,10382,37,9008,29,10382,20,395,0,0],[74,"TN",78,23301,14886,14411,28,6878,41,14411,3,475,3,965],[74,"VA",55,16392,8872,8577,24,6806,27,8577,3,295,1,295],[74,"WI",25,7965,3285,3285,15,4080,7,3285,2,0,0,0],[73,"HI",77,22582,11690,11295,40,10020,32,11295,2,395,1,175],[73,"LV",51,14218,7845,7155,22,7108,24,7155,4,690,0,0],[73,"NE",61,16707,5762,5575,40,9587,17,6065,2,188,0,0],[73,"PB",139,37722,21845,19390,52,14762,54,20090,32,2455,0,0],[73,"PHIL",59,16475,8775,7590,31,6750,20,7590,5,1185,2,495],[73,"PHX",128,39038,24060,23610,49,13430,74,23610,4,625,3,590],[73,"SW",22,6668,3840,3840,10,2482,11,3840,1,0,0,0],[73,"TB",169,49472,31794,28324,65,16380,94,28324,13,3860,3,940],[72,"CA",81,22698,10740,10345,45,11152,30,10345,5,395,0,0],[72,"CGY",30,8532,5411,5011,10,2666,18,5011,2,400,0,0],[72,"FLP",143,37140,20210,16350,61,14990,63,16350,16,4155,0,0],[72,"MIA",118,33310,21635,16640,49,11666,51,16640,20,5390,1,295],[72,"MN",23,6645,3825,3825,11,2685,12,3825,1,0,1,250],[72,"UPS",39,10972,7435,5490,14,3218,19,5490,5,1945,1,95],[72,"VC",90,21369,10921,9807,37,10222,38,9807,12,1260,0,0],[71,"CHI",31,8350,4712,4488,15,4158,12,4488,4,540,1,315],[71,"DET",53,16932,10708,9622,25,5925,24,9622,4,1085,0,0],[71,"LA",101,29788,17338,14018,45,11068,44,14018,12,3715,0,0],[71,"LOU/AR",45,12051,6615,6415,27,5041,19,6415,2,495,1,250],[71,"MTNW",101,26986,12435,11590,57,13714,33,11590,9,1140,1,262],[71,"MW",37,11802,9740,8855,5,1080,25,8855,4,885,1,395],[71,"OH/IN",33,9080,6160,5840,12,2722,18,5840,4,320,0,0],[70,"AL/MS",33,8228,4055,3060,15,3880,12,3060,5,995,1,250],[70,"DC",81,24345,17482,13945,26,6278,39,13945,15,3538,1,395],[70,"DEN",49,13975,8552,7468,21,4368,21,7468,4,1085,0,0],[70,"NYC",68,18830,12502,9170,27,6152,28,9170,14,3507,3,1025],[70,"OC/SD",35,11443,6205,4915,20,5238,9,4915,5,1290,0,0],[70,"PTL",63,18201,6842,5182,43,11423,18,5182,8,1660,0,0],[70,"TOR",150,37855,19306,16346,80,18016,56,16346,15,3486,3,842],[69,"ATL",66,20430,10305,8375,40,9900,20,8375,7,2325,1,250],[69,"CO",78,23898,12280,10245,40,10525,27,10245,8,2035,1,225],[69,"HOU",40,12450,5490,4945,25,6232,12,5435,3,545,0,0],[69,"NC",94,25700,12040,10095,54,13443,29,10095,10,2095,0,0],[69,"NJ",49,13382,9338,9338,21,4045,26,9338,4,225,1,295],[69,"SC",56,15908,7705,6815,36,9248,18,6815,4,890,4,745],[69,"SEA",101,27364,12280,10635,62,14816,33,10635,10,2585,0,0],[68,"ATX/SA",88,26720,11295,9505,52,14890,28,9505,6,1790,2,590],[68,"BOS",50,14192,9565,8125,20,4628,22,8125,8,1440,0,0],[68,"DFW",77,20738,9950,9950,44,10788,31,9950,3,0,0,0],[68,"SF",72,20978,10778,9288,39,9735,25,9288,7,1785,0,0],[68,"TN",64,19088,10520,7795,34,8275,23,7945,8,2820,1,250],[68,"VA",49,14080,7570,7175,21,6783,24,7175,3,395,1,295],[68,"WI",28,9135,4515,4265,17,4620,10,4265,2,250,1,350],[67,"HI",59,18348,8660,8015,37,9758,19,8365,4,645,0,0],[67,"LV",41,12315,6030,4835,24,5850,15,4835,2,1195,1,295],[67,"NE",67,19790,8912,7360,40,10464,19,7360,6,1552,5,1425],[67,"PB",128,39912,25405,21330,48,13498,62,21330,15,4075,1,295],[67,"PHIL",45,11585,4225,4225,30,7338,11,4225,3,0,0,0],[67,"PHX",106,34201,19021,17631,53,14415,47,18026,10,2625,1,395],[67,"SW",18,4962,2240,1550,11,2722,5,1550,2,690,1,425],[67,"TB",139,42133,23016,21156,78,18782,53,21060,8,1860,3,1040],[66,"CA",90,25580,13180,12905,48,12080,39,12905,3,275,1,295],[66,"CGY",19,5849,3172,3062,8,1549,9,3062,3,325,0,0],[66,"FLP",121,34448,16756,15226,71,16928,42,15320,5,1825,2,495],[66,"MIA",135,36601,24205,23000,44,10413,66,23200,22,1205,3,1790],[66,"MN",27,7010,4100,2495,14,2910,8,2495,5,1605,0,0],[66,"UPS",48,12759,6535,6535,26,5939,18,6535,2,0,0,0],[66,"VC",70,19140,9767,9263,39,9304,28,9263,3,504,0,0],[65,"CHI",44,11618,7328,6838,20,4290,21,6838,3,490,1,245],[65,"DET",50,14838,8860,7665,26,5978,21,7665,5,1785,0,0],[65,"LA",93,29378,18180,18180,39,10452,47,18180,5,0,3,1135],[65,"LOU/AR",49,13033,6995,6995,29,6733,19,6995,2,0,0,0],[65,"MTNW",96,27856,12990,12775,58,14119,31,12775,6,610,1,262],[65,"MW",49,11658,6225,5975,28,5433,18,5975,3,250,0,0],[65,"OH/IN",44,10712,6970,6675,16,4302,26,6675,4,690,1,295],[64,"AL/MS",31,7932,3995,3995,17,4412,12,3995,2,0,0,0],[64,"DC",82,24252,17115,16720,29,6658,48,16720,5,690,0,0],[64,"DEN",41,11028,6032,5782,23,4770,15,5782,2,250,1,295],[64,"NYC",66,19132,12877,11460,25,5582,30,11460,7,1417,3,505],[64,"OC/SD",41,13871,6885,6885,24,6521,14,6885,1,0,0,0],[64,"PTL",70,20642,9450,9200,43,11752,24,9200,3,250,0,0],[64,"TOR",124,30643,11577,9169,78,18130,34,9899,11,2737,0,0],[63,"ATL",80,22792,12910,12615,43,9882,34,12615,3,295,1,395],[63,"CO",92,26903,14658,14012,45,11043,38,14012,5,645,2,645],[63,"HOU",49,14822,6395,6395,30,7985,16,6395,2,0,0,0],[63,"NC",92,26170,12585,12585,55,13360,35,12585,2,0,1,315],[63,"NJ",56,13795,8112,6798,30,5732,20,6798,7,1315,1,495],[63,"SC",64,18070,9450,9450,34,8478,27,9450,3,0,2,690],[63,"SEA",108,31896,16990,16045,58,14276,42,16045,5,945,2,475],[62,"ATX/SA",110,32631,16930,14650,61,15439,42,14650,6,2280,0,0],[62,"BOS",64,17874,12947,12695,21,4702,36,12695,7,647,1,250],[62,"DFW",110,30738,19145,16050,57,12482,44,16540,14,3485,3,1380],[62,"SF",77,23528,13360,11500,39,10168,29,11500,9,1860,2,790],[62,"TN",79,23240,13428,13033,40,9768,37,13033,2,395,2,690],[62,"VA",68,20323,11861,11175,33,8668,28,11175,7,686,1,395],[62,"WI",41,12628,7550,7550,15,4440,21,7550,3,0,1,395],[61,"HI",80,24738,13295,12805,41,10858,32,12805,5,490,1,395],[61,"LV",47,14628,8290,8290,26,6195,17,8290,3,0,0,0],[61,"NE",89,25479,12190,11545,45,11812,33,11545,4,645,4,1705],[61,"PB",116,37868,22200,19860,52,14295,53,19860,6,2340,0,0],[61,"PHIL",72,19785,10855,10270,35,8638,32,10470,5,585,0,0],[61,"PHX",113,34254,17388,15661,59,16150,45,15661,6,1728,3,1185],[61,"SW",23,7115,3710,3315,14,3405,9,3810,1,395,0,0],[61,"TB",142,42910,26168,23108,66,15888,65,23403,8,3060,4,1535],[60,"CA",100,28326,14022,14022,55,14250,44,14272,2,0,2,775],[60,"CGY",26,7181,4153,2983,12,2863,11,2983,3,1170,0,0],[60,"FLP",148,43175,22498,22202,83,19725,59,22202,5,685,4,905],[60,"MIA",172,46828,32812,29200,54,15020,85,29695,33,4008,7,2895],[60,"MN",37,10608,7150,6900,15,3458,20,6900,3,250,0,0],[60,"UPS",76,19847,11165,9490,35,8062,27,9490,11,1675,1,225],[60,"VC",91,22061,12691,12691,43,8698,46,12906,2,0,3,723],[59,"CHI",54,16425,11432,11138,21,4700,30,11138,2,295,0,0],[59,"DET",71,22332,15260,14760,31,6930,36,14760,3,500,0,0],[59,"LA",126,41110,27305,24790,50,12770,64,25085,11,3205,1,295],[59,"LOU/AR",57,14843,9315,7835,29,5528,22,7835,6,1480,0,0],[59,"MTNW",132,37756,19858,19258,67,17432,53,19258,7,600,2,790],[59,"MW",76,22556,14990,14545,37,7270,35,14545,3,445,3,840],[59,"OH/IN",52,15305,10760,10170,18,4095,29,10170,3,590,0,0],[59,"TEST",2,450,0,0,0,0,0,0,0,0,2,500],[58,"AL/MS",44,13355,9295,8585,20,4080,20,8585,4,710,0,0],[58,"DC",98,28580,19900,18320,38,8482,54,18320,6,1580,0,0],[58,"DEN",59,16225,9842,9548,26,5932,27,9548,4,295,1,395],[58,"NYC",74,19177,13202,12282,25,4960,36,12282,8,920,6,1295],[58,"OC/SD",60,18851,10490,9305,31,8134,24,9305,5,1185,1,450],[58,"PTL",93,24828,11505,10915,49,12106,32,10915,7,590,2,545],[58,"TOR",217,52613,30553,28190,95,20758,104,28190,13,2546,3,872],[57,"ATL",93,25432,15014,14190,47,10518,40,14190,7,825,2,590],[57,"CO",94,27286,14084,12964,49,12400,36,12964,5,1120,2,545],[57,"HOU",60,18268,9320,8085,31,7965,21,8495,6,1535,4,1085],[57,"NC",133,38986,24435,18315,60,13823,51,18315,20,6415,0,0],[57,"NJ",65,17402,12078,10442,25,5140,28,10442,10,1635,2,690],[57,"SC",76,23135,13190,11065,38,9420,28,11065,8,2125,1,395],[57,"SEA",128,35914,20805,17570,61,14356,49,17570,16,3925,2,545],[56,"ATX/SA",104,28226,12610,7505,61,15786,26,7505,17,5105,1,395],[56,"BOS",90,26822,21375,16060,27,5758,45,16060,19,5660,1,250],[56,"DFW",138,39188,25520,17720,61,13310,51,17720,24,7800,2,690],[56,"SF",78,20672,11438,8162,42,9118,22,8162,13,3275,1,395],[56,"TN",84,22458,11008,6803,49,12748,20,6803,16,4205,2,690],[56,"VA",71,21778,14645,11490,24,6383,34,11490,10,3155,0,0],[56,"WI",38,12155,7915,6085,16,4740,15,6085,8,1830,0,0],[55,"HI",73,19708,10100,4550,37,9022,14,4550,20,5550,1,395],[55,"LV",48,13478,5845,3110,31,7702,6,3110,13,3225,1,285],[55,"NE",100,27757,15135,10625,47,11689,33,10625,17,4705,3,835],[55,"PB",124,33582,17335,10940,60,15034,28,10940,33,6395,1,295],[55,"PHIL",72,21072,13270,7720,33,7530,20,7720,19,5945,1,250],[55,"PHX",111,33651,16491,12086,60,16432,34,12381,17,5195,1,295],[55,"SW",23,5880,2025,1395,16,3855,5,1395,2,630,0,0],[55,"TB",158,42726,23550,10845,75,19113,36,11070,48,13155,3,1015],[54,"CA",109,29832,14000,5255,54,13965,21,5825,30,9140,3,1185],[54,"CGY",33,7703,4683,1471,14,3020,4,1471,16,3500,0,0],[54,"FLP",156,42707,20906,11788,86,21424,34,12083,36,9908,2,545],[54,"MIA",145,35282,23796,14155,48,11561,44,14675,57,9936,2,600],[54,"MN",44,11855,8025,3970,19,4038,10,3970,15,4055,0,0],[54,"UPS",82,21482,11375,5030,43,10307,17,5280,25,7135,1,250],[54,"VC",94,21576,13295,7981,39,6807,26,7981,25,5570,1,288],[53,"CHI",52,11988,5955,1990,28,6668,7,1990,19,4260,2,785],[53,"DET",70,18930,12338,3838,29,5782,14,3838,25,8895,2,545],[53,"LA",127,37230,22835,6810,60,14490,20,7105,52,18610,1,295],[53,"LOU/AR",47,11302,6745,2625,27,4718,6,2625,15,4470,0,0],[53,"MTNW",136,37513,16390,4970,81,20410,17,4970,38,11920,1,395],[53,"MW",63,16788,9880,2080,33,6548,6,2080,23,7800,0,0],[53,"OH/IN",57,15694,11904,3480,19,4185,11,3480,28,8424,1,395]];
 
 /* ===========================================================================
    HELPERS
@@ -530,6 +525,14 @@ var GRIDS = {};
 function grid(id,cols,rows,opts){
   var el = document.getElementById(id);
   if(!el || !window.gridjs) return;
+  /* Grid.js renders asynchronously. Blanking the container without tearing
+     the old instance down lets its pending render land on top of the new one,
+     which is how a table ends up showing the previously selected scope.
+     Destroy first, then rebuild. */
+  if (GRIDS[id]) {
+    try { GRIDS[id].destroy(); } catch (e) {}
+    delete GRIDS[id];
+  }
   el.innerHTML = '';
   var g = new gridjs.Grid(Object.assign({
     columns:cols, data:rows, sort:true, fixedHeader:false,
@@ -546,18 +549,6 @@ function pctAxis(){
 }
 
 /* ---- shared derivations -------------------------------------------------- */
-var OPEN_STAGES = ['Awaiting Payment','Authorised','Payment Failed','Needs Review'];
-
-function stageMap(){
-  var m = {};
-  DATA.xeroStages.forEach(function(r){ m[r[0]] = {c:r[1],t:r[2],d:r[3],cr:r[4]}; });
-  return m;
-}
-function openTotals(){
-  var sm = stageMap(), c = 0, t = 0;
-  OPEN_STAGES.forEach(function(s){ if(sm[s]){ c += sm[s].c; t += sm[s].t; } });
-  return {c:c,t:t};
-}
 /* slates sorted oldest -> newest, with derived rates */
 function slateRows(){
   return DATA.slates.slice()
@@ -609,306 +600,434 @@ function stopMap(){
   return m;
 }
 
+
 /* ===========================================================================
-   TOP KPIs
+   SCOPE — which slate, and optionally which market within it.
+   ---------------------------------------------------------------------------
+   ISSUES rows are [slateIdx, market, deals, booked, invoiced, collected,
+   stopCount, stopValue, invPaidC, invPaidG, invOpenC, invOpenG, invVoidC,
+   invVoidG]. Everything on the scoped tabs is derived from a filtered slice
+   of that array, so the picker works with or without a Salesforce session.
+   ======================================================================== */
+var IX = {SL:0, MK:1, N:2, BOOKED:3, INV:4, PAID:5, STOPC:6, STOPV:7,
+          PC:8, PG:9, OC:10, OG:11, VC:12, VG:13};
+var SCOPE = {slate:null, market:null};      /* market null = whole slate */
+var SCOPED = {};                            /* live detail, keyed by scope   */
+
+function mmddyy(iso){ return iso.slice(5,7)+iso.slice(8,10)+iso.slice(2,4); }
+function issueName(r){ return r[IX.MK]+'-'+mmddyy(SLATES[r[IX.SL]]); }
+function slateOf(r){ return SLATES[r[IX.SL]]; }
+
+/* slate index -> rows, sorted by market */
+function issuesInSlate(si){
+  return ISSUES.filter(function(r){ return r[IX.SL]===si; })
+               .sort(function(a,b){ return a[IX.MK] < b[IX.MK] ? -1 : 1; });
+}
+/* slates that actually carry issues, newest first */
+function slateOptions(){
+  var m = {};
+  ISSUES.forEach(function(r){
+    var o = m[r[IX.SL]] = m[r[IX.SL]] || {si:r[IX.SL], issues:0, deals:0, booked:0};
+    o.issues++; o.deals += r[IX.N]; o.booked += r[IX.BOOKED];
+  });
+  return Object.keys(m).map(function(k){ return m[k]; })
+                       .sort(function(a,b){ return b.si - a.si; });
+}
+/* the rows the current scope covers */
+function scopeRows(){
+  var rows = issuesInSlate(SCOPE.slate);
+  return SCOPE.market ? rows.filter(function(r){ return r[IX.MK]===SCOPE.market; }) : rows;
+}
+function sumRows(rows){
+  var o = {n:0, booked:0, inv:0, paid:0, stopC:0, stopV:0, pC:0, pG:0, oC:0, oG:0, vC:0, vG:0};
+  rows.forEach(function(r){
+    o.n+=r[IX.N]; o.booked+=r[IX.BOOKED]; o.inv+=r[IX.INV]; o.paid+=r[IX.PAID];
+    o.stopC+=r[IX.STOPC]; o.stopV+=r[IX.STOPV];
+    o.pC+=r[IX.PC]; o.pG+=r[IX.PG]; o.oC+=r[IX.OC]; o.oG+=r[IX.OG];
+    o.vC+=r[IX.VC]; o.vG+=r[IX.VG];
+  });
+  return o;
+}
+function scopeKey(){ return SLATES[SCOPE.slate] + '|' + (SCOPE.market || '*'); }
+function scopeLabel(){
+  var d = SLATES[SCOPE.slate];
+  return SCOPE.market ? SCOPE.market+' · '+slateLabel(d) : slateLabel(d)+' Slate';
+}
+function scopeTitle(){
+  return SCOPE.market ? SCOPE.market+'-'+mmddyy(SLATES[SCOPE.slate]) : slateLabel(SLATES[SCOPE.slate])+' Slate';
+}
+/* Land on the newest slate that is far enough along to be worth reading.
+   Haven rotates ~7 markets per weekly slate, and deals are only marked
+   Approved near the end of the sales window, so the two or three most recent
+   slates always look near-empty. Walk back to the first settled one and say
+   so in the header rather than opening on a slate that reads as broken. */
+var DEFAULT_STEPPED_BACK = null;
+function defaultSlate(){
+  var t = ymd(today());
+  var launched = slateOptions().filter(function(o){ return SLATES[o.si] <= t; });
+  if (!launched.length) return slateOptions().length ? slateOptions()[0].si : 0;
+  DEFAULT_STEPPED_BACK = null;
+  for (var i=0;i<launched.length;i++){
+    var m = slateMaturity(launched[i].si);
+    if (!m || m.ratio >= 0.45){
+      if (i > 0) DEFAULT_STEPPED_BACK = SLATES[launched[0].si];
+      return launched[i].si;
+    }
+  }
+  return launched[0].si;
+}
+/* is this slate still filling up? compare with the 12 launched slates before it */
+function slateMaturity(si){
+  var opts = slateOptions().filter(function(o){ return o.si < si; }).slice(0,12);
+  if (opts.length < 4) return null;
+  var med = opts.map(function(o){ return o.deals; }).sort(function(a,b){return a-b;})[Math.floor(opts.length/2)];
+  var mine = (slateOptions().filter(function(o){ return o.si===si; })[0]||{deals:0}).deals;
+  return {mine:mine, typical:med, ratio: med ? mine/med : 1};
+}
+
+/* ---- the searchable slate combobox ------------------------------------- */
+var comboHi = -1, comboRows = [];
+function buildCombo(filter){
+  var box = document.getElementById('slateList');
+  var q = (filter||'').trim().toLowerCase();
+  comboRows = slateOptions().filter(function(o){
+    if (!q) return true;
+    var d = SLATES[o.si];
+    return (slateLabel(d)+' '+d+' '+monLabel(+d.slice(0,4), +d.slice(5,7))).toLowerCase().indexOf(q) >= 0;
+  });
+  if (!comboRows.length){
+    box.innerHTML = '<div class="copt none">No slate matches that</div>';
+    return;
+  }
+  box.innerHTML = comboRows.map(function(o,i){
+    return '<div class="copt'+(i===comboHi?' hi':'')+'" role="option" data-si="'+o.si+'">'+
+             '<span>'+slateLabel(SLATES[o.si])+'</span>'+
+             '<span class="cmeta">'+o.issues+' issues · '+num(o.deals)+' deals</span>'+
+           '</div>';
+  }).join('');
+  Array.prototype.forEach.call(box.querySelectorAll('.copt[data-si]'), function(el){
+    el.onmousedown = function(e){ e.preventDefault(); setScope(+el.dataset.si, null); closeCombo(); };
+  });
+}
+/* showAll: focusing the field should offer every slate, not filter by the
+   label already sitting in it. Typing then narrows from there. */
+function openCombo(showAll){
+  comboHi = -1;
+  buildCombo(showAll ? '' : document.getElementById('slateInput').value);
+  document.getElementById('slateList').classList.add('on');
+  document.getElementById('slateInput').setAttribute('aria-expanded','true');
+}
+function closeCombo(){
+  document.getElementById('slateList').classList.remove('on');
+  document.getElementById('slateInput').setAttribute('aria-expanded','false');
+  document.getElementById('slateInput').value = slateLabel(SLATES[SCOPE.slate]);
+}
+
+/* ---- market select ------------------------------------------------------ */
+function buildMarketSelect(){
+  var sel = document.getElementById('mktSel');
+  var rows = issuesInSlate(SCOPE.slate);
+  sel.innerHTML = '<option value="">All markets · whole slate</option>' +
+    rows.map(function(r){
+      return '<option value="'+r[IX.MK]+'">'+r[IX.MK]+' — '+num(r[IX.N])+' deals</option>';
+    }).join('');
+  sel.value = SCOPE.market || '';
+}
+
+function setScope(si, market){
+  SCOPE.slate = si;
+  var avail = issuesInSlate(si).map(function(r){ return r[IX.MK]; });
+  SCOPE.market = (market && avail.indexOf(market) >= 0) ? market : null;
+  document.getElementById('slateInput').value = slateLabel(SLATES[si]);
+  buildMarketSelect();
+  renderAll();
+  if (typeof loadScoped === 'function') loadScoped();
+}
+
+function paintScopeNow(){
+  var s = sumRows(scopeRows()), rows = scopeRows();
+  var mat = SCOPE.market ? null : slateMaturity(SCOPE.slate);
+  var warn = (mat && mat.ratio < 0.45)
+    ? ' <span class="pill">still selling</span>' : '';
+  document.getElementById('scopeNow').innerHTML =
+    '<b>'+scopeTitle()+'</b>'+warn+'<br>'+
+    num(s.n)+' approved deals across '+num(rows.length)+' issue'+(rows.length===1?'':'s')+
+    ' · '+usd(s.booked)+' booked';
+}
+
+/* ===========================================================================
+   SCOPED KPIs
    ======================================================================== */
 function renderKPIs(){
-  var sm = stageMap(), open = openTotals();
-  var voided = sm['Voided'] || {c:0,t:0};
-  var mkts = DATA.markets.filter(function(r){ return r[0] !== 'TEST'; });
-  var booked = mkts.reduce(function(a,r){return a+r[2];},0);
-  var paid   = mkts.reduce(function(a,r){return a+r[4];},0);
-  var deals  = mkts.reduce(function(a,r){return a+r[1];},0);
-  var stopC  = DATA.stopMarket.reduce(function(a,r){return a+r[1];},0);
-  var colRate = booked ? 100*paid/booked : 0;
-
-  var tiles = [
-    ['Outstanding',   usd(open.t),        num(open.c)+' open Xero invoices',            'big'],
-    ['Voided',        num(voided.c),      usd(voided.t)+' of invoicing undone',         'bad'],
-    ['Collected · 12mo', usd(paid),       'across '+num(deals)+' approved deals',       'good'],
-    ['Collection rate', pct(colRate),     usd(booked)+' booked in the same window',     ''],
-    ['Stop Invoice',  pct(100*stopC/(deals||1)), num(stopC)+' deals suppressed · 12mo', ''],
-    ['Credits applied', usd(Math.abs(DATA.xeroStages.reduce(function(a,r){return a+r[4];},0))), 'written against invoices', '']
-  ];
-  document.getElementById('kpis').innerHTML = tiles.map(function(t){
+  var s = sumRows(scopeRows());
+  var openV = s.oG, colRate = s.booked ? 100*s.paid/s.booked : 0;
+  document.getElementById('kpis').innerHTML = [
+    ['Booked',        usd(s.booked), num(s.n)+' approved deals',                       ''],
+    ['Invoiced',      usd(s.inv),    pct(r1(s.booked?100*s.inv/s.booked:0))+' of booked', ''],
+    ['Collected',     usd(s.paid),   pct(r1(colRate))+' of booked',                    'good'],
+    ['Outstanding',   usd(openV),    num(s.oC)+' invoices awaiting payment',           'big'],
+    ['Voided',        num(s.vC),     usd(s.vG)+' of invoicing cancelled',              'bad'],
+    ['Stop Invoice',  num(s.stopC),  pct(r1(s.n?100*s.stopC/s.n:0))+' of deals · '+usd(s.stopV), '']
+  ].map(function(t){
     return '<div class="kpi '+t[3]+'"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="ksub">'+t[2]+'</div></div>';
   }).join('');
 
+  var mat = SCOPE.market ? null : slateMaturity(SCOPE.slate);
+  var matTxt = '';
+  if (mat && mat.ratio < 0.45){
+    matTxt = ' <b>This slate is still being sold</b> &mdash; '+num(mat.mine)+' approved deals so far against a recent norm of about '+
+             num(mat.typical)+', so every figure here will keep climbing.';
+  } else if (DEFAULT_STEPPED_BACK && SLATES[SCOPE.slate] !== DEFAULT_STEPPED_BACK && !SCOPE.market){
+    matTxt = ' Opened here because it is the newest <b>settled</b> slate &mdash; '+slateLabel(DEFAULT_STEPPED_BACK)+
+             ' and later are still being sold and would read as near-empty. They are in the slate box if you want them.';
+  }
   document.getElementById('kpiScope').innerHTML =
-    '<b>What is in here.</b> Invoice figures come from <b>Xero_Invoice__c</b>, the system Haven actually invoices out of today &mdash; it holds '+
-    num(DATA.xeroStages.reduce(function(a,r){return a+r[1];},0))+' invoices and is current through this week. '+
-    'Booked / invoiced / collected dollars come off <b>approved Opportunities</b>, rolled up by the launch date of their issue &mdash; one row per slate. '+
-    'Refunds are the exception: they live only in a <b>historical Stripe import</b> that stopped in October 2025, so that tab is an archive, not a live feed. '+
-    'Every dollar figure is US-dollar-denominated as stored; no currency conversion is applied.';
+    '<b>Showing '+scopeTitle()+'.</b> Booked, invoiced and collected come from the approved Opportunities attached to '+
+    (SCOPE.market ? 'this issue' : 'the issues on this slate')+
+    '; invoice counts come from the <b>Quote</b> records raised against those same deals &mdash; that is the per-deal invoice in this org, '+
+    'and its Invoice # matches the deal’s. Tabs marked <span class="gl">all</span> are org-wide and ignore this picker.'+matTxt;
+  paintScopeNow();
 }
 
 /* ===========================================================================
-   INVOICES
+   OVERVIEW
    ======================================================================== */
-function renderInvoices(){
-  var sm = stageMap(), open = openTotals();
-  var paid = sm['Paid']||{c:0,t:0}, voided = sm['Voided']||{c:0,t:0};
-  var settled = paid.c + voided.c + open.c;
-  document.getElementById('invKpis').innerHTML = [
-    ['Paid',    num(paid.c),   usd(paid.t)+' collected',      'good'],
-    ['Open',    num(open.c),   usd(open.t)+' outstanding',    'big'],
-    ['Voided',  num(voided.c), pct(100*voided.c/(settled||1))+' of all invoices', 'bad'],
-    ['Credits on voids', usd(Math.abs(voided.cr||0)), 'credited before the void', '']
-  ].map(function(t){
-    return '<div class="kpi '+t[3]+'"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="ksub">'+t[2]+'</div></div>';
-  }).join('');
-
-  /* --- stage chart --- */
-  var order = ['Paid','Awaiting Payment','Authorised','Voided','Draft','Unset','Payment Failed','Needs Review'];
-  var stages = DATA.xeroStages.slice().sort(function(a,b){
-    return order.indexOf(a[0]) - order.indexOf(b[0]);
-  });
-  var stageColor = {'Paid':C.won,'Awaiting Payment':C.amber,'Authorised':C.violet,
-                    'Voided':C.drop,'Draft':C.grey,'Unset':C.grey,'Payment Failed':C.drop,'Needs Review':C.teal};
-  draw('stageChart',{
-    type:'bar',
-    data:{labels:stages.map(function(r){return r[0];}),
-      datasets:[{label:'Invoice value',data:stages.map(function(r){return r[2];}),
-        backgroundColor:stages.map(function(r){return stageColor[r[0]]||C.grey;}),borderRadius:3}]},
-    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){
-        var r = stages[x.dataIndex];
-        return [usdFull(r[2])+' total', num(r[1])+' invoices',
-                usdFull(r[3])+' deals · '+usdFull(r[4])+' credits'];
-      }}}},
-      scales:{y:moneyAxis(),x:{grid:{display:false}}}}
-  });
-
-  grid('stageGrid',
-    [{name:'Stage'},{name:'Invoices'},{name:'Deals total'},{name:'Credits'},{name:'Invoice total'},{name:'Share of value'}],
-    (function(){
-      var tot = DATA.xeroStages.reduce(function(a,r){return a+r[2];},0);
-      return stages.map(function(r){
-        return [r[0], num(r[1]), usdFull(r[3]), usdFull(r[4]), usdFull(r[2]), pct(tot?100*r[2]/tot:0)];
-      });
-    })());
-
-  /* --- monthly trend --- */
-  var metric = document.getElementById('trendMetric').value;   // 'c' | 't'
-  var mi = metric==='c' ? 3 : 4;
-  var months = {}, stageSet = {};
-  DATA.xeroTrend.forEach(function(r){
-    var k = r[0]+'-'+String(r[1]).padStart(2,'0');
-    months[k] = months[k] || {y:r[0],m:r[1]};
-    months[k][r[2]] = (months[k][r[2]]||0) + r[mi];
-    stageSet[r[2]] = 1;
-  });
-  var mk = Object.keys(months).sort();
-  var used = order.filter(function(s){ return stageSet[s]; });
-  draw('trendChart',{
-    type:'bar',
-    data:{labels:mk.map(function(k){return monLabel(months[k].y,months[k].m);}),
-      datasets:used.map(function(s){
-        return {label:s,data:mk.map(function(k){return months[k][s]||0;}),
-                backgroundColor:stageColor[s]||C.grey,borderRadius:2};
-      })},
-    options:{plugins:{tooltip:{callbacks:{label:function(x){
-        return x.dataset.label+': '+(metric==='c'?num(x.parsed.y)+' invoices':usdFull(x.parsed.y));
-      }}}},
-      scales:{x:{stacked:true,grid:{display:false}},
-              y:Object.assign({stacked:true},metric==='c'?{grid:{color:C.line}}:moneyAxis())}}
-  });
-
-  var recent = mk.filter(function(k){ return k >= '2025-11'; });
-  var recCount = recent.reduce(function(a,k){
-    return a + used.reduce(function(b,s){ return b + (metric==='c'?(months[k][s]||0):0); },0);
-  },0);
-  document.getElementById('invInsight').innerHTML =
-    'October 2025 is the Xero backfill &mdash; <b>'+num((months['2025-10']&&metric==='c')?Object.keys(months['2025-10']).reduce(function(a,s){return a+(order.indexOf(s)>=0?months['2025-10'][s]:0);},0):0)+
-    ' invoices</b> landed in one month and most of them were already resolved. From November 2025 onward you are looking at real invoicing cadence: roughly <b>'+
-    num(Math.round(recCount/(recent.length||1)))+'</b> invoices a month'+(metric==='c'?'':' (switch the measure to counts to see this)')+
-    ', of which the <b>Awaiting Payment</b> band is the part still owed.';
-
-  /* --- void rate --- */
-  var vr = mk.map(function(k){
-    var o = months[k];
-    var v = o['Voided']||0;
-    var base = v + (o['Awaiting Payment']||0) + (o['Paid']||0) + (o['Authorised']||0);
-    return base>=5 ? r1(100*v/base) : null;
-  });
-  draw('voidChart',{
-    type:'line',
-    data:{labels:mk.map(function(k){return monLabel(months[k].y,months[k].m);}),
-      datasets:[{label:'Void rate',data:vr,borderColor:C.drop,backgroundColor:'rgba(248,113,113,.12)',
-        fill:true,tension:.3,pointRadius:3,spanGaps:true}]},
-    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){return 'Void rate '+pct(x.parsed.y);}}}},
-      scales:{y:pctAxis(),x:{grid:{display:false}}}}
-  });
-  var vv = vr.filter(function(x){return x!=null;});
-  var vAvg = vv.length? r1(vv.reduce(function(a,b){return a+b;},0)/vv.length) : 0;
-  var vLast = vv.length? vv[vv.length-1] : 0;
-  document.getElementById('voidInsight').innerHTML =
-    'Across the whole Xero book, <b>'+num((sm['Voided']||{}).c||0)+' invoices</b> worth <b>'+usdFull((sm['Voided']||{}).t||0)+
-    '</b> have been voided &mdash; and <b>'+usdFull(Math.abs((sm['Voided']||{}).cr||0))+'</b> in credits had already been applied to them before they were killed. '+
-    'The monthly void rate averages <b>'+pct(vAvg)+'</b> and sits at <b>'+pct(vLast)+'</b> in the most recent month with volume. '+
-    'A void is not a write-off in the ledger sense &mdash; the deal usually gets re-invoiced &mdash; but every one is billing work done twice.';
+function needLive(id, what){
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = '<div class="needlive"><div class="nl-t">'+what+' needs a live connection</div>'+
+    'The bundled snapshot carries headline numbers for every issue, but not deal-by-deal detail. '+
+    'Hit <b>Connect Salesforce</b> above and this fills in for <b>'+scopeTitle()+'</b>.</div>';
 }
 
-/* ===========================================================================
-   OUTSTANDING
-   ======================================================================== */
-var AGE_BUCKETS = [
-  ['Not yet due',  -1e9,   0],
-  ['1–30 days',        1,  30],
-  ['31–60 days',      31,  60],
-  ['61–90 days',      61,  90],
-  ['91–180 days',     91, 180],
-  ['180+ days',      181, 1e9]
-];
-function agingRows(){
-  var now = today();
-  var b = AGE_BUCKETS.map(function(x){ return {label:x[0], c:0, t:0}; });
-  var noDue = {label:'No due date', c:0, t:0};
-  DATA.xeroDue.forEach(function(r){
-    if(!r[0] || r[0]==='none'){ noDue.c += r[1]; noDue.t += r[2]; return; }
-    var od = daysBetween(new Date(r[0]+'T00:00:00Z'), now);   // >0 means overdue
-    for(var i=0;i<AGE_BUCKETS.length;i++){
-      if(od <= AGE_BUCKETS[i][2] && od >= AGE_BUCKETS[i][1]){ b[i].c += r[1]; b[i].t += r[2]; break; }
-    }
-  });
-  if(noDue.c) b.push(noDue);
-  return b;
-}
-function renderOutstanding(){
-  var rows = agingRows(), open = openTotals();
-  var overdue = rows.filter(function(r){ return r.label!=='Not yet due' && r.label!=='No due date'; });
-  var odT = overdue.reduce(function(a,r){return a+r.t;},0);
-  var odC = overdue.reduce(function(a,r){return a+r.c;},0);
-  var deep = rows.filter(function(r){ return r.label==='91–180 days' || r.label==='180+ days'; })
-                 .reduce(function(a,r){return a+r.t;},0);
-
-  document.getElementById('outKpis').innerHTML = [
-    ['Open invoice value', usd(open.t),  num(open.c)+' invoices',                       'big'],
-    ['Past due',           usd(odT),     num(odC)+' invoices past their due date',      'bad'],
-    ['Past due share',     pct(open.t?100*odT/open.t:0), 'of all open invoice value',   ''],
-    ['90+ days out',       usd(deep),    'the hard-to-collect tail',                    'bad']
-  ].map(function(t){
-    return '<div class="kpi '+t[3]+'"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="ksub">'+t[2]+'</div></div>';
-  }).join('');
-
-  var colors = [C.won,C.amber,'#f59e0b',C.drop,'#dc2626','#991b1b',C.grey];
-  draw('ageChart',{
+function renderOverview(){
+  var s = sumRows(scopeRows());
+  draw('funnelChart',{
     type:'bar',
-    data:{labels:rows.map(function(r){return r.label;}),
-      datasets:[{label:'Open value',data:rows.map(function(r){return r.t;}),
-        backgroundColor:rows.map(function(r,i){return colors[i]||C.grey;}),borderRadius:3}]},
-    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){
-        var r = rows[x.dataIndex]; return [usdFull(r.t), num(r.c)+' invoices'];
-      }}}},
-      scales:{y:moneyAxis(),x:{grid:{display:false}}}}
-  });
-  grid('ageGrid',[{name:'Age bucket'},{name:'Invoices'},{name:'Open value'},{name:'Share'}],
-    rows.map(function(r){ return [r.label, num(r.c), usdFull(r.t), pct(open.t?100*r.t/open.t:0)]; }));
-
-  document.getElementById('ageInsight').innerHTML =
-    '<b>'+usdFull(odT)+'</b> across <b>'+num(odC)+' invoices</b> is already past its due date &mdash; '+
-    pct(open.t?100*odT/open.t:0)+' of everything open. Of that, <b>'+usdFull(deep)+'</b> is more than 90 days out, '+
-    'which is the band where collection odds drop hard. The "Not yet due" bucket is healthy working capital, not a problem.';
-
-  /* --- by market --- */
-  var mm = {};
-  DATA.xeroMarket.forEach(function(r){
-    if(OPEN_STAGES.indexOf(r[1]) < 0) return;
-    mm[r[0]] = mm[r[0]] || {c:0,t:0};
-    mm[r[0]].c += r[2]; mm[r[0]].t += r[3];
-  });
-  var mrows = Object.keys(mm).map(function(k){ return [k, mm[k].c, mm[k].t]; })
-                             .sort(function(a,b){ return b[2]-a[2]; });
-  var named = mrows.filter(function(r){ return r[0] !== 'Unassigned'; });
-  draw('outMktChart',{
-    type:'bar',
-    data:{labels:named.map(function(r){return r[0];}),
-      datasets:[{label:'Open value',data:named.map(function(r){return r[2];}),
-        backgroundColor:C.amber,borderRadius:3}]},
+    data:{labels:['Booked','Invoiced','Collected'],
+      datasets:[{data:[s.booked,s.inv,s.paid],
+        backgroundColor:[C.accent,C.amber,C.won],borderRadius:4}]},
     options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){
-        var r = named[x.dataIndex]; return [usdFull(r[2]), num(r[1])+' invoices'];
+        var v=x.parsed.x; return [usdFull(v), s.booked? pct(r1(100*v/s.booked))+' of booked' : ''];
       }}}},
       scales:{x:moneyAxis(),y:{grid:{display:false}}}}
   });
-  grid('outMktGrid',[{name:'Market'},{name:'Open invoices'},{name:'Open value'},{name:'Avg per invoice'}],
-    mrows.map(function(r){ return [r[0], num(r[1]), usdFull(r[2]), usdFull(r[1]?r[2]/r[1]:0)]; }));
+
+  var gapInv = s.booked - s.inv, gapPaid = s.inv - s.paid;
+  document.getElementById('ovInsight').innerHTML =
+    'Of <b>'+usdFull(s.booked)+'</b> booked, <b>'+usdFull(s.inv)+'</b> became an invoice and <b>'+usdFull(s.paid)+
+    '</b> has been collected. That leaves <b>'+usdFull(gapInv)+'</b> never invoiced &mdash; mostly subscription-covered and Stop Invoice deals, of which this scope has '+
+    num(s.stopC)+' worth '+usdFull(s.stopV)+' &mdash; and <b>'+usdFull(gapPaid)+'</b> invoiced but not yet paid, sitting across '+
+    num(s.oC)+' open invoice'+(s.oC===1?'':'s')+'.';
+
+  /* whole slate -> compare its markets; single issue -> compare it over time */
+  var whole = !SCOPE.market;
+  document.getElementById('mktCard').style.display = whole ? '' : 'none';
+  document.getElementById('peerCard').style.display = whole ? 'none' : '';
+
+  if (whole){
+    var rows = issuesInSlate(SCOPE.slate).map(function(r){
+      return {mk:r[IX.MK], n:r[IX.N], booked:r[IX.BOOKED], inv:r[IX.INV], paid:r[IX.PAID],
+              open:r[IX.OG], stop:r[IX.STOPC],
+              colRate: r[IX.BOOKED] ? 100*r[IX.PAID]/r[IX.BOOKED] : 0};
+    }).sort(function(a,b){ return b.colRate - a.colRate; });
+    draw('mktChart',{
+      type:'bar',
+      data:{labels:rows.map(function(r){return r.mk;}),
+        datasets:[{label:'Collection rate',data:rows.map(function(r){return r1(r.colRate);}),
+          backgroundColor:rows.map(function(r){ return r.colRate>=55?C.won:(r.colRate>=35?C.amber:C.drop); }),
+          borderRadius:3}]},
+      options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){
+          var r=rows[x.dataIndex];
+          return [pct(r1(r.colRate))+' collected', usdFull(r.paid)+' of '+usdFull(r.booked), num(r.n)+' deals'];
+        }}}},
+        scales:{x:Object.assign({max:100},pctAxis()),y:{grid:{display:false}}}}
+    });
+    grid('mktGrid',
+      [{name:'Market'},{name:'Deals'},{name:'Booked'},{name:'Invoiced'},{name:'Collected'},{name:'Collected %'},{name:'Outstanding'},{name:'Stop Inv.'}],
+      rows.map(function(r){
+        return [r.mk, num(r.n), usdFull(r.booked), usdFull(r.inv), usdFull(r.paid),
+                pct(r1(r.colRate)), usdFull(r.open), num(r.stop)];
+      }));
+  } else {
+    var hist = ISSUES.filter(function(r){ return r[IX.MK]===SCOPE.market; })
+                     .sort(function(a,b){ return a[IX.SL]-b[IX.SL]; })
+                     .slice(-18);
+    var here = SLATES[SCOPE.slate];
+    draw('peerChart',{
+      data:{labels:hist.map(function(r){ return slateLabel(slateOf(r)); }),
+        datasets:[
+          {type:'bar',label:'Booked',data:hist.map(function(r){return r[IX.BOOKED];}),
+           backgroundColor:hist.map(function(r){ return slateOf(r)===here ? C.accent : 'rgba(59,130,246,.28)'; }),borderRadius:3},
+          {type:'line',label:'Collected',data:hist.map(function(r){return r[IX.PAID];}),
+           borderColor:C.won,tension:.25,pointRadius:hist.map(function(r){ return slateOf(r)===here?5:0; }),
+           pointBackgroundColor:C.won,borderWidth:2}
+        ]},
+      options:{interaction:{mode:'index',intersect:false},
+        plugins:{tooltip:{callbacks:{label:function(x){return x.dataset.label+': '+usdFull(x.parsed.y);}}}},
+        scales:{y:moneyAxis(),x:{grid:{display:false},ticks:{maxTicksLimit:14}}}}
+    });
+    document.getElementById('peerTitle').textContent = SCOPE.market+' over recent slates';
+  }
 }
 
 /* ===========================================================================
-   PAYMENTS
+   INVOICES  (Quote records against this scope's deals)
    ======================================================================== */
-function renderPayments(){
-  var sm = stageMap();
-  var paid = sm['Paid']||{c:0,t:0};
-  var slates = slateRows();
-  var era = paidEraStart();
-  var last8 = collectableSlates().slice(-8);
-  var recentPaid = last8.reduce(function(a,r){return a+r.paid;},0);
-  var mkts = DATA.markets.filter(function(r){return r[0]!=='TEST';});
-  var paid12 = mkts.reduce(function(a,r){return a+r[4];},0);
-  var inv12  = mkts.reduce(function(a,r){return a+r[3];},0);
-
-  document.getElementById('payKpis').innerHTML = [
-    ['Xero invoices paid', num(paid.c), usd(paid.t)+' settled',                    'good'],
-    ['Collected · 12mo',   usd(paid12), 'deal-level Paid Amount',                  'good'],
-    ['Invoiced · 12mo',    usd(inv12),  pct(inv12?100*paid12/inv12:0)+' of it collected', ''],
-    ['Per slate · recent', usd(last8.length?recentPaid/last8.length:0), 'average across the last 8 settled slates', '']
-  ].map(function(t){
-    return '<div class="kpi '+t[3]+'"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="ksub">'+t[2]+'</div></div>';
-  }).join('');
-
-  /* paid Xero invoices by creation month */
-  var months = {};
-  DATA.xeroTrend.forEach(function(r){
-    if(r[2]!=='Paid') return;
-    var k = r[0]+'-'+String(r[1]).padStart(2,'0');
-    months[k] = months[k] || {y:r[0],m:r[1],c:0,t:0};
-    months[k].c += r[3]; months[k].t += r[4];
-  });
-  var mk = Object.keys(months).sort();
-  draw('paidChart',{
-    data:{labels:mk.map(function(k){return monLabel(months[k].y,months[k].m);}),
+function renderInvoicesScoped(){
+  var s = sumRows(scopeRows());
+  var tot = s.pC + s.oC + s.vC, totG = s.pG + s.oG + s.vG;
+  var rows = [
+    ['Paid',            s.pC, s.pG, C.won],
+    ['Awaiting payment',s.oC, s.oG, C.amber],
+    ['Voided',          s.vC, s.vG, C.drop]
+  ];
+  draw('invChart',{
+    data:{labels:rows.map(function(r){return r[0];}),
       datasets:[
-        {type:'bar',label:'Paid value',data:mk.map(function(k){return months[k].t;}),
-         backgroundColor:'rgba(34,197,94,.55)',borderRadius:3,yAxisID:'y'},
-        {type:'line',label:'Paid invoices',data:mk.map(function(k){return months[k].c;}),
-         borderColor:C.accent,backgroundColor:C.accent,tension:.3,pointRadius:3,yAxisID:'y1'}
+        {type:'bar',label:'Invoice value',data:rows.map(function(r){return r[2];}),
+         backgroundColor:rows.map(function(r){return r[3];}),borderRadius:4,yAxisID:'y'},
+        {type:'line',label:'Invoices',data:rows.map(function(r){return r[1];}),
+         borderColor:C.ink,pointRadius:5,showLine:false,yAxisID:'y1'}
       ]},
     options:{plugins:{tooltip:{callbacks:{label:function(x){
-        return x.datasetIndex===0 ? 'Paid '+usdFull(x.parsed.y) : num(x.parsed.y)+' invoices';
+        var r=rows[x.dataIndex];
+        return x.datasetIndex===0 ? usdFull(r[2]) : num(r[1])+' invoices';
       }}}},
       scales:{y:Object.assign({position:'left'},moneyAxis()),
               y1:{position:'right',grid:{display:false},ticks:{callback:function(v){return num(v);}}},
               x:{grid:{display:false}}}}
   });
-  document.getElementById('payInsight').innerHTML =
-    'The October 2025 spike is the backfill of invoices that were already settled when Xero was connected. '+
-    'Since then, <b>'+num(mk.filter(function(k){return k>='2025-11';}).reduce(function(a,k){return a+months[k].c;},0))+' invoices</b> worth <b>'+
-    usdFull(mk.filter(function(k){return k>='2025-11';}).reduce(function(a,k){return a+months[k].t;},0))+
-    '</b> have been marked paid. Because Salesforce keeps no payment date on the Xero record, this is a cohort view &mdash; '+
-    'use the slate curve below when you need to know when cash actually moved.';
+  grid('invGrid',[{name:'Status'},{name:'Invoices'},{name:'Value'},{name:'Share of value'}],
+    rows.map(function(r){ return [r[0], num(r[1]), usdFull(r[2]), pct(r1(totG?100*r[2]/totG:0))]; }));
 
-  /* deal-level collections by slate */
-  draw('collectChart',{
-    data:{labels:slates.map(function(r){return slateLabel(r.d);}),
-      datasets:[
-        {type:'bar',label:'Collected',data:slates.map(function(r){return inPaidEra(r.d)? r.paid : null;}),
-         backgroundColor:'rgba(34,197,94,.5)',borderRadius:2,yAxisID:'y'},
-        {type:'line',label:'Invoiced',data:slates.map(function(r){return r.inv;}),
-         borderColor:C.accent,tension:.25,pointRadius:0,borderWidth:2,yAxisID:'y'}
-      ]},
-    options:{plugins:{tooltip:{callbacks:{label:function(x){return x.dataset.label+': '+usdFull(x.parsed.y);}}}},
-      scales:{y:moneyAxis(),x:{grid:{display:false},ticks:{maxTicksLimit:18}}}}
+  document.getElementById('invInsight').innerHTML =
+    num(tot)+' invoices worth <b>'+usdFull(totG)+'</b> have been raised against '+scopeTitle()+'. '+
+    '<b>'+pct(r1(totG?100*s.pG/totG:0))+'</b> of that value is paid; <b>'+usdFull(s.oG)+'</b> is still awaiting payment'+
+    (s.vC ? '; and '+num(s.vC)+' invoice'+(s.vC===1?' was':'s were')+' voided, cancelling '+usdFull(s.vG)+' of billing that usually gets re-cut.' : '.');
+
+  var live = SCOPED[scopeKey()];
+  if (live && live.aging) renderAging(live.aging); else needLive('agingSlot','Invoice aging');
+}
+
+function renderAging(rows){
+  var el = document.getElementById('agingSlot');
+  el.innerHTML = '<div class="chartbox sm"><canvas id="ageChart"></canvas></div><div id="ageGrid" style="margin-top:16px"></div>';
+  var colors = [C.won,C.amber,'#f59e0b',C.drop,'#dc2626','#991b1b',C.grey];
+  draw('ageChart',{
+    type:'bar',
+    data:{labels:rows.map(function(r){return r.label;}),
+      datasets:[{data:rows.map(function(r){return r.t;}),
+        backgroundColor:rows.map(function(r,i){return colors[i]||C.grey;}),borderRadius:3}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){
+        var r=rows[x.dataIndex]; return [usdFull(r.t), num(r.c)+' invoices'];
+      }}}},
+      scales:{y:moneyAxis(),x:{grid:{display:false}}}}
   });
-  var lag = slates.slice(-4);
-  var m12 = collectableSlates().slice(-12);
-  document.getElementById('collectInsight').innerHTML =
-    'Collected bars start at the <b>'+slateLabel(era)+'</b> slate because that is when deal-level Paid Amount began being written &mdash; '+
-    'earlier slates show no green not because nothing was collected but because the field was empty. '+
-    'Since then, collection lags invoicing by roughly a slate cycle, which is why the last few bars sit low: the '+
-    slateLabel(lag[0]&&lag[0].d)+' through '+slateLabel(lag[lag.length-1]&&lag[lag.length-1].d)+
-    ' slates are still in flight. A settled slate typically collects <b>'+
-    pct(r1(m12.reduce(function(a,r){return a+r.colRate;},0)/Math.max(1,m12.length)))+
-    '</b> of booked value &mdash; anything materially below that is worth opening.';
+  var t = rows.reduce(function(a,r){return a+r.t;},0);
+  grid('ageGrid',[{name:'Age bucket'},{name:'Invoices'},{name:'Open value'},{name:'Share'}],
+    rows.map(function(r){ return [r.label, num(r.c), usdFull(r.t), pct(r1(t?100*r.t/t:0))]; }));
+}
+
+/* ===========================================================================
+   STOP INVOICE
+   ======================================================================== */
+function renderStopScoped(){
+  var s = sumRows(scopeRows());
+  var rows = issuesInSlate(SCOPE.slate)
+    .filter(function(r){ return !SCOPE.market || r[IX.MK]===SCOPE.market; })
+    .map(function(r){
+      return {mk:r[IX.MK], n:r[IX.N], c:r[IX.STOPC], v:r[IX.STOPV],
+              pct: r[IX.N] ? 100*r[IX.STOPC]/r[IX.N] : 0};
+    }).sort(function(a,b){ return b.pct - a.pct; });
+
+  document.getElementById('stopKpis').innerHTML = [
+    ['Deals suppressed', num(s.stopC), pct(r1(s.n?100*s.stopC/s.n:0))+' of approved deals', 'big'],
+    ['Value suppressed', usd(s.stopV), pct(r1(s.booked?100*s.stopV/s.booked:0))+' of booked value', ''],
+    ['Avg per deal',     usdFull(s.stopC? s.stopV/s.stopC : 0), 'vs '+usdFull(s.n? s.booked/s.n : 0)+' across all deals', ''],
+    ['Still invoiced',   num(s.n - s.stopC), 'deals that do generate a bill', 'good']
+  ].map(function(t){
+    return '<div class="kpi '+t[3]+'"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="ksub">'+t[2]+'</div></div>';
+  }).join('');
+
+  var avg = s.n ? 100*s.stopC/s.n : 0;
+  draw('stopChart',{
+    type:'bar',
+    data:{labels:rows.map(function(r){return r.mk;}),
+      datasets:[{label:'Share of approved deals',data:rows.map(function(r){return r1(r.pct);}),
+        backgroundColor:rows.map(function(r){ return r.pct > avg + 10 ? C.amber : C.violet; }),borderRadius:3}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){
+        var r=rows[x.dataIndex];
+        return [pct(r1(r.pct))+' of deals', num(r.c)+' of '+num(r.n), usdFull(r.v)+' suppressed'];
+      }}}},
+      scales:{x:pctAxis(),y:{grid:{display:false}}}}
+  });
+  grid('stopGrid',[{name:'Market'},{name:'Stop Invoice'},{name:'Approved deals'},{name:'Share'},{name:'Suppressed value'}],
+    rows.map(function(r){ return [r.mk, num(r.c), num(r.n), pct(r1(r.pct)), usdFull(r.v)]; }));
+
+  var hi = rows.filter(function(r){ return r.pct > avg + 10; });
+  document.getElementById('stopInsight').innerHTML =
+    '<b>'+pct(r1(avg))+'</b> of approved deals on '+scopeTitle()+' are flagged Stop Invoice, holding back <b>'+usdFull(s.stopV)+'</b> of booked value. '+
+    'Most of that should be covered by a subscription already billing elsewhere. '+
+    (hi.length ? 'Well above the rest here: <b>'+hi.slice(0,3).map(function(r){return r.mk+' ('+pct(r1(r.pct))+')';}).join(', ')+'</b> — worth a spot check that those bills really are covered.'
+               : 'No market on this slate stands out enough to flag.');
+}
+
+/* ---- live-only slots ---------------------------------------------------- */
+function renderScopedLiveSlots(){
+  var live = SCOPED[scopeKey()];
+  if (live && live.deals)   renderDeals(live.deals);     else needLive('dealsSlot','The deal list');
+  if (live && live.products) renderProdScoped(live.products); else needLive('prodSlot','The product breakdown');
+  if (live && live.extra)   renderExtraScoped(live.extra);   else needLive('extraSlot','Extra-copy detail');
+}
+
+function renderDeals(rows){
+  var el = document.getElementById('dealsSlot');
+  el.innerHTML = '<div id="dealsGrid"></div>';
+  grid('dealsGrid',
+    [{name:'Deal'},{name:'Issue'},{name:'Booked'},{name:'Invoiced'},{name:'Paid'},{name:'Invoice #'},{name:'Invoice status'},{name:'Stop Inv.'}],
+    rows.map(function(d){
+      return [d.name, d.issue, usdFull(d.booked), usdFull(d.inv), usdFull(d.paid),
+              d.invNo || '—', d.status || '—', d.stop ? 'Yes' : ''];
+    }),
+    {search:true});
+}
+
+function renderProdScoped(rows){
+  var el = document.getElementById('prodSlot');
+  el.innerHTML = '<div class="chartbox tall"><canvas id="prodChart"></canvas></div><div id="prodGrid" style="margin-top:16px"></div>';
+  var top = rows.slice().sort(function(a,b){ return b.t - a.t; });
+  var shown = top.filter(function(r){ return r.t > 0; }).slice(0,14);
+  draw('prodChart',{
+    type:'bar',
+    data:{labels:shown.map(function(r){return r.p;}),
+      datasets:[{label:'Revenue',data:shown.map(function(r){return r.t;}),
+        backgroundColor:shown.map(function(r,i){return SERIES[i%SERIES.length];}),borderRadius:3}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){
+        var r=shown[x.dataIndex]; return [usdFull(r.t), num(r.c)+' line items'];
+      }}}},
+      scales:{x:moneyAxis(),y:{grid:{display:false}}}}
+  });
+  var tot = top.reduce(function(a,r){return a+r.t;},0);
+  grid('prodGrid',[{name:'Product'},{name:'Line items'},{name:'Quantity'},{name:'Revenue'},{name:'Share'}],
+    top.map(function(r){ return [r.p, num(r.c), num(r.q), usdFull(r.t), pct(r1(tot?100*r.t/tot:0))]; }));
+}
+
+function renderExtraScoped(rows){
+  var el = document.getElementById('extraSlot');
+  var copies = rows.reduce(function(a,r){return a+r.q;},0);
+  var rev    = rows.reduce(function(a,r){return a+r.t;},0);
+  var items  = rows.reduce(function(a,r){return a+r.c;},0);
+  el.innerHTML =
+    '<div class="kpis" style="margin-bottom:16px">'+
+      '<div class="kpi big"><div class="l">Copies</div><div class="v">'+num(copies)+'</div><div class="ksub">on '+num(items)+' line items</div></div>'+
+      '<div class="kpi"><div class="l">Revenue</div><div class="v">'+usdFull(rev)+'</div><div class="ksub">billed for them</div></div>'+
+      '<div class="kpi bad"><div class="l">Per copy</div><div class="v">$'+(copies?(rev/copies).toFixed(2):'0.00')+'</div><div class="ksub">blended</div></div>'+
+    '</div><div id="extraGrid"></div>';
+  grid('extraGrid',[{name:'Product'},{name:'Line items'},{name:'Copies'},{name:'Revenue'},{name:'$ / copy'}],
+    rows.slice().sort(function(a,b){return b.q-a.q;}).map(function(r){
+      return [r.p, num(r.c), num(r.q), usdFull(r.t), '$'+(r.q?(r.t/r.q).toFixed(2):'0.00')];
+    }));
 }
 
 /* ===========================================================================
@@ -969,255 +1088,6 @@ function renderRealization(){
     (rc>=pc? 'up from ' : 'down from ')+'<b>'+pct(r1(pc))+'</b> on the 12 before. '+
     'The standing gap between invoiced and collected &mdash; roughly <b>'+pct(r1(ri-rc))+' of booked value</b> &mdash; is invoiced money that has not landed.';
 
-  /* by market */
-  var mrows = DATA.markets.filter(function(r){ return r[0]!=='TEST' && r[1]>=100; })
-    .map(function(r){ return {mk:r[0],n:r[1],booked:r[2],inv:r[3],paid:r[4],
-                              invRate:r[2]?100*r[3]/r[2]:0, colRate:r[2]?100*r[4]/r[2]:0}; })
-    .sort(function(a,b){ return b.colRate - a.colRate; });
-  draw('realMktChart',{
-    type:'bar',
-    data:{labels:mrows.map(function(r){return r.mk;}),
-      datasets:[
-        {label:'Collection rate',data:mrows.map(function(r){return r1(r.colRate);}),backgroundColor:C.won,borderRadius:3},
-        {label:'Invoiced rate',  data:mrows.map(function(r){return r1(r.invRate);}),backgroundColor:'rgba(245,166,35,.55)',borderRadius:3}
-      ]},
-    options:{indexAxis:'y',
-      plugins:{tooltip:{callbacks:{label:function(x){return x.dataset.label+': '+pct(x.parsed.x);}}}},
-      scales:{x:Object.assign({max:100},pctAxis()),y:{grid:{display:false}}}}
-  });
-  grid('realMktGrid',
-    [{name:'Market'},{name:'Deals'},{name:'Booked'},{name:'Invoiced'},{name:'Collected'},{name:'Invoiced %'},{name:'Collected %'},{name:'Leakage'}],
-    mrows.map(function(r){
-      return [r.mk, num(r.n), usdFull(r.booked), usdFull(r.inv), usdFull(r.paid),
-              pct(r1(r.invRate)), pct(r1(r.colRate)), usdFull(r.booked-r.paid)];
-    }));
-}
-
-/* ===========================================================================
-   PRODUCTS
-   ======================================================================== */
-function prodTotals(fromKey,toKey,idx){
-  var m = {};
-  DATA.products.forEach(function(r){
-    var k = r[0]+'-'+String(r[1]).padStart(2,'0');
-    if(k < fromKey || k >= toKey) return;
-    m[r[2]] = (m[r[2]]||0) + r[idx];
-  });
-  return m;
-}
-function monthKeys(){
-  var s = {};
-  DATA.products.forEach(function(r){ s[r[0]+'-'+String(r[1]).padStart(2,'0')] = 1; });
-  return Object.keys(s).sort();
-}
-function renderProducts(){
-  var metric = document.getElementById('prodMetric').value;    // 't' | 'c'
-  var topN   = parseInt(document.getElementById('prodTop').value,10);
-  var idx    = metric==='t' ? 5 : 3;
-
-  var totals = {};
-  DATA.products.forEach(function(r){ totals[r[2]] = (totals[r[2]]||0) + r[idx]; });
-  var top = Object.keys(totals).sort(function(a,b){ return totals[b]-totals[a]; }).slice(0,topN);
-
-  var mk = monthKeys();
-  var byMonth = {};
-  DATA.products.forEach(function(r){
-    var k = r[0]+'-'+String(r[1]).padStart(2,'0');
-    byMonth[k] = byMonth[k] || {};
-    byMonth[k][r[2]] = (byMonth[k][r[2]]||0) + r[idx];
-  });
-  draw('prodChart',{
-    type:'bar',
-    data:{labels:mk.map(function(k){return monLabel(+k.slice(0,4),+k.slice(5,7));}),
-      datasets:top.map(function(p,i){
-        return {label:p,data:mk.map(function(k){return (byMonth[k]&&byMonth[k][p])||0;}),
-                backgroundColor:SERIES[i%SERIES.length],borderRadius:2};
-      })},
-    options:{plugins:{tooltip:{callbacks:{label:function(x){
-        return x.dataset.label+': '+(metric==='t'?usdFull(x.parsed.y):num(x.parsed.y)+' line items');
-      }}}},
-      scales:{x:{stacked:true,grid:{display:false}},
-              y:Object.assign({stacked:true},metric==='t'?moneyAxis():{grid:{color:C.line}})}}
-  });
-
-  /* period over period — 12 complete launch months vs the 12 before.
-     End the window at the last month that is fully in the past: the current
-     month (and any upcoming slates already in the data) is still being sold,
-     and counting a part-month against a whole one makes every product look
-     like it collapsed. */
-  var n = today();
-  var ly = n.getUTCFullYear(), lm = n.getUTCMonth();      // getUTCMonth() is 0-based == previous month, 1-based
-  if(lm === 0){ ly -= 1; lm = 12; }
-  var lastComplete = ly+'-'+String(lm).padStart(2,'0');
-  if(lastComplete > mk[mk.length-1]){                     // data ends before that — fall back
-    lastComplete = mk[mk.length-1];
-    ly = +lastComplete.slice(0,4); lm = +lastComplete.slice(5,7);
-  }
-  function shift(y,m,back){ var t = y*12 + (m-1) - back; return Math.floor(t/12)+'-'+String((t%12)+1).padStart(2,'0'); }
-  var curFrom = shift(ly,lm,11), prevFrom = shift(ly,lm,23), curTo = shift(ly,lm,-1);
-  var cur = prodTotals(curFrom, curTo, 5), prev = prodTotals(prevFrom, curFrom, 5);
-  var curC = prodTotals(curFrom, curTo, 3);
-  var names = Object.keys(cur).concat(Object.keys(prev)).filter(function(v,i,a){return a.indexOf(v)===i;});
-  var rows = names.map(function(n){
-    var c = cur[n]||0, p = prev[n]||0;
-    return {n:n, c:c, p:p, d:c-p, pc:p? r1(100*(c-p)/p) : null, li:curC[n]||0};
-  }).sort(function(a,b){ return b.c - a.c; });
-  var wLbl = monLabel(+curFrom.slice(0,4),+curFrom.slice(5,7))+' – '+monLabel(ly,lm);
-  grid('prodGrid',
-    [{name:'Product'},{name:'Revenue · '+wLbl},{name:'Revenue · prior 12mo'},{name:'Change $'},{name:'Change %'},{name:'Line items'}],
-    rows.map(function(r){
-      return [r.n, usdFull(r.c), usdFull(r.p), (r.d>=0?'+':'')+usdFull(r.d),
-              r.pc==null?'—':((r.pc>=0?'+':'')+r.pc+'%'), num(r.li)];
-    }));
-
-  var grew = rows.filter(function(r){return r.d>0;}).sort(function(a,b){return b.d-a.d;});
-  var fell = rows.filter(function(r){return r.d<0;}).sort(function(a,b){return a.d-b.d;});
-  var zero = rows.filter(function(r){ return r.c===0 && r.li>0; });
-  document.getElementById('prodInsight').innerHTML =
-    'Window is <b>'+wLbl+'</b> against the 12 months before it &mdash; complete launch months only, so the part-sold current month does not drag every product negative. '+
-    'The book is concentrated: <b>'+rows[0].n+'</b> alone is '+
-    pct(r1(100*rows[0].c/Math.max(1,rows.reduce(function(a,r){return a+r.c;},0))))+
-    ' of last-12-month product revenue. Biggest gain is <b>'+(grew[0]?grew[0].n:'—')+'</b> at '+(grew[0]?'+'+usdFull(grew[0].d):'—')+
-    '; biggest fall is <b>'+(fell[0]?fell[0].n:'—')+'</b> at '+(fell[0]?usdFull(fell[0].d):'—')+'. '+
-    (zero.length? '<b>'+zero.length+' products</b> carried line items in the last 12 months but billed $0 &mdash; those are identifiers and re-runs, not lost revenue, but they do inflate line-item counts.' : '');
-}
-
-/* ===========================================================================
-   EXTRA COPIES
-   ======================================================================== */
-function renderExtra(){
-  var rows = DATA.extraSlate.slice().sort(function(a,b){ return a[0]<b[0]?-1:1; });
-  var last12 = rows.slice(-26);
-  var copies12 = last12.reduce(function(a,r){return a+r[2];},0);
-  var rev12    = last12.reduce(function(a,r){return a+r[3];},0);
-  var totCopies = rows.reduce(function(a,r){return a+r[2];},0);
-  var totRev    = rows.reduce(function(a,r){return a+r[3];},0);
-
-  document.getElementById('extraKpis').innerHTML = [
-    ['Copies billed · 26 slates', num(copies12), 'extra copies on approved deals', 'big'],
-    ['Revenue · 26 slates',       usdFull(rev12),'from those copies',              ''],
-    ['Revenue per copy',          '$'+(copies12? (rev12/copies12).toFixed(2) : '0.00'), 'blended across all tiers', 'bad'],
-    ['All time (since Sep 24)',   num(totCopies), usdFull(totRev)+' billed',       '']
-  ].map(function(t){
-    return '<div class="kpi '+t[3]+'"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="ksub">'+t[2]+'</div></div>';
-  }).join('');
-
-  draw('extraChart',{
-    data:{labels:rows.map(function(r){return slateLabel(r[0]);}),
-      datasets:[
-        {type:'bar',label:'Copies',data:rows.map(function(r){return r[2];}),
-         backgroundColor:'rgba(167,139,250,.55)',borderRadius:2,yAxisID:'y'},
-        {type:'line',label:'Revenue',data:rows.map(function(r){return r[3];}),
-         borderColor:C.won,tension:.25,pointRadius:0,borderWidth:2,yAxisID:'y1'}
-      ]},
-    options:{interaction:{mode:'index',intersect:false},
-      plugins:{tooltip:{callbacks:{label:function(x){
-        return x.datasetIndex===0 ? num(x.parsed.y)+' copies' : usdFull(x.parsed.y);
-      }}}},
-      scales:{y:{position:'left',grid:{color:C.line},ticks:{callback:function(v){return num(v);}}},
-              y1:Object.assign({position:'right',grid:{display:false}},moneyAxis()),
-              x:{grid:{display:false},ticks:{maxTicksLimit:18}}}}
-  });
-
-  var half1 = rows.slice(0,Math.floor(rows.length/2));
-  var half2 = rows.slice(Math.floor(rows.length/2));
-  var c1 = half1.reduce(function(a,r){return a+r[2];},0), c2 = half2.reduce(function(a,r){return a+r[2];},0);
-  document.getElementById('extraInsight').innerHTML =
-    'The step change around mid-2025 is a <b>product change, not a demand change</b>: the fixed tiers (5/10/15/30 Extra Copies, one line item each) were retired in favour of a single quantity-based <b>Extra Copies</b> product, so copies finally get counted. '+
-    'Volume went from <b>'+num(c1)+'</b> copies across the first half of this window to <b>'+num(c2)+
-    '</b> across the second, while revenue stayed near the floor. Blended, Haven bills about <b>$'+
-    (totCopies? (totRev/totCopies).toFixed(2) : '0.00')+' per extra copy</b>. '+
-    'Almost all of the dollars that do land come from <b>Extra Copies (Cover Wrap Overrun)</b>; the plain <b>Extra Copies</b> line moves '+
-    num((DATA.extraProd.filter(function(r){return r[0]==='Extra Copies';})[0]||[0,0,0,0])[2])+
-    ' copies for '+usdFull((DATA.extraProd.filter(function(r){return r[0]==='Extra Copies';})[0]||[0,0,0,0])[3])+
-    '. If extra copies are meant to be a revenue line rather than a courtesy, this is the gap.';
-
-  grid('extraProdGrid',
-    [{name:'Product'},{name:'Line items'},{name:'Copies'},{name:'Revenue'},{name:'$ / copy'}],
-    DATA.extraProd.slice().sort(function(a,b){return b[2]-a[2];}).map(function(r){
-      return [r[0], num(r[1]), num(r[2]), usdFull(r[3]), '$'+(r[2]? (r[3]/r[2]).toFixed(2):'0.00')];
-    }));
-  grid('extraMktGrid',
-    [{name:'Market · last 12mo'},{name:'Line items'},{name:'Copies'},{name:'Revenue'},{name:'$ / copy'}],
-    DATA.extraMarket.slice().sort(function(a,b){return b[2]-a[2];}).map(function(r){
-      return [r[0], num(r[1]), num(r[2]), usdFull(r[3]), '$'+(r[2]? (r[3]/r[2]).toFixed(2):'0.00')];
-    }));
-}
-
-/* ===========================================================================
-   STOP INVOICE
-   ======================================================================== */
-function renderStop(){
-  var sm = stopMap();
-  var slates = slateRows().map(function(r){
-    var s = sm[r.d] || {c:0,a:0};
-    return {d:r.d, n:r.n, c:s.c, a:s.a, pct:r.n? 100*s.c/r.n : 0};
-  });
-  var last = slates.slice(-14,-2);
-  var stopC12 = DATA.stopMarket.reduce(function(a,r){return a+r[1];},0);
-  var stopA12 = DATA.stopMarket.reduce(function(a,r){return a+r[2];},0);
-  var deals12 = DATA.markets.filter(function(r){return r[0]!=='TEST';}).reduce(function(a,r){return a+r[1];},0);
-  var booked12= DATA.markets.filter(function(r){return r[0]!=='TEST';}).reduce(function(a,r){return a+r[2];},0);
-
-  document.getElementById('stopKpis').innerHTML = [
-    ['Deals suppressed · 12mo', num(stopC12), pct(r1(100*stopC12/(deals12||1)))+' of approved deals', 'big'],
-    ['Value suppressed · 12mo', usd(stopA12), pct(r1(100*stopA12/(booked12||1)))+' of booked value',  ''],
-    ['Avg per deal',            usdFull(stopC12? stopA12/stopC12 : 0), 'vs '+usdFull(deals12? booked12/deals12:0)+' overall', ''],
-    ['Recent slates',           pct(r1(last.reduce(function(a,r){return a+r.pct;},0)/Math.max(1,last.length))), 'average share, last 12 settled slates', '']
-  ].map(function(t){
-    return '<div class="kpi '+t[3]+'"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="ksub">'+t[2]+'</div></div>';
-  }).join('');
-
-  var metric = document.getElementById('stopMetric').value;    // pct | c | a
-  var series = slates.map(function(r){ return metric==='pct'? r1(r.pct) : (metric==='c'? r.c : r.a); });
-  draw('stopChart',{
-    type:'line',
-    data:{labels:slates.map(function(r){return slateLabel(r.d);}),
-      datasets:[{label:metric==='pct'?'Share of approved deals':(metric==='c'?'Deals':'Suppressed value'),
-        data:series, borderColor:C.violet, backgroundColor:'rgba(167,139,250,.14)',
-        fill:true, tension:.25, pointRadius:0, borderWidth:2}]},
-    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){
-        var r = slates[x.dataIndex];
-        return [ (metric==='pct'? pct(r1(r.pct)) : (metric==='c'? num(r.c)+' deals' : usdFull(r.a))),
-                 num(r.c)+' of '+num(r.n)+' approved deals' ];
-      }}}},
-      scales:{y: metric==='pct'? pctAxis() : (metric==='a'? moneyAxis() : {grid:{color:C.line}}),
-              x:{grid:{display:false},ticks:{maxTicksLimit:18}}}}
-  });
-
-  var early = slates.slice(0,20), recent = slates.slice(-22,-2);
-  var e = early.reduce(function(a,r){return a+r.pct;},0)/Math.max(1,early.length);
-  var l = recent.reduce(function(a,r){return a+r.pct;},0)/Math.max(1,recent.length);
-  document.getElementById('stopInsight').innerHTML =
-    'Roughly <b>'+pct(r1(l))+'</b> of approved deals on recent slates are flagged Stop Invoice, versus <b>'+pct(r1(e))+
-    '</b> a year and a half ago &mdash; the share has been '+(l>e?'creeping up':'holding or easing')+'. '+
-    'That is <b>'+usdFull(stopA12)+'</b> of booked value in the last 12 months that deliberately never generates an invoice. '+
-    'Most of it should be subscription-covered; the number worth auditing is any market sitting well above the '+
-    pct(r1(100*stopC12/(deals12||1)))+' house average below.';
-
-  var mrows = DATA.stopMarket.map(function(r){
-    var mk = DATA.markets.filter(function(x){return x[0]===r[0];})[0];
-    var n = mk? mk[1] : 0, bk = mk? mk[2] : 0;
-    return {mk:r[0], c:r[1], a:r[2], n:n, pct:n? 100*r[1]/n : 0, vpct:bk?100*r[2]/bk:0};
-  }).filter(function(r){ return r.n >= 100; }).sort(function(a,b){ return b.pct - a.pct; });
-
-  draw('stopMktChart',{
-    type:'bar',
-    data:{labels:mrows.map(function(r){return r.mk;}),
-      datasets:[{label:'Share of approved deals',data:mrows.map(function(r){return r1(r.pct);}),
-        backgroundColor:mrows.map(function(r){ return r.pct > 100*stopC12/(deals12||1) + 6 ? C.amber : C.violet; }),
-        borderRadius:3}]},
-    options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:function(x){
-        var r = mrows[x.dataIndex];
-        return [pct(r1(r.pct))+' of deals', num(r.c)+' of '+num(r.n), usdFull(r.a)+' suppressed'];
-      }}}},
-      scales:{x:pctAxis(),y:{grid:{display:false}}}}
-  });
-  grid('stopMktGrid',
-    [{name:'Market'},{name:'Stop Invoice deals'},{name:'Approved deals'},{name:'Share of deals'},{name:'Suppressed value'},{name:'Share of value'}],
-    mrows.map(function(r){
-      return [r.mk, num(r.c), num(r.n), pct(r1(r.pct)), usdFull(r.a), pct(r1(r.vpct))];
-    }));
 }
 
 /* ===========================================================================
@@ -1397,36 +1267,59 @@ function renderSubs(){
 }
 
 /* ===========================================================================
-   TABS + ORCHESTRATOR
+   TABS, CONTROLS, ORCHESTRATOR
    ======================================================================== */
 document.getElementById('tabs').addEventListener('click',function(e){
-  var p = e.target.dataset && e.target.dataset.p; if(!p) return;
+  var el = e.target.closest ? e.target.closest('.tab') : e.target;
+  var p = el && el.dataset ? el.dataset.p : null; if(!p) return;
   Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(t){t.classList.toggle('on',t.dataset.p===p);});
   Array.prototype.forEach.call(document.querySelectorAll('.panel'),function(pl){pl.classList.toggle('on',pl.dataset.p===p);});
 });
-['trendMetric','prodMetric','prodTop','stopMetric','refBucket','refMetric'].forEach(function(id){
+['refBucket','refMetric'].forEach(function(id){
   var el = document.getElementById(id);
-  if(!el) return;
-  el.addEventListener('change',function(){
-    if(id==='trendMetric') renderInvoices();
-    else if(id==='prodMetric'||id==='prodTop') renderProducts();
-    else if(id==='stopMetric') renderStop();
-    else renderRefunds();
-  });
+  if (el) el.addEventListener('change', renderRefunds);
 });
 
+/* ---- scope picker wiring ---- */
+(function(){
+  var inp = document.getElementById('slateInput');
+  var box = document.getElementById('slateList');
+  if(!inp) return;
+  inp.addEventListener('focus', function(){ inp.select(); openCombo(true); });
+  inp.addEventListener('input', function(){ comboHi = -1; buildCombo(inp.value); box.classList.add('on'); });
+  inp.addEventListener('blur',  function(){ setTimeout(closeCombo, 120); });
+  inp.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+      e.preventDefault();
+      if (!box.classList.contains('on')) { openCombo(true); return; }
+      comboHi = Math.max(0, Math.min(comboRows.length-1, comboHi + (e.key==='ArrowDown'?1:-1)));
+      buildCombo(inp.value);
+      var hi = box.querySelector('.copt.hi'); if (hi) hi.scrollIntoView({block:'nearest'});
+    } else if (e.key === 'Enter'){
+      e.preventDefault();
+      var pick = comboRows[comboHi >= 0 ? comboHi : 0];
+      if (pick){ setScope(pick.si, null); closeCombo(); inp.blur(); }
+    } else if (e.key === 'Escape'){ closeCombo(); inp.blur(); }
+  });
+  document.getElementById('mktSel').addEventListener('change', function(e){
+    setScope(SCOPE.slate, e.target.value || null);
+  });
+})();
+
 function renderAll(){
-  renderKPIs(); renderInvoices(); renderOutstanding(); renderPayments();
-  renderRealization(); renderProducts(); renderExtra(); renderStop();
-  renderRefunds(); renderSubs();
+  /* scoped */
+  renderKPIs(); renderOverview(); renderInvoicesScoped(); renderStopScoped(); renderScopedLiveSlots();
+  /* org-wide */
+  renderRealization(); renderRefunds(); renderSubs();
+
   var src = DATA.live
     ? 'Source: Salesforce, queried live from your browser at '+DATA.generated+'.'
-    : 'Source: Salesforce (static snapshot bundled with this file, pulled '+DATA.generated+').';
+    : 'Source: Salesforce (static snapshot bundled with this file, pulled '+SNAPSHOT.generated+').';
   document.getElementById('dataFoot').innerHTML = src +
-    ' Invoice metrics come from Xero_Invoice__c (Total = Deals Total + Credit Total). Booked / invoiced / collected come from approved Opportunities '+
-    '(Amount, Invoiced_Amount__c, Paid_Amount__c) grouped by Issue__r.Launch_Date__c — one row per slate. "Stop Invoice" is Prepaid__c = Yes. '+
-    'Extra copies are OpportunityLineItems whose product name contains "Extra Copies". Refund figures come from the historical Stripe_Invoices__c import '+
-    'and stop in October 2025.';
+    ' Scoped tabs read the approved Opportunities on the selected issue(s) — Amount, Invoiced_Amount__c, Paid_Amount__c — plus the Quote records raised against those deals, ' +
+    'which is the per-deal invoice in this org (Quote.Invoice__c matches Opportunity.Invoice_number__c). "Stop Invoice" is Prepaid__c = Yes. ' +
+    'Extra copies are OpportunityLineItems whose product name contains "Extra Copies". The Trends tab covers every slate; Refunds come from the historical ' +
+    'Stripe_Invoices__c import and stop in October 2025; subscriptions and collections sit at agreement level. Deal-level detail loads from Salesforce on connect.';
 }
 
 /* ===========================================================================
@@ -1462,6 +1355,8 @@ function sfCfg(){
 let ACCESS_TOKEN=ss.get('pali_sf_token')||'';
 let INSTANCE_URL=ss.get('pali_sf_instance')||'';
 let BUSY=false,PROG='',ERR='';
+let SCOPE_BUSY=false;              /* loading detail for the selected scope */
+let CURRENT_SLATE_DATE=null;       /* survives an index rebuild on refresh  */
 let LIVE_AT='snapshot '+SNAPSHOT.generated;
 
 function corsHint(){
@@ -1555,6 +1450,7 @@ function sfDisconnect(){
   ACCESS_TOKEN='';INSTANCE_URL='';
   ss.del('pali_sf_token');ss.del('pali_sf_instance');
   DATA=SNAPSHOT;LIVE_AT='snapshot '+SNAPSHOT.generated;ERR='';
+  SCOPED={};                       /* scoped detail came from the org, drop it */
   renderAll();paint();
 }
 
@@ -1582,20 +1478,27 @@ function buildQueries(w){
   const oliY="CALENDAR_YEAR(Opportunity.Issue__r.Launch_Date__c)";
   const oliM="CALENDAR_MONTH(Opportunity.Issue__r.Launch_Date__c)";
   return{
-    xeroStages:"SELECT Stage__c s, COUNT(Id) c, SUM(Total__c) t, SUM(Deals_Total__c) d, SUM(Credit_Total__c) cr "
-      +"FROM Xero_Invoice__c GROUP BY Stage__c",
 
-    xeroTrend:"SELECT CALENDAR_YEAR(CreatedDate) y, CALENDAR_MONTH(CreatedDate) m, Stage__c s, COUNT(Id) c, SUM(Total__c) t "
-      +"FROM Xero_Invoice__c GROUP BY CALENDAR_YEAR(CreatedDate), CALENDAR_MONTH(CreatedDate), Stage__c",
 
-    xeroMarket:"SELECT Market__c mk, Stage__c s, COUNT(Id) c, SUM(Total__c) t "
-      +"FROM Xero_Invoice__c GROUP BY Market__c, Stage__c",
 
-    xeroDue:"SELECT Due_Date__c dd, COUNT(Id) c, SUM(Total__c) t FROM Xero_Invoice__c "
-      +"WHERE Stage__c IN "+OPEN_SOQL+" GROUP BY Due_Date__c",
 
     slates:"SELECT Issue__r.Launch_Date__c d, COUNT(Id) c, SUM(Amount) b, SUM(Invoiced_Amount__c) inv, SUM(Paid_Amount__c) pd "
       +"FROM Opportunity WHERE "+APPR+" AND "+launchFrom(ts)+" GROUP BY Issue__r.Launch_Date__c",
+
+    /* --- the per-issue index behind the picker. Baked into the file for the
+       last 12 months; a live refresh rebuilds it across the full window. --- */
+    ixDeals:"SELECT Issue__r.Launch_Date__c d, Issue__r.Market_Label__c mk, COUNT(Id) c, "
+      +"SUM(Amount) b, SUM(Invoiced_Amount__c) inv, SUM(Paid_Amount__c) pd FROM Opportunity "
+      +"WHERE "+APPR+" AND "+launchFrom(ts)+" GROUP BY Issue__r.Launch_Date__c, Issue__r.Market_Label__c",
+
+    ixStop:"SELECT Issue__r.Launch_Date__c d, Issue__r.Market_Label__c mk, COUNT(Id) c, SUM(Amount) a "
+      +"FROM Opportunity WHERE Prepaid__c = 'Yes' AND "+APPR+" AND "+launchFrom(ts)+" "
+      +"GROUP BY Issue__r.Launch_Date__c, Issue__r.Market_Label__c",
+
+    ixInv:"SELECT Opportunity.Issue__r.Launch_Date__c d, Opportunity.Issue__r.Market_Label__c mk, "
+      +"Status s, COUNT(Id) c, SUM(GrandTotal) g FROM Quote "
+      +"WHERE Opportunity.Issue__r.Launch_Date__c >= "+ts+" "
+      +"GROUP BY Opportunity.Issue__r.Launch_Date__c, Opportunity.Issue__r.Market_Label__c, Status",
 
     markets:"SELECT Issue__r.Market_Label__c mk, COUNT(Id) c, SUM(Amount) b, SUM(Invoiced_Amount__c) inv, SUM(Paid_Amount__c) pd "
       +"FROM Opportunity WHERE "+APPR+" AND "+launchFrom(cs)+" GROUP BY Issue__r.Market_Label__c",
@@ -1668,10 +1571,6 @@ const I=v=>v==null?0:Math.round(v);
 function buildData(R,w){
   const D={live:true,generated:new Date().toISOString().replace('T',' ').slice(0,16)+' UTC'};
 
-  D.xeroStages  = R.xeroStages.map(x=>[x.s||'Unset', x.c, N(x.t), N(x.d), N(x.cr)]);
-  D.xeroTrend   = R.xeroTrend.map(x=>[x.y, x.m, x.s||'Unset', x.c, N(x.t)]);
-  D.xeroMarket  = R.xeroMarket.map(x=>[x.mk||'Unassigned', x.s||'Unset', x.c, N(x.t)]);
-  D.xeroDue     = R.xeroDue.map(x=>[x.dd||'none', x.c, N(x.t)]);
 
   D.slates      = R.slates.filter(x=>x.d).map(x=>[x.d, x.c, N(x.b), N(x.inv), N(x.pd)]);
   D.markets     = R.markets.map(x=>[x.mk||'Unassigned', x.c, N(x.b), N(x.inv), N(x.pd)]);
@@ -1699,7 +1598,130 @@ function buildData(R,w){
   const b=R.bridge[0]||{};
   D.bridge      = {owed:N(b.owed), paid:N(b.paid), wo:N(b.wo), inv:N(b.inv), bill:N(b.bill), c:b.c||0};
 
+  rebuildIndex(R);
   return D;
+}
+
+/* Replace SLATES / ISSUES in place so the picker and every scoped tab pick up
+   the live window. Keeps the same row shape the bundled snapshot uses. */
+function rebuildIndex(R){
+  const dates = {};
+  R.ixDeals.forEach(x=>{ if(x.d) dates[x.d]=1; });
+  const slates = Object.keys(dates).sort();
+  const si = {}; slates.forEach((d,i)=>{ si[d]=i; });
+
+  const key = (d,mk)=>d+'|'+mk;
+  const stop = {}; R.ixStop.forEach(x=>{ if(x.d&&x.mk) stop[key(x.d,x.mk)]=[x.c,I(x.a)]; });
+  const inv = {};
+  R.ixInv.forEach(x=>{
+    if(!x.d||!x.mk) return;
+    const e = inv[key(x.d,x.mk)] = inv[key(x.d,x.mk)] || [0,0,0,0,0,0];
+    const st = String(x.s||'').toLowerCase(), g = I(x.g);
+    if(st==='paid'){ e[0]+=x.c; e[1]+=g; }
+    else if(st==='voided'){ e[4]+=x.c; e[5]+=g; }
+    else { e[2]+=x.c; e[3]+=g; }
+  });
+
+  const rows = [];
+  R.ixDeals.forEach(x=>{
+    if(!x.d||!x.mk) return;
+    const k = key(x.d,x.mk), sp = stop[k]||[0,0], iv = inv[k]||[0,0,0,0,0,0];
+    rows.push([si[x.d], x.mk, x.c, I(x.b), I(x.inv), I(x.pd), sp[0], sp[1],
+               iv[0], iv[1], iv[2], iv[3], iv[4], iv[5]]);
+  });
+  rows.sort((a,b)=> b[0]-a[0] || (a[1]<b[1]?-1:1));
+
+  SLATES = slates;
+  ISSUES = rows;
+  /* keep the current selection if that slate still exists, else fall back */
+  const want = CURRENT_SLATE_DATE;
+  SCOPE.slate = (want && si[want] != null) ? si[want] : defaultSlate();
+  const avail = issuesInSlate(SCOPE.slate).map(r=>r[IX.MK]);
+  if (SCOPE.market && avail.indexOf(SCOPE.market) < 0) SCOPE.market = null;
+  document.getElementById('slateInput').value = slateLabel(SLATES[SCOPE.slate]);
+  buildMarketSelect();
+}
+
+/* ===========================================================================
+   SCOPED DETAIL — the deal list, product mix, extra copies and invoice aging
+   for whatever the picker is on. Cached per scope so flipping back is instant.
+   ======================================================================== */
+function scopeWhere(prefix){
+  const d = SLATES[SCOPE.slate];
+  let w = prefix+"Issue__r.Launch_Date__c = "+d;
+  if (SCOPE.market) w += " AND "+prefix+"Issue__r.Market_Label__c = '"+SCOPE.market.replace(/'/g,"\\'")+"'";
+  return w;
+}
+
+async function loadScoped(){
+  if (!ACCESS_TOKEN) { renderScopedLiveSlots(); renderInvoicesScoped(); return; }
+  const key = scopeKey();
+  if (SCOPED[key]) { renderScopedLiveSlots(); renderInvoicesScoped(); return; }
+  const oppW  = scopeWhere('');
+  const oliW  = scopeWhere('Opportunity.');
+  const qW    = scopeWhere('Opportunity.');
+  const qs = {
+    deals:"SELECT Id, Name, Amount, Invoiced_Amount__c, Paid_Amount__c, Invoice_number__c, Prepaid__c, "
+      +"Issue__r.Name FROM Opportunity WHERE StageName = 'Approved' AND "+oppW+" ORDER BY Amount DESC",
+    quotes:"SELECT OpportunityId, Status, GrandTotal FROM Quote WHERE "+qW,
+    aging:"SELECT Due_Date__c dd, COUNT(Id) c, SUM(GrandTotal) t FROM Quote "
+      +"WHERE Status = 'Awaiting Payment' AND "+qW+" GROUP BY Due_Date__c",
+    products:"SELECT Product2.Name p, COUNT(Id) c, SUM(Quantity) q, SUM(TotalPrice) t "
+      +"FROM OpportunityLineItem WHERE Opportunity.StageName = 'Approved' AND "+oliW+" GROUP BY Product2.Name",
+    extra:"SELECT Product2.Name p, COUNT(Id) c, SUM(Quantity) q, SUM(TotalPrice) t "
+      +"FROM OpportunityLineItem WHERE Product2.Name LIKE '%Extra Copies%' AND Opportunity.StageName = 'Approved' "
+      +"AND "+oliW+" GROUP BY Product2.Name"
+  };
+  SCOPE_BUSY = true; paint();
+  try{
+    const R = await runQueries(qs, ()=>{});
+    const qmap = {};
+    R.quotes.forEach(q=>{
+      const e = qmap[q.OpportunityId] = qmap[q.OpportunityId] || {st:[], g:0};
+      if (q.Status) e.st.push(q.Status);
+      e.g += (q.GrandTotal||0);
+    });
+    SCOPED[key] = {
+      deals: R.deals.map(d=>({
+        name:d.Name, issue:(d.Issue__r&&d.Issue__r.Name)||'—',
+        booked:d.Amount||0, inv:d.Invoiced_Amount__c||0, paid:d.Paid_Amount__c||0,
+        invNo:d.Invoice_number__c, stop:d.Prepaid__c==='Yes',
+        status:(qmap[d.Id]&&qmap[d.Id].st.length)? Array.from(new Set(qmap[d.Id].st)).join(', ') : ''
+      })),
+      products: R.products.filter(x=>x.p).map(x=>({p:x.p, c:x.c, q:I(x.q), t:N(x.t)})),
+      extra:    R.extra.filter(x=>x.p).map(x=>({p:x.p, c:x.c, q:I(x.q), t:N(x.t)})),
+      aging:    agingBuckets(R.aging)
+    };
+    if (!SCOPED[key].extra.length) SCOPED[key].extra = [];
+  }catch(e){
+    ERR = 'Could not load '+scopeTitle()+': '+String(e&&e.message||e);
+  }finally{
+    SCOPE_BUSY = false;
+    renderScopedLiveSlots(); renderInvoicesScoped(); paint();
+  }
+}
+
+const AGE_BUCKETS = [
+  ['Not yet due', -1e9,   0],
+  ['1–30 days',       1,  30],
+  ['31–60 days',     31,  60],
+  ['61–90 days',     61,  90],
+  ['91–180 days',    91, 180],
+  ['180+ days',     181, 1e9]
+];
+function agingBuckets(rows){
+  const now = today();
+  const b = AGE_BUCKETS.map(x=>({label:x[0], c:0, t:0}));
+  const noDue = {label:'No due date', c:0, t:0};
+  rows.forEach(r=>{
+    if(!r.dd){ noDue.c += r.c; noDue.t += N(r.t); return; }
+    const od = daysBetween(new Date(r.dd+'T00:00:00Z'), now);
+    for(let i=0;i<AGE_BUCKETS.length;i++){
+      if(od <= AGE_BUCKETS[i][2] && od >= AGE_BUCKETS[i][1]){ b[i].c += r.c; b[i].t += N(r.t); break; }
+    }
+  });
+  if(noDue.c) b.push(noDue);
+  return b;
 }
 
 /* ---- orchestration ---------------------------------------------------- */
@@ -1708,12 +1730,15 @@ async function refresh(){
   if(!ACCESS_TOKEN){ return sfConnect(); }
   BUSY=true;ERR='';PROG='';paint();
   const w=windows();
+  CURRENT_SLATE_DATE = SLATES[SCOPE.slate] || null;
   try{
     const R=await runQueries(buildQueries(w),(d,t)=>{ PROG=d+'/'+t+' queries';paint(); });
     PROG='';
+    SCOPED={};                     /* the window moved; scoped caches are stale */
     DATA=buildData(R,w);
     LIVE_AT='live '+DATA.generated;
     renderAll();
+    loadScoped();
   }catch(e){
     const msg=String(e&&e.message||e);
     if(msg==='NETWORK') ERR='Could not reach Salesforce from the browser.'+corsHint();
@@ -1726,7 +1751,7 @@ async function refresh(){
 
 /* ---- connection strip (same shape as the other Haven dashboards) ---- */
 function sfBarHtml(){
-  const stamp=BUSY&&PROG?PROG:LIVE_AT;
+  const stamp=BUSY&&PROG?PROG:(SCOPE_BUSY?('loading '+scopeTitle()+'…'):LIVE_AT);
   return '<span class="muted">'+
       (ACCESS_TOKEN?'<span style="color:#22c55e">&#9679; Connected</span>':'&#9679; Not connected')+
       ' &middot; '+stamp+'</span>'+
@@ -1787,6 +1812,11 @@ function unlock(){
 /* ---- boot ---- */
 async function boot(){
   chartInit();
+  /* Land on the most recent slate that has actually launched. */
+  SCOPE.slate = defaultSlate();
+  SCOPE.market = null;
+  document.getElementById('slateInput').value = slateLabel(SLATES[SCOPE.slate]);
+  buildMarketSelect();
   renderAll();       /* snapshot first, so the page is never blank */
   paint();
   try{ await sfHandleRedirect(); }
